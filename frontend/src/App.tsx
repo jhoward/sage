@@ -15,6 +15,7 @@ import { QuickAdd } from "./components/QuickAdd";
 import { Prompt } from "./components/Prompt";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
+import { BINDINGS, label, matches } from "./lib/keybindings";
 import { lineLinksTo, linkNameFor, slugify } from "./lib/wikilinks";
 import type { SearchHit, SkillInfo } from "./backend";
 import { wrap } from "./lib/provenance";
@@ -246,7 +247,7 @@ export default function App() {
         id: "todo.week",
         title: "Open this week",
         keywords: "todo current",
-        hint: "⌘⇧T adds",
+        hint: `${label(BINDINGS.quickAdd)} adds`,
         run: async () => open((await backend.week()).path),
       },
       {
@@ -278,14 +279,14 @@ export default function App() {
         id: "note.new",
         title: "New note",
         keywords: "create add page",
-        hint: "⌘N",
+        hint: label(BINDINGS.newNote),
         run: () => setNewNote(true),
       },
       {
         id: "vault.search",
         title: "Search the vault",
         keywords: "find grep text",
-        hint: "⌘⇧F",
+        hint: label(BINDINGS.search),
         run: () => setSearching(true),
       },
       {
@@ -413,20 +414,18 @@ export default function App() {
   // ⌘K is the single invocation surface; ⌘⇧T is the one capture shortcut worth its own key.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && !e.shiftKey && e.key.toLowerCase() === "o") {
+      // Every branch goes through matches(), which refuses to treat Ctrl as Cmd on
+      // macOS — otherwise ⌃K would open this palette instead of killing to end of line.
+      if (matches(e, BINDINGS.switcher)) {
         e.preventDefault();
         setSwitcher(true);
-      }
-      if (mod && !e.shiftKey && e.key.toLowerCase() === "n") {
+      } else if (matches(e, BINDINGS.newNote)) {
         e.preventDefault();
         setNewNote(true);
-      }
-      if (mod && e.shiftKey && e.key.toLowerCase() === "f") {
+      } else if (matches(e, BINDINGS.search)) {
         e.preventDefault();
         setSearching(true);
-      }
-      if (mod && !e.shiftKey && e.key.toLowerCase() === "k") {
+      } else if (matches(e, BINDINGS.palette)) {
         e.preventDefault();
         // Refresh backlog entries so "Pull: …" reflects the file, not a stale snapshot.
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
@@ -437,12 +436,10 @@ export default function App() {
           .then((r) => setSkills(r.skills))
           .catch(() => setSkills([]));
         setPalette(true);
-      }
-      if (mod && e.shiftKey && e.key.toLowerCase() === "t") {
+      } else if (matches(e, BINDINGS.quickAdd)) {
         e.preventDefault();
         setQuickAdd(true);
-      }
-      if (mod && e.key === "\\") {
+      } else if (matches(e, BINDINGS.split)) {
         e.preventDefault();
         if (split) setSplit(null);
         else {
@@ -488,7 +485,8 @@ export default function App() {
           className="border-t px-3 py-2 text-[11px]"
           style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
         >
-          ⌘K commands · ⌘O files · ⌘⇧F search · ⌘N new
+          {label(BINDINGS.palette)} commands · {label(BINDINGS.switcher)} files ·{" "}
+          {label(BINDINGS.search)} search · {label(BINDINGS.newNote)} new
         </div>
       </aside>
 
@@ -570,7 +568,7 @@ export default function App() {
         open={palette}
         items={commands}
         placeholder="Type a command…"
-        footer="⌘O files · ⌘⇧F search"
+        footer={`${label(BINDINGS.switcher)} files · ${label(BINDINGS.search)} search`}
         onClose={() => setPalette(false)}
         emptyLabel="No matching command"
       />
@@ -578,7 +576,7 @@ export default function App() {
         open={switcher}
         items={fileCommands}
         placeholder="Open a note…"
-        footer="recently opened first · ⌘K for commands"
+        footer={`recently opened first · ${label(BINDINGS.palette)} for commands`}
         onClose={() => setSwitcher(false)}
         emptyLabel="No matching note"
       />

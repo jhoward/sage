@@ -211,7 +211,10 @@ export function todoExtension() {
     Prec.high(
       keymap.of([
         { key: "Mod-Enter", run: toggleTask },
-        { key: "Mod-Shift-ArrowUp", run: promoteToTop },
+        // Alt-Shift-Up rather than Mod-Shift-Up: the latter is "extend selection to the
+        // start of the document" on macOS, which is worth more than a task shortcut.
+        // This also pairs naturally — Alt-Up nudges one line, Alt-Shift-Up goes all the way.
+        { key: "Alt-Shift-ArrowUp", run: promoteToTop },
         { key: "Alt-ArrowUp", run: moveLineUp },
         { key: "Alt-ArrowDown", run: moveLineDown },
         { key: "Mod-Shift-k", run: deleteLine },
