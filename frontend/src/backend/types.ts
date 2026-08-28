@@ -53,7 +53,8 @@ export interface RolloverResult {
 
 export interface WeekInfo {
   path: string;
-  week: string; // e.g. "2026-W35"
+  week: string; // the Sunday that starts it, e.g. "2026-08-23"
+  label: string; // human form, e.g. "Aug 23 – 29"
   backlogs: string[]; // one now, one per project later
 }
 
@@ -67,6 +68,8 @@ export interface SkillInfo {
   mode: SkillMode;
   /** Vault path, so a skill can be opened and edited like any other note. */
   path: string;
+  /** True if the skill needs a question typed before it runs. */
+  asks?: boolean;
 }
 
 export interface SkillRunArgs {

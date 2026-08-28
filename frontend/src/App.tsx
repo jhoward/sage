@@ -3,6 +3,7 @@ import {
   backend,
   type FileNode,
   type SyncStatus,
+  type WeekInfo,
   type TaskRef,
   type TaskTarget,
 } from "./backend";
@@ -13,6 +14,7 @@ import { Editor, type EditorHandle } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
 import { Prompt } from "./components/Prompt";
+import { MultiPicker } from "./components/MultiPicker";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
 import { BINDINGS, label, matches } from "./lib/keybindings";
@@ -51,6 +53,10 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // A skill with `asks: true` needs a question before it can run.
+  const [asking, setAsking] = useState<SkillInfo | null>(null);
+  const [pulling, setPulling] = useState(false);
+  const [week, setWeek] = useState<WeekInfo | null>(null);
   // Most-recently-opened first; drives ranking in the file switcher.
   const [recent, setRecent] = useState<string[]>([]);
   const [status, setStatus] = useState<string | null>(null);
@@ -82,6 +88,7 @@ export default function App() {
       const { files, sync } = await backend.listFiles(showSettings);
       setFiles(files);
       setSync(sync);
+      backend.week().then(setWeek).catch(() => {});
       setError(null);
     } catch (e) {
       setError(String(e));
@@ -255,6 +262,7 @@ export default function App() {
     const list: Command[] = [
       {
         id: "todo.week",
+        group: "Todo",
         title: "Open this week",
         keywords: "todo current",
         hint: `${label(BINDINGS.quickAdd)} adds`,
@@ -262,6 +270,7 @@ export default function App() {
       },
       {
         id: "todo.rollover",
+        group: "Todo",
         title: "Roll unfinished work into this week",
         keywords: "new week rollover carry forward",
         run: async () => {
@@ -287,6 +296,7 @@ export default function App() {
       },
       {
         id: "note.new",
+        group: "Notes",
         title: "New note",
         keywords: "create add page",
         hint: label(BINDINGS.newNote),
@@ -294,6 +304,7 @@ export default function App() {
       },
       {
         id: "vault.search",
+        group: "Notes",
         title: "Search the vault",
         keywords: "find grep text",
         hint: label(BINDINGS.search),
@@ -301,18 +312,22 @@ export default function App() {
       },
       {
         id: "note.delete",
+        group: "Notes",
         title: "Delete this note…",
         keywords: "remove trash",
+        hint: label(BINDINGS.deleteNote),
         run: () => setConfirmDelete(true),
       },
       {
         id: "note.rename",
+        group: "Notes",
         title: "Rename this note (updates links)",
         keywords: "move title",
         run: () => setRenaming(true),
       },
       {
         id: "config.open",
+        group: "Settings",
         title: aiReady
           ? "Open Sage config (API key, vault path)"
           : "Set the Anthropic API key…",
@@ -330,12 +345,21 @@ export default function App() {
       },
       {
         id: "vault.settings",
+        group: "Settings",
         title: showSettings ? "Hide settings" : "Settings (show .sage folder)",
         keywords: "config skills keybindings preferences",
         run: () => setShowSettings((v) => !v),
       },
       {
+        id: "view.cheatsheet",
+        group: "View",
+        title: "Markdown cheat sheet (in split pane)",
+        keywords: "help syntax reference formatting",
+        run: () => openSplit(".sage/markdown.md"),
+      },
+      {
         id: "view.split",
+        group: "View",
         title: split ? "Close split pane" : "Open backlog in a split pane",
         keywords: "side by side planning two panes",
         hint: "⌘\\",
@@ -347,6 +371,7 @@ export default function App() {
       },
       {
         id: "todo.send",
+        group: "Todo",
         title: "Send this task to the backlog",
         keywords: "move defer not this week",
         run: async () => {
@@ -364,7 +389,16 @@ export default function App() {
         },
       },
       {
+        id: "todo.pull",
+        group: "Todo",
+        title: "Pull tasks from the backlog…",
+        keywords: "backlog take plan week multiple",
+        hint: backlog.length ? `${backlog.length} waiting` : undefined,
+        run: () => setPulling(true),
+      },
+      {
         id: "todo.backlog",
+        group: "Todo",
         title: "Open backlog",
         keywords: "todo someday",
         run: async () => {
@@ -378,40 +412,22 @@ export default function App() {
       list.push({
         id: `skill:${sk.id}`,
         title: sk.title,
+        group: "AI",
         keywords: `ai skill ${sk.context} ${sk.mode}`,
         hint: aiReady
           ? sk.context === "selection"
             ? "selection"
             : sk.context
           : "needs API key",
-        run: () => runSkill(sk),
+        run: () => (sk.asks ? setAsking(sk) : runSkill(sk)),
       });
       list.push({
         id: `skill-edit:${sk.id}`,
         title: `Edit skill: ${sk.title}`,
+        group: "Settings",
         keywords: `prompt ${sk.path}`,
         hint: sk.path,
         run: () => open(sk.path),
-      });
-    }
-
-    for (const t of backlog) {
-      list.push({
-        id: `pull:${t.path}:${t.line}`,
-        title: `Pull: ${t.text}`,
-        keywords: `backlog ${t.section}`,
-        hint: t.rolled ? `rolled ${t.rolled}×` : undefined,
-        run: async () => {
-          try {
-            const week = (await backend.week()).path;
-            await backend.moveTask(t.path, t.line, week);
-            await open(week);
-            await refresh();
-            setStatus(`Pulled "${t.text}" into this week`);
-          } catch (e) {
-            setError(String(e));
-          }
-        },
       });
     }
 
@@ -479,6 +495,13 @@ export default function App() {
       } else if (matches(e, BINDINGS.quickAdd)) {
         e.preventDefault();
         setQuickAdd(true);
+      } else if (matches(e, BINDINGS.pull)) {
+        e.preventDefault();
+        backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
+        setPulling(true);
+      } else if (matches(e, BINDINGS.deleteNote)) {
+        e.preventDefault();
+        setConfirmDelete(true);
       } else if (matches(e, BINDINGS.split)) {
         e.preventDefault();
         if (split) setSplit(null);
@@ -513,6 +536,39 @@ export default function App() {
           <span className="text-xs font-semibold tracking-wide">SAGE</span>
           <SyncIndicator status={sync} />
         </div>
+        {week && (
+          <div
+            className="shrink-0 border-b px-2 py-2"
+            style={{ borderColor: "var(--sage-border)" }}
+          >
+            {[
+              { path: week.path, label: "This week", sub: week.label },
+              ...(week.backlogs[0]
+                ? [{ path: week.backlogs[0], label: "Backlog", sub: "" }]
+                : []),
+            ].map((row) => (
+              <button
+                key={row.path}
+                onClick={() => open(row.path)}
+                className="flex w-full items-baseline gap-2 rounded px-2 py-[3px] text-left text-sm"
+                style={{
+                  background:
+                    row.path === path
+                      ? "color-mix(in srgb, var(--sage-accent) 14%, transparent)"
+                      : undefined,
+                  color: row.path === path ? "var(--sage-accent)" : "var(--sage-fg)",
+                }}
+              >
+                <span className="flex-1 truncate">{row.label}</span>
+                {row.sub && (
+                  <span className="shrink-0 text-[11px]" style={{ color: "var(--sage-muted)" }}>
+                    {row.sub}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex-1 overflow-auto">
           <FileTree
             nodes={files}
@@ -535,7 +591,8 @@ export default function App() {
           className="flex h-9 shrink-0 items-center border-b px-4 text-xs"
           style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
         >
-          {path ?? "No file open"}
+          <span className="min-w-0 flex-1 truncate">{path ?? "No file open"}</span>
+          {split && <span className="shrink-0 opacity-50">left</span>}
         </header>
         {error && (
           <div className="flex items-start gap-3 px-4 py-2">
@@ -568,7 +625,7 @@ export default function App() {
           </div>
         )}
         <div className="flex min-h-0 flex-1">
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col">
             <Editor
               path={doc.path}
               content={doc.content}
@@ -586,11 +643,15 @@ export default function App() {
               style={{ borderColor: "var(--sage-border)" }}
             >
               <div
-                className="flex h-7 shrink-0 items-center justify-between border-b px-3 text-[11px]"
+                className="flex h-9 shrink-0 items-center gap-3 border-b px-4 text-xs"
                 style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
               >
-                <span className="truncate">{split.path}</span>
-                <button onClick={() => setSplit(null)} className="shrink-0 px-1">
+                <span className="min-w-0 flex-1 truncate">{split.path}</span>
+                <button
+                  onClick={() => setSplit(null)}
+                  className="shrink-0"
+                  title="Close split"
+                >
                   ✕
                 </button>
               </div>
@@ -672,6 +733,49 @@ export default function App() {
         onSubmit={(name) => {
           setNewNote(false);
           void createNote(name);
+        }}
+      />
+      <MultiPicker
+        open={pulling}
+        title="Pull into this week"
+        items={backlog.map((t) => ({
+          id: `${t.path}:${t.line}`,
+          label: t.text,
+          hint: t.rolled ? `rolled ${t.rolled}×` : t.path.replace(/^todo\//, ""),
+        }))}
+        emptyLabel="Backlog is empty"
+        confirmLabel={(n) => (n ? `Pull ${n}` : "Pull")}
+        onClose={() => setPulling(false)}
+        onConfirm={async (ids) => {
+          try {
+            const week = (await backend.week()).path;
+            // Highest line first: removing a line shifts everything below it, so
+            // descending order keeps the remaining line numbers valid.
+            const chosen = ids
+              .map((id) => backlog.find((t) => `${t.path}:${t.line}` === id)!)
+              .filter(Boolean)
+              .sort((a, b) => b.line - a.line);
+
+            for (const t of chosen) await backend.moveTask(t.path, t.line, week);
+
+            await open(week);
+            await refresh();
+            setBacklog(await backend.backlogTasks());
+            setStatus(`Pulled ${chosen.length} into this week`);
+          } catch (e) {
+            setError(String(e));
+          }
+        }}
+      />
+      <Prompt
+        open={!!asking}
+        label={asking ? `${asking.title} — this note and everything it links to` : ""}
+        placeholder="What do you want to know?"
+        onClose={() => setAsking(null)}
+        onSubmit={(question) => {
+          const sk = asking;
+          setAsking(null);
+          if (sk) void runSkill(sk, question);
         }}
       />
       <Prompt

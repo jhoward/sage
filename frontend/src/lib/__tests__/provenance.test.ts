@@ -71,3 +71,26 @@ describe("strip", () => {
     expect(strip(doc)).toBe("Before\nMiddle\nAfter");
   });
 });
+
+describe("no nesting", () => {
+  it("does not wrap already-wrapped text a second time", () => {
+    const once = wrap("Generated prose.", P);
+    const twice = wrap(once, { ...P, skill: "cleanup", at: "2026-08-28T17:25" });
+
+    expect(twice.split("\n").filter(isOpenMarker)).toHaveLength(1);
+    expect(twice.split("\n").filter(isCloseMarker)).toHaveLength(1);
+    expect(strip(twice)).toBe("Generated prose.");
+  });
+
+  it("keeps the most recent attribution", () => {
+    const once = wrap("text", P);
+    const twice = wrap(once, { ...P, skill: "cleanup", at: "2026-08-28T17:25" });
+    expect(parseMarker(twice.split("\n")[0])?.skill).toBe("cleanup");
+  });
+
+  it("survives many passes", () => {
+    let text = "text";
+    for (let i = 0; i < 5; i++) text = wrap(text, P);
+    expect(text.split("\n").filter(isOpenMarker)).toHaveLength(1);
+  });
+});

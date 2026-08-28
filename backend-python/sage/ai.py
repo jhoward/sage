@@ -81,6 +81,11 @@ def build_prompt(vault, req: SkillRequest) -> str:
     parts = [req.skill.prompt]
     if req.instruction:
         parts.append(f"# Question\n\n{req.instruction}")
+    elif req.skill.asks:
+        parts.append(
+            "# Question\n\nNo question was given. Say so in one line rather than "
+            "guessing what was meant."
+        )
     if req.selection and req.skill.context != "selection":
         # The selection is what the user pointed at; keep it distinguishable from the
         # surrounding context so the model knows which part to act on.

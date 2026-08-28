@@ -131,8 +131,8 @@ def test_search_backends_agree(vault: Vault):
 
 # ---- todo ------------------------------------------------------------
 
-def test_week_id_format():
-    assert todo.week_id(date(2026, 8, 27)) == "2026-W35"
+def test_week_id_is_the_sunday_that_starts_the_week():
+    assert todo.week_id(date(2026, 8, 27)) == "2026-08-23"
 
 
 def test_ensure_week_files_seeds_both(vault: Vault):

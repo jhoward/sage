@@ -19,6 +19,8 @@ Frontmatter keys (all optional except title):
     mode     replace | insert | append                       (what happens to the output)
     effort   low | medium | high | xhigh | max
     model    defaults to claude-opus-5
+    asks     true if the skill needs a question typed before it runs
+    group    palette section: Todo | Notes | AI | View | Settings
 """
 
 from __future__ import annotations
@@ -45,6 +47,8 @@ class Skill:
     effort: str = "medium"
     model: str = DEFAULT_MODEL
     path: str = ""
+    # Some skills are questions, not transforms: they need input before they can run.
+    asks: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -53,6 +57,7 @@ class Skill:
             "context": self.context,
             "mode": self.mode,
             "path": self.path,
+            "asks": self.asks,
         }
 
 
@@ -99,6 +104,7 @@ def parse_skill(path: str, text: str) -> Skill | None:
         effort=meta.get("effort", "medium"),
         model=meta.get("model", DEFAULT_MODEL),
         path=path,
+        asks=meta.get("asks", "").lower() in {"true", "yes", "1"},
     )
 
 
@@ -164,10 +170,11 @@ than inventing specifics.
 Return only the expanded text, with no preamble.
 """,
     "ask.md": """---
-title: Ask, with this note as context
+title: Ask about this note
 context: note-and-links
 mode: append
 effort: high
+asks: true
 ---
 Answer the question using the note below, and the notes it links to, as context.
 
@@ -206,4 +213,84 @@ def ensure_default_skills(vault) -> list[str]:
         if not (folder / name).exists():
             vault.write_file(f"{SKILLS_DIR}/{name}", body)
             written.append(name)
+    return written
+
+
+# ---- reference notes -------------------------------------------------
+
+CHEATSHEET = """---
+kind: reference
+---
+
+# Markdown cheat sheet
+
+Open this beside a note with the split pane, and close it when it is no longer useful —
+it is an ordinary note, so deleting it is fine.
+
+## Text
+
+    **bold**        *italic*        ~~strikethrough~~
+    `inline code`
+
+## Headings
+
+    # Heading 1
+    ## Heading 2
+    ### Heading 3
+
+## Lists
+
+    - a bullet
+      - nested, two spaces
+    1. numbered
+    - [ ] a task
+    - [x] a finished task
+
+## Links
+
+    [[note-name]]              link to another note (⌘-click follows it)
+    [[note-name|shown text]]   with different display text
+    [text](https://url)        an ordinary link
+
+An unresolved `[[link]]` shows dotted — ⌘-click it to create that note.
+
+## Blocks
+
+    > a quote
+
+    ```
+    a fenced code block
+    ```
+
+    ---   a horizontal rule
+
+## Frontmatter
+
+Metadata at the very top of a file, between `---` lines:
+
+    ---
+    kind: reference
+    ---
+
+## Sage's own markers
+
+Text a skill generated is wrapped like this, and renders tinted:
+
+    <!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-28T09:15 -->
+    generated text
+    <!-- /sage:ai -->
+
+Delete both lines once you have made the text your own.
+"""
+
+REFERENCE = {".sage/markdown.md": CHEATSHEET}
+
+
+def ensure_reference_notes(vault) -> list[str]:
+    """Seed reference notes. Never overwrites an edited copy."""
+    written = []
+    for path, body in REFERENCE.items():
+        if not (vault.root / path).exists():
+            vault.write_file(path, body)
+            written.append(path)
     return written

@@ -59,6 +59,9 @@ export const BINDINGS = {
   search: { key: "f", mod: true, shift: true },
   quickAdd: { key: "t", mod: true, shift: true },
   split: { key: "\\", mod: true },
+  // ⌘⌫ is the macOS idiom for "move to trash"; the confirmation still asks for the name.
+  deleteNote: { key: "Backspace", mod: true },
+  pull: { key: "p", mod: true, shift: true },
 } satisfies Record<string, KeySpec>;
 
 export type BindingName = keyof typeof BINDINGS;

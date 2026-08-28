@@ -14,6 +14,8 @@ export interface Command {
   keywords?: string;
   /** Shown right-aligned: a shortcut, a path, whatever identifies the target. */
   hint?: string;
+  /** Section heading in the palette. Ungrouped commands sort last. */
+  group?: string;
   /**
    * Tie-breaker added to the match score; lower sorts earlier. Used to put
    * recently-opened files at the top of the switcher, which is the single biggest
@@ -56,4 +58,26 @@ export function filterCommands(query: string, commands: Command[]): Command[] {
     // a recently-opened file that barely matches.
     .sort((a, b) => a.s - b.s || (a.c.rank ?? 0) - (b.c.rank ?? 0))
     .map((x) => x.c);
+}
+
+/** Palette sections, in the order they appear. */
+export const GROUPS = ["Todo", "AI", "Notes", "View", "Settings"] as const;
+
+/**
+ * Group matches for display, preserving relevance order within each section.
+ *
+ * Only applied to an empty query: once someone is typing, ranking matters more than
+ * tidiness and headings just push the best match down the list.
+ */
+export function groupCommands(
+  commands: Command[],
+): Array<{ group: string | null; items: Command[] }> {
+  const out: Array<{ group: string | null; items: Command[] }> = [];
+  for (const name of GROUPS) {
+    const items = commands.filter((c) => c.group === name);
+    if (items.length) out.push({ group: name, items });
+  }
+  const rest = commands.filter((c) => !c.group || !GROUPS.includes(c.group as never));
+  if (rest.length) out.push({ group: null, items: rest });
+  return out;
 }
