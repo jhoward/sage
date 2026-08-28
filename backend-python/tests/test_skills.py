@@ -552,3 +552,19 @@ def test_rolled_markers_are_untouched(vault: Vault):
     vault.write_file("todo/x.md", "- [ ] Task <!-- rolled:3 -->\n")
     ai.strip_ai_markers(vault)
     assert "rolled:3" in vault.read_file("todo/x.md")
+
+
+def test_transient_errors_say_what_to_do():
+    """"Overloaded" is accurate and useless; it should say try again."""
+    class Overloaded(Exception):
+        body = {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}
+
+    assert "Try again" in ai.describe_error(Overloaded())
+    assert "nothing was changed" in ai.describe_error(Overloaded())
+
+
+def test_rate_limits_say_what_to_do():
+    class Limited(Exception):
+        body = {"error": {"message": "rate_limit_error: too many requests"}}
+
+    assert "Rate limited" in ai.describe_error(Limited())

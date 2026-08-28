@@ -43,6 +43,10 @@ Cite the notes you used by their path, so the reader can check you.
 You may propose changes to the vault when the user has asked for something to be recorded,
 added, or updated. Do not propose changes to a question that was only a question.
 
+When asked to capture something, decide where it belongs rather than defaulting to a new
+note. If it extends a note that already exists, append to that one. Create a new note only
+when the material is genuinely its own topic — and then name it for what it says.
+
 One exception: if answering produced a genuine synthesis — something true across several
 notes that no single note says, or a question these notes now settle — you may propose
 capturing it as a new note, and say in one line why it is worth keeping. Be sparing. A
@@ -135,7 +139,12 @@ WRITE_TOOLS = [
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "e.g. notes/override-threshold.md",
+                    "description": (
+                        "Name it for what it says, in the vault's existing style — "
+                        "lowercase words joined by hyphens, e.g. "
+                        "notes/control-vs-theatre.md. Never a date or a generic name: "
+                        "a note called 2026-08-28-note.md is one nobody will ever find."
+                    ),
                 },
                 "title": {"type": "string"},
                 "body": {
