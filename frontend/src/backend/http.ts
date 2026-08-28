@@ -33,8 +33,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const httpBackend: VaultBackend = {
-  async listFiles() {
-    return request<{ files: FileNode[]; sync: SyncStatus }>("/api/files");
+  async listFiles(hidden = false) {
+    return request<{ files: FileNode[]; sync: SyncStatus }>(
+      `/api/files${hidden ? "?hidden=true" : ""}`,
+    );
+  },
+
+  async rename(path, newPath) {
+    return request<{ newPath: string; updated: string[] }>("/api/rename", {
+      method: "POST",
+      body: JSON.stringify({ path, newPath }),
+    });
   },
 
   async readFile(path) {

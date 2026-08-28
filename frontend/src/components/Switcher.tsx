@@ -1,16 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { filterCommands, type Command } from "../lib/commands";
 
-const MAX_VISIBLE = 12;
-
-export function CommandPalette({
+/**
+ * A generic pick-one-thing overlay.
+ *
+ * The command palette and the file switcher are the same widget with different lists —
+ * which is the point of splitting them. A file is an *object* and a command is an
+ * *action*; mixing them in one list is what makes a palette useless at 500 notes. Keeping
+ * one component means the split costs nothing in code.
+ */
+export function Switcher({
   open,
-  commands,
+  items,
+  placeholder,
+  footer,
   onClose,
+  emptyLabel = "No matches",
 }: {
   open: boolean;
-  commands: Command[];
+  items: Command[];
+  placeholder: string;
+  footer?: string;
   onClose: () => void;
+  emptyLabel?: string;
 }) {
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
@@ -18,8 +30,8 @@ export function CommandPalette({
   const listRef = useRef<HTMLDivElement>(null);
 
   const matches = useMemo(
-    () => filterCommands(query, commands).slice(0, MAX_VISIBLE),
-    [query, commands],
+    () => filterCommands(query, items).slice(0, 40),
+    [query, items],
   );
 
   useEffect(() => {
@@ -30,7 +42,6 @@ export function CommandPalette({
     }
   }, [open]);
 
-  // Keep the highlighted row in view when arrowing past the fold.
   useEffect(() => {
     listRef.current?.children[cursor]?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
@@ -57,7 +68,7 @@ export function CommandPalette({
         <input
           ref={input}
           value={query}
-          placeholder="Type a command…"
+          placeholder={placeholder}
           onChange={(e) => {
             setQuery(e.target.value);
             setCursor(0);
@@ -84,7 +95,7 @@ export function CommandPalette({
         <div ref={listRef} className="max-h-[50vh] overflow-auto py-1">
           {matches.length === 0 && (
             <div className="px-3.5 py-3 text-sm" style={{ color: "var(--sage-muted)" }}>
-              No matching command
+              {emptyLabel}
             </div>
           )}
           {matches.map((c, i) => (
@@ -104,7 +115,7 @@ export function CommandPalette({
               <span className="truncate">{c.title}</span>
               {c.hint && (
                 <span
-                  className="shrink-0 text-[11px] tabular-nums"
+                  className="shrink-0 text-[11px]"
                   style={{ color: "var(--sage-muted)" }}
                 >
                   {c.hint}
@@ -113,6 +124,15 @@ export function CommandPalette({
             </button>
           ))}
         </div>
+
+        {footer && (
+          <div
+            className="border-t px-3.5 py-1.5 text-[11px]"
+            style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+          >
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
