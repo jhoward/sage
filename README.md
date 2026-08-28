@@ -240,6 +240,38 @@ claims a model wrote it. Stale provenance is worse than none, because you would 
 Git answers the same question properly — a commit shows exactly what the model wrote and
 what you changed afterwards — and it does not rot.
 
+## Ask the vault
+
+`⌘J` opens a panel that can read every note. The questions worth asking are vault-wide —
+"what have I said about override rates?" spans notes written weeks apart, and no general
+chat can answer it. Answers cite the notes they used, as links you can click, which is what
+makes the thing checkable rather than an oracle.
+
+Retrieval is agentic: the model gets `search_notes` and `read_note` and opens what it
+needs, with every note path in its system prompt so it rarely has to guess.
+
+**Reads and writes differ by construction, not discipline.** Read tools have
+implementations; write tools do not. A write call can only become a *proposal*, returned
+for review — nothing in the ask path can touch a file. Applying is a separate step you
+trigger.
+
+Proposals are reviewed as a batch rather than one at a time, because a set of note edits is
+usually one thought spread across files and approving the first without seeing the fourth
+is how two of them end up contradicting each other. Additive changes are pre-selected;
+replacements start unticked and expanded, since a replacement loses the original.
+`⌘K` → "Undo last AI change" restores every file in the last applied batch.
+
+### Synthesis becomes notes
+
+The most valuable thing a vault-wide answer produces is often an idea that isn't in any
+single note — the connection across eight of them. That is also the hardest kind of note to
+write by hand, because it needs all eight in your head at once.
+
+So the model can propose a **new note**, and the rule is that it must link back to its
+sources. A synthesis note that doesn't join the graph is one you will never find again.
+"Save as note" on any answer does the same thing on your own initiative, appending the
+sources as `[[links]]`.
+
 ### Context is the point
 
 Each skill declares what goes in the context window: just the selection, the whole note, the

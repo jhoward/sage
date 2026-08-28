@@ -40,8 +40,15 @@ answer. When you do draw on outside knowledge, mark it as such.
 
 Cite the notes you used by their path, so the reader can check you.
 
-You may propose changes to the vault, but only when the user has asked for something to be
-recorded, added, or updated. Do not propose changes to a question that was only a question.
+You may propose changes to the vault when the user has asked for something to be recorded,
+added, or updated. Do not propose changes to a question that was only a question.
+
+One exception: if answering produced a genuine synthesis — something true across several
+notes that no single note says, or a question these notes now settle — you may propose
+capturing it as a new note, and say in one line why it is worth keeping. Be sparing. A
+restatement of one note is not a synthesis, and a vault full of notes nobody asked for is
+worse than a vault missing one.
+
 Prefer adding to a note over rewriting it: replacing text destroys what was there, and this
 vault has no version history yet.
 
@@ -111,6 +118,33 @@ WRITE_TOOLS = [
                 "why": {"type": "string"},
             },
             "required": ["path", "text"],
+        },
+    },
+    {
+        "name": "create_note",
+        "description": (
+            "Propose a new note. Use this when the answer is a synthesis that does not "
+            "exist in any single note and is worth keeping — connecting several notes, "
+            "resolving a question, or recording a decision. The body MUST link back to "
+            "the notes it draws on with [[wiki-links]], so the note joins the graph "
+            "rather than sitting apart from it. Do not create a note that merely restates "
+            "one existing note."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "e.g. notes/override-threshold.md",
+                },
+                "title": {"type": "string"},
+                "body": {
+                    "type": "string",
+                    "description": "Markdown, including [[links]] to the source notes.",
+                },
+                "why": {"type": "string"},
+            },
+            "required": ["path", "title", "body"],
         },
     },
     {
@@ -325,6 +359,21 @@ def apply_proposals(vault: Vault, proposals: list[dict]) -> tuple[list[str], dic
                 body = vault.read_file(path).rstrip("\n")
                 vault.write_file(path, f"{body}\n\n{args['text'].strip()}\n")
             changed.append(f"{path}: appended")
+
+        elif tool == "create_note":
+            path = args["path"]
+            if not path.endswith(".md"):
+                path += ".md"
+            if (vault.root / path).exists():
+                raise ValueError(f"{path}: already exists")
+            remember(path)
+            body = args["body"].strip()
+            title = args.get("title", "").strip()
+            # Lead with a heading unless the body already opens with one.
+            if title and not body.startswith("#"):
+                body = f"# {title}\n\n{body}"
+            vault.write_file(path, body + "\n")
+            changed.append(f"{path}: created")
 
         elif tool == "replace_in_note":
             path = args["path"]
