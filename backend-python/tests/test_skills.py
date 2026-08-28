@@ -351,3 +351,62 @@ def test_config_round_trips_the_workspace_id(tmp_path: Path):
     config_mod.Config(tmp_path / "v", "local", "sk-x", "wrkspc_9").save(path)
     assert config_mod.load(path).anthropic_workspace_id == "wrkspc_9"
     assert 'anthropic_workspace_id = ""' not in path.read_text()
+
+
+def test_missing_settings_are_appended_to_an_existing_config(tmp_path: Path):
+    """A setting added in a later version must not stay invisible to existing users."""
+    from sage import config as config_mod
+
+    path = tmp_path / "config.toml"
+    path.write_text(
+        '# my own note about this file\nvault_path = "/tmp/v"\nsync = "local"\n'
+    )
+
+    cfg = config_mod.load(path)
+    body = path.read_text()
+
+    assert 'anthropic_api_key = ""' in body
+    assert 'anthropic_workspace_id = ""' in body
+    # Everything that was there before survives, comments included.
+    assert "# my own note about this file" in body
+    assert 'vault_path = "/tmp/v"' in body
+    assert cfg.vault_path == Path("/tmp/v")
+
+
+def test_existing_values_are_never_rewritten(tmp_path: Path):
+    from sage import config as config_mod
+
+    path = tmp_path / "config.toml"
+    path.write_text('vault_path = "/tmp/v"\nanthropic_api_key = "sk-mine"\n')
+    before = path.read_text()
+
+    config_mod.load(path)
+    after = path.read_text()
+
+    assert after.startswith(before.rstrip("\n"))
+    assert after.count("anthropic_api_key") == 1  # not duplicated
+    assert config_mod.load(path).anthropic_api_key == "sk-mine"
+
+
+def test_appending_is_idempotent(tmp_path: Path):
+    from sage import config as config_mod
+
+    path = tmp_path / "config.toml"
+    path.write_text('vault_path = "/tmp/v"\n')
+
+    config_mod.load(path)
+    once = path.read_text()
+    config_mod.load(path)
+
+    assert path.read_text() == once
+
+
+def test_a_commented_out_setting_still_counts_as_missing(tmp_path: Path):
+    """A commented line is documentation, not a value — the real setting is still absent."""
+    from sage import config as config_mod
+
+    path = tmp_path / "config.toml"
+    path.write_text('vault_path = "/tmp/v"\n# anthropic_api_key = "example"\n')
+
+    added = config_mod.add_missing_settings(path, config_mod.Config(Path("/tmp/v")))
+    assert "anthropic_api_key" in added
