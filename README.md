@@ -226,8 +226,8 @@ and a skill you stop using is a file you delete.
 
 ### Nothing is applied without review
 
-Generated text streams into a review panel, never straight into the document. `⌘↵` accepts,
-`esc` discards. Accepting wraps the text in provenance markers:
+Generated text streams into a review panel, never straight into the document. When it
+finishes, the panel takes focus so `↵` accepts and `esc` discards. Accepting wraps the text in provenance markers:
 
 ```markdown
 <!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-28T09:15 -->

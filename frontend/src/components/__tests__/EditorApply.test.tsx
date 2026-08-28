@@ -8,6 +8,7 @@
 import { render, cleanup } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { AIReview } from "../AIReview";
 import { Editor, type EditorHandle } from "../Editor";
 
 afterEach(cleanup);
@@ -45,5 +46,41 @@ describe("EditorHandle", () => {
     const { ref } = mount("original");
     (document.activeElement as HTMLElement | null)?.blur();
     expect(() => ref.current!.apply("text", "replace")).not.toThrow();
+  });
+});
+
+describe("AIReview accept", () => {
+  const skill = {
+    id: "expand",
+    title: "Expand",
+    context: "note" as const,
+    mode: "replace" as const,
+    path: ".sage/skills/expand.md",
+  };
+
+  function panel(props: Partial<{ streaming: boolean; text: string }> = {}) {
+    return (
+      <AIReview
+        skill={skill}
+        text={props.text ?? "generated text"}
+        streaming={props.streaming ?? false}
+        error={null}
+        onAccept={() => {}}
+        onAcceptPlain={() => {}}
+        onReject={() => {}}
+      />
+    );
+  }
+
+  it("focuses Accept once generation finishes, so plain Enter works", () => {
+    // Without focus the panel never received keys: Enter went to the editor and inserted
+    // a newline, and only Cmd-Enter worked through a window listener.
+    const { getByText } = render(panel());
+    expect(document.activeElement).toBe(getByText("Accept"));
+  });
+
+  it("does not steal focus while still streaming", () => {
+    render(panel({ streaming: true, text: "partial" }));
+    expect(document.activeElement).toBe(document.body);
   });
 });

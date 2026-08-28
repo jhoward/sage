@@ -58,11 +58,20 @@ export function AIReview({
   onReject: () => void;
 }) {
   const body = useRef<HTMLDivElement>(null);
+  const acceptBtn = useRef<HTMLButtonElement>(null);
 
   // Follow the output as it streams.
   useEffect(() => {
     if (streaming && body.current) body.current.scrollTop = body.current.scrollHeight;
   }, [text, streaming]);
+
+  // Take focus once there is something to decide on. Until this, the panel was never
+  // focused, so a plain Enter went to the editor and inserted a newline — only ⌘↵ worked,
+  // through a window-level listener. Focusing the button makes Enter mean what it looks
+  // like it means.
+  useEffect(() => {
+    if (!streaming && !error && text.trim()) acceptBtn.current?.focus();
+  }, [streaming, error, text]);
 
   // Escape rejects; Cmd-Enter accepts. Both only once the stream has finished.
   useEffect(() => {
@@ -96,7 +105,7 @@ export function AIReview({
           {streaming && " · generating…"}
           {!streaming && !error && ` · will ${skill.mode}`}
         </span>
-        <span>{streaming ? "esc to stop" : "⌘↵ accept · esc discard"}</span>
+        <span>{streaming ? "esc to stop" : "↵ accept · esc discard"}</span>
       </div>
 
       <div
@@ -117,6 +126,7 @@ export function AIReview({
           style={{ borderColor: "var(--sage-border)" }}
         >
           <button
+            ref={acceptBtn}
             onClick={onAccept}
             className="rounded px-2.5 py-1 text-xs"
             style={{ background: "var(--sage-accent)", color: "white" }}
