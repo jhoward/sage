@@ -277,3 +277,77 @@ def test_create_app_loads_config_even_when_given_a_vault(tmp_path: Path, monkeyp
     body = TestClient(create_app(v)).get("/api/config").json()
 
     assert body["hasKey"] is True
+
+
+# ---- identity-linked keys -------------------------------------------
+
+def test_workspace_id_is_sent_as_a_header(vault: Vault, monkeypatch):
+    """Identity-linked keys need a workspace; the SDK has no parameter for it."""
+    import anthropic
+
+    from sage import config as config_mod
+
+    captured = {}
+
+    def fake_client(**kwargs):
+        captured.update(kwargs)
+        return FakeClient()
+
+    monkeypatch.setattr(anthropic, "Anthropic", fake_client)
+    skills.ensure_default_skills(vault)
+    skill = next(s for s in skills.load_skills(vault) if s.id == "cleanup")
+    cfg = config_mod.Config(vault.root, "local", "sk-test", "wrkspc_123")
+
+    list(ai.stream_skill(vault, ai.SkillRequest(skill, selection="x"), cfg=cfg))
+
+    assert captured["default_headers"] == {"anthropic-workspace-id": "wrkspc_123"}
+
+
+def test_no_workspace_header_when_unset(vault: Vault, monkeypatch):
+    import anthropic
+
+    from sage import config as config_mod
+
+    captured = {}
+    monkeypatch.setattr(
+        anthropic, "Anthropic", lambda **kw: (captured.update(kw), FakeClient())[1]
+    )
+    skills.ensure_default_skills(vault)
+    skill = next(s for s in skills.load_skills(vault) if s.id == "cleanup")
+
+    list(
+        ai.stream_skill(
+            vault,
+            ai.SkillRequest(skill, selection="x"),
+            cfg=config_mod.Config(vault.root, "local", "sk-test"),
+        )
+    )
+    assert captured["default_headers"] is None
+
+
+def test_missing_workspace_error_names_the_setting(vault: Vault):
+    """The API says which header is missing; the user needs to know which setting to edit."""
+
+    class Boom:
+        class messages:
+            @staticmethod
+            def stream(**kwargs):
+                raise RuntimeError(
+                    "Error code: 400 - anthropic-workspace-id is required when "
+                    "authenticating with an identity-linked API key"
+                )
+
+    skills.ensure_default_skills(vault)
+    skill = next(s for s in skills.load_skills(vault) if s.id == "cleanup")
+
+    with pytest.raises(ai.AIUnavailable, match="anthropic_workspace_id"):
+        list(ai.stream_skill(vault, ai.SkillRequest(skill, selection="x"), client=Boom()))
+
+
+def test_config_round_trips_the_workspace_id(tmp_path: Path):
+    from sage import config as config_mod
+
+    path = tmp_path / "config.toml"
+    config_mod.Config(tmp_path / "v", "local", "sk-x", "wrkspc_9").save(path)
+    assert config_mod.load(path).anthropic_workspace_id == "wrkspc_9"
+    assert 'anthropic_workspace_id = ""' not in path.read_text()

@@ -6,7 +6,7 @@ import {
   type TaskRef,
   type TaskTarget,
 } from "./backend";
-import { AIReview } from "./components/AIReview";
+import { AIReview, CopyButton } from "./components/AIReview";
 import { BacklinksPanel } from "./components/BacklinksPanel";
 import { Switcher } from "./components/Switcher";
 import { Editor, type EditorHandle } from "./components/Editor";
@@ -525,8 +525,21 @@ export default function App() {
           {path ?? "No file open"}
         </header>
         {error && (
-          <div className="px-4 py-2 text-xs" style={{ color: "#ef4444" }}>
-            {error}
+          <div className="flex items-start gap-3 px-4 py-2">
+            <div
+              className="cm-selectable min-w-0 flex-1 whitespace-pre-wrap text-xs"
+              style={{ color: "#ef4444" }}
+            >
+              {error}
+            </div>
+            <CopyButton text={error} />
+            <button
+              onClick={() => setError(null)}
+              className="shrink-0 px-1 text-xs"
+              style={{ color: "var(--sage-muted)" }}
+            >
+              ✕
+            </button>
           </div>
         )}
         {status && (

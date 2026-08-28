@@ -1,5 +1,37 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SkillInfo } from "../backend";
+
+/**
+ * Errors are the text people most need to get out of the app and into a search box or a
+ * message. Selection alone is fiddly in a webview panel, so there is a button.
+ */
+export function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          // Clipboard API can be unavailable; fall back to a selection the user can ⌘C.
+          const el = document.createElement("textarea");
+          el.value = text;
+          document.body.appendChild(el);
+          el.select();
+          document.execCommand("copy");
+          el.remove();
+        }
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      }}
+      className="rounded border px-2.5 py-1 text-xs"
+      style={{ borderColor: "var(--sage-border)", color: "var(--sage-fg)" }}
+    >
+      {copied ? "Copied" : "Copy error"}
+    </button>
+  );
+}
 
 /**
  * Generated text lands here first, never straight into the document.
@@ -69,7 +101,7 @@ export function AIReview({
 
       <div
         ref={body}
-        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 text-sm"
+        className="cm-selectable min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 text-sm"
         style={{
           fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
           color: error ? "#ef4444" : "var(--sage-fg)",
@@ -111,9 +143,10 @@ export function AIReview({
 
       {error && (
         <div
-          className="shrink-0 border-t px-4 py-2"
+          className="flex shrink-0 gap-2 border-t px-4 py-2"
           style={{ borderColor: "var(--sage-border)" }}
         >
+          <CopyButton text={error} />
           <button
             onClick={onReject}
             className="rounded px-2.5 py-1 text-xs"

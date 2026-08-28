@@ -37,6 +37,13 @@ MISSING_KEY = (
     "anthropic_api_key to ~/.config/sage/config.toml."
 )
 
+MISSING_WORKSPACE = (
+    "This is an identity-linked API key, which also needs a workspace ID.\n\n"
+    "Add anthropic_workspace_id to ~/.config/sage/config.toml (Anthropic Console -> "
+    "Settings -> Workspaces, it looks like wrkspc_...), then restart Sage.\n\n"
+    "A standard organisation API key does not need this."
+)
+
 
 class AIUnavailable(Exception):
     """Raised when a skill cannot run — no key, or the SDK is not installed."""
@@ -56,6 +63,14 @@ def api_key(cfg=None) -> str | None:
     if key:
         return key.strip() or None
     return getattr(cfg, "anthropic_api_key", None) if cfg else None
+
+
+def workspace_id(cfg=None) -> str | None:
+    """Only identity-linked keys need this; a standard key ignores it."""
+    ws = os.environ.get("ANTHROPIC_WORKSPACE_ID")
+    if ws:
+        return ws.strip() or None
+    return getattr(cfg, "anthropic_workspace_id", None) if cfg else None
 
 
 def build_prompt(vault, req: SkillRequest) -> str:
@@ -90,15 +105,27 @@ def stream_skill(vault, req: SkillRequest, cfg=None, client=None) -> Iterator[st
             import anthropic
         except ImportError as exc:  # pragma: no cover - dependency is declared
             raise AIUnavailable("The `anthropic` package is not installed.") from exc
-        client = anthropic.Anthropic(api_key=key)
+        # The SDK has no workspace parameter, so it rides as a header.
+        ws = workspace_id(cfg)
+        client = anthropic.Anthropic(
+            api_key=key,
+            default_headers={"anthropic-workspace-id": ws} if ws else None,
+        )
 
     prompt = build_prompt(vault, req)
 
-    with client.messages.stream(
-        model=req.skill.model or MODEL,
-        max_tokens=MAX_TOKENS,
-        system=SYSTEM,
-        output_config={"effort": req.skill.effort},
-        messages=[{"role": "user", "content": prompt}],
-    ) as stream:
-        yield from stream.text_stream
+    try:
+        with client.messages.stream(
+            model=req.skill.model or MODEL,
+            max_tokens=MAX_TOKENS,
+            system=SYSTEM,
+            output_config={"effort": req.skill.effort},
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            yield from stream.text_stream
+    except Exception as exc:
+        # The API's own wording for this one is accurate but not actionable — it names
+        # the missing header, not the setting you have to edit.
+        if "anthropic-workspace-id" in str(exc):
+            raise AIUnavailable(MISSING_WORKSPACE) from exc
+        raise
