@@ -39,6 +39,12 @@ export const httpBackend: VaultBackend = {
     );
   },
 
+  async deleteFile(path) {
+    await request(`/api/file?path=${encodeURIComponent(path)}`, {
+      method: "DELETE",
+    });
+  },
+
   async rename(path, newPath) {
     return request<{ newPath: string; updated: string[] }>("/api/rename", {
       method: "POST",

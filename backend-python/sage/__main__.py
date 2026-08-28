@@ -16,7 +16,6 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 import uvicorn
-import webview
 
 from . import config as config_mod
 from . import vault_sync
@@ -47,8 +46,38 @@ def wait_for(url: str, timeout: float = 15.0) -> bool:
     return False
 
 
+def set_app_name(name: str = "Sage") -> None:
+    """Show the app's own name in the macOS menu bar instead of "python3".
+
+    A Python process inherits the interpreter's name, so an unbundled app announces
+    itself as python3. Overriding the bundle's display name fixes the menu bar without
+    needing a real .app — which is what the eventual Tauri build will provide properly.
+    Must run before AppKit is initialised, which importing webview does — hence the
+    deferred import in main().
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        from Foundation import NSBundle
+    except ImportError:
+        return
+
+    bundle = NSBundle.mainBundle()
+    if not bundle:
+        return
+    info = bundle.localizedInfoDictionary() or bundle.infoDictionary()
+    if info is not None:
+        info["CFBundleName"] = name
+        info["CFBundleDisplayName"] = name
+
+
 def main() -> int:
     dev = os.environ.get("SAGE_DEV") == "1"
+
+    # Rename before importing webview: the import brings up AppKit, which reads the
+    # bundle name once. Imported at the top of the file, the rename would come too late.
+    set_app_name()
+    import webview
 
     cfg = config_mod.load()
     vault = Vault(cfg.vault_path)

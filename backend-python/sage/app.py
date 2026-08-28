@@ -119,6 +119,11 @@ def create_app(
         except (ValueError, VaultError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.delete("/api/file")
+    def delete_file(path: str):
+        guard(vault.delete_file, path)
+        return {"ok": True}
+
     @app.get("/api/search")
     def search(q: str = ""):
         return {"hits": [h.to_dict() for h in vault.search(q)]}

@@ -151,6 +151,13 @@ class Vault:
             tmp.unlink(missing_ok=True)
             raise
 
+    def delete_file(self, rel: str) -> None:
+        """Delete a note. The confirmation lives in the UI; this just does it."""
+        path = self.resolve(rel)
+        if not path.is_file():
+            raise VaultError(f"not a file: {rel}")
+        path.unlink()
+
     def search(self, query: str) -> list[SearchHit]:
         """Literal search. ripgrep when available, pure-Python otherwise.
 
