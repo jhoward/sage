@@ -269,8 +269,12 @@ write by hand, because it needs all eight in your head at once.
 
 So the model can propose a **new note**, and the rule is that it must link back to its
 sources. A synthesis note that doesn't join the graph is one you will never find again.
-"Save as note" on any answer does the same thing on your own initiative, appending the
-sources as `[[links]]`.
+
+**"Capture this…"** on any answer asks it to decide *where* the material belongs rather
+than assuming a new note: appended to an existing note if it extends one, a new note only
+if it is genuinely its own topic, named for what it says. Asked to capture something the
+vault already covered, the right answer is "no change needed, it is already in
+`notes/bias-testing.md`" — and that is what it gives.
 
 ### Context is the point
 

@@ -175,15 +175,27 @@ def describe_error(exc: Exception) -> str:
 
     The default string is a class name wrapped around a Python dict repr of the JSON
     body — accurate and nearly unreadable. The API's own `message` is usually a good
-    sentence, so surface that and drop the packaging.
+    sentence, so surface that; then map the transient failures, whose wording is accurate
+    but says nothing about what to do.
     """
+    message = None
     body = getattr(exc, "body", None)
     if isinstance(body, dict):
         inner = body.get("error")
         if isinstance(inner, dict) and inner.get("message"):
-            return str(inner["message"])
-        if body.get("message"):
-            return str(body["message"])
+            message = str(inner["message"])
+        elif body.get("message"):
+            message = str(body["message"])
 
-    message = getattr(exc, "message", None)
-    return str(message or exc)
+    if message is None:
+        message = str(getattr(exc, "message", None) or exc)
+
+    # Applied to whatever message we ended up with, not only the fallback: a bare
+    # "Overloaded" is accurate and tells you nothing about what to do, which is the same
+    # failure as dumping a dict repr.
+    lowered = message.lower()
+    if "overloaded" in lowered:
+        return "Claude is busy right now. Try again in a moment — nothing was changed."
+    if "rate_limit" in lowered or "rate limit" in lowered:
+        return "Rate limited. Wait a moment and try again — nothing was changed."
+    return message
