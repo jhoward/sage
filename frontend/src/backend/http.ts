@@ -118,6 +118,10 @@ export const httpBackend: VaultBackend = {
     return request<{ skills: SkillInfo[]; available: boolean }>("/api/skills");
   },
 
+  async resetSkill(id) {
+    await request(`/api/skills/${encodeURIComponent(id)}/reset`, { method: "POST" });
+  },
+
   /**
    * Server-sent events, read off the response body.
    *

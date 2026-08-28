@@ -110,6 +110,8 @@ export interface VaultBackend {
 
   /** Skills are vault files, so this is re-read rather than cached. */
   skills(): Promise<{ skills: SkillInfo[]; available: boolean }>;
+  /** Restore a shipped skill to its default, discarding local edits. */
+  resetSkill(id: string): Promise<void>;
   /** Streams generated text. The API key stays in the backend. */
   runSkill(args: SkillRunArgs, signal?: AbortSignal): AsyncIterable<string>;
 

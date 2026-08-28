@@ -445,3 +445,66 @@ def test_api_errors_are_readable(vault: Vault):
 
 def test_describe_error_falls_back_to_the_exception(vault: Vault):
     assert ai.describe_error(RuntimeError("network down")) == "network down"
+
+
+# ---- shipped skills gaining new frontmatter --------------------------
+
+def test_missing_frontmatter_keys_are_added(vault: Vault):
+    """`asks: true` arrived after ask.md already existed, so it never reached the user."""
+    skills.ensure_default_skills(vault)
+    # Simulate a copy created before the key shipped.
+    vault.write_file(
+        ".sage/skills/ask.md",
+        "---\ntitle: My own title\ncontext: note-and-links\n---\nMy own prompt.",
+    )
+
+    added = skills.add_missing_frontmatter(vault)
+    body = vault.read_file(".sage/skills/ask.md")
+
+    assert ("ask.md", "asks") in added
+    assert "asks: true" in body
+    # The user's prompt and their edited title both survive.
+    assert "My own prompt." in body
+    assert "title: My own title" in body
+
+
+def test_existing_values_are_never_changed(vault: Vault):
+    skills.ensure_default_skills(vault)
+    vault.write_file(
+        ".sage/skills/cleanup.md",
+        "---\ntitle: Tidy\ncontext: selection\nmode: replace\neffort: max\n---\nMine.",
+    )
+    skills.add_missing_frontmatter(vault)
+    loaded = next(s for s in skills.load_skills(vault) if s.id == "cleanup")
+
+    assert loaded.title == "Tidy"
+    assert loaded.effort == "max"
+    assert loaded.prompt == "Mine."
+
+
+def test_frontmatter_merge_is_idempotent(vault: Vault):
+    skills.ensure_default_skills(vault)
+    assert skills.add_missing_frontmatter(vault) == []
+
+
+def test_a_users_own_skill_is_left_alone(vault: Vault):
+    """Only shipped skills are touched; anything you wrote is entirely yours."""
+    skills.ensure_default_skills(vault)
+    vault.write_file(".sage/skills/mine.md", "---\ntitle: Mine\n---\nBody")
+    before = vault.read_file(".sage/skills/mine.md")
+
+    skills.add_missing_frontmatter(vault)
+    assert vault.read_file(".sage/skills/mine.md") == before
+
+
+def test_reset_skill_restores_the_default(vault: Vault):
+    skills.ensure_default_skills(vault)
+    vault.write_file(".sage/skills/cleanup.md", "---\ntitle: Broken\n---\noops")
+
+    skills.reset_skill(vault, "cleanup")
+    assert vault.read_file(".sage/skills/cleanup.md") == skills.DEFAULTS["cleanup.md"]
+
+
+def test_reset_refuses_a_skill_it_does_not_ship(vault: Vault):
+    with pytest.raises(ValueError):
+        skills.reset_skill(vault, "mine")

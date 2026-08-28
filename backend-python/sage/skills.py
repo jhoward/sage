@@ -213,7 +213,55 @@ def ensure_default_skills(vault) -> list[str]:
         if not (folder / name).exists():
             vault.write_file(f"{SKILLS_DIR}/{name}", body)
             written.append(name)
+
+    add_missing_frontmatter(vault)
     return written
+
+
+def add_missing_frontmatter(vault) -> list[tuple[str, str]]:
+    """Add frontmatter keys a shipped skill gained after the user's copy was created.
+
+    Skills are the user's prompts, so the body is never touched and an existing value is
+    never changed. But a key added to a shipped skill later — `asks: true` arriving after
+    ask.md already existed — would otherwise stay invisible forever, which is the same
+    trap the config file had.
+
+    Only shipped skills are considered. A skill you wrote is entirely yours.
+    """
+    added: list[tuple[str, str]] = []
+
+    for name, shipped in DEFAULTS.items():
+        rel = f"{SKILLS_DIR}/{name}"
+        if not (vault.root / rel).exists():
+            continue
+
+        want, _ = parse_frontmatter(shipped)
+        text = vault.read_file(rel)
+        have, body = parse_frontmatter(text)
+
+        missing = {k: v for k, v in want.items() if k not in have}
+        if not missing:
+            continue
+
+        merged = {**have, **missing}
+        # Rebuild in the shipped key order so the file stays readable, with any keys the
+        # user added of their own kept at the end.
+        order = [k for k in want if k in merged] + [k for k in merged if k not in want]
+        lines = "\n".join(f"{k}: {merged[k]}" for k in order)
+        vault.write_file(rel, f"---\n{lines}\n---\n\n{body}\n")
+        added.extend((name, k) for k in missing)
+
+    return added
+
+
+def reset_skill(vault, skill_id: str) -> str:
+    """Restore a shipped skill to its default, discarding local edits."""
+    name = f"{skill_id}.md"
+    if name not in DEFAULTS:
+        raise ValueError(f"{skill_id!r} is not a shipped skill")
+    rel = f"{SKILLS_DIR}/{name}"
+    vault.write_file(rel, DEFAULTS[name])
+    return rel
 
 
 # ---- reference notes -------------------------------------------------

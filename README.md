@@ -210,6 +210,15 @@ effort: low             # low | medium | high | xhigh | max
 Cut this text by a third without losing meaning. Return only the text.
 ```
 
+`asks: true` makes a skill prompt for a question before it runs — that is what turns "Ask"
+from a summariser into a question against your vault.
+
+Once a skill file exists it is **yours**: the app never overwrites your prompt. It does add
+frontmatter keys that a shipped skill gained later (an `asks: true` introduced after your
+copy was created), because otherwise a new capability stays invisible forever. Existing
+values are never changed, and skills you wrote yourself are never touched. `⌘K` → "Reset
+skill to default" restores a shipped one wholesale.
+
 They appear in `⌘K` alongside built-in commands, because a skill and a command are the same
 kind of thing. `Edit skill: …` opens the prompt in the editor — it is a note like any other.
 This is the anti-bloat mechanism in practice: the app does not grow, your skill folder does,
