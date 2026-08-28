@@ -77,3 +77,18 @@ body {
 .cm-task-checkbox {
   cursor: pointer;
 }
+
+/* ---- wiki-links ---- */
+
+.cm-wikilink {
+  color: var(--sage-accent);
+  cursor: pointer;
+}
+
+/* A link to a note that does not exist yet is a normal state while writing —
+   show it rather than hide it. */
+.cm-wikilink-broken {
+  color: var(--sage-muted);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}

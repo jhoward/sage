@@ -6,12 +6,15 @@ import {
   type TaskRef,
   type TaskTarget,
 } from "./backend";
+import { BacklinksPanel } from "./components/BacklinksPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { Editor } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
+import { lineLinksTo, linkNameFor } from "./lib/wikilinks";
+import type { SearchHit } from "./backend";
 
 /** Flatten the tree so every note is reachable from the palette. */
 function flatten(nodes: FileNode[], out: FileNode[] = []): FileNode[] {
@@ -37,6 +40,10 @@ export default function App() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [backlog, setBacklog] = useState<TaskRef[]>([]);
+  const [backlinks, setBacklinks] = useState<SearchHit[]>([]);
+  // The split pane holds its own document, so planning (week + backlog) needs no
+  // special-casing — it is just two editors.
+  const [split, setSplit] = useState<{ path: string; content: string } | null>(null);
   const line = useRef(1);
 
   const refresh = useCallback(async () => {
@@ -74,6 +81,14 @@ export default function App() {
     })();
   }, [refresh, open]);
 
+  const openSplit = useCallback(async (p: string) => {
+    try {
+      setSplit({ path: p, content: await backend.readFile(p) });
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
   const save = useCallback(async (p: string, body: string) => {
     try {
       await backend.writeFile(p, body);
@@ -98,6 +113,28 @@ export default function App() {
     },
     [path, refresh],
   );
+
+  // Backlinks ride on search() — no index to rebuild, nothing to go stale. The literal
+  // search over-matches (`[[cloud` also hits `[[cloud-old]]`), so each hit is re-parsed.
+  useEffect(() => {
+    if (!path) return setBacklinks([]);
+    let cancelled = false;
+    const name = linkNameFor(path);
+
+    backend
+      .search(`[[${name}`)
+      .then((hits) => {
+        if (cancelled) return;
+        setBacklinks(
+          hits.filter((h) => h.path !== path && lineLinksTo(h.text, path, files)),
+        );
+      })
+      .catch(() => !cancelled && setBacklinks([]));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [path, files]);
 
   // Rebuilt whenever the vault changes so "Open …" always reflects what is on disk.
   // In Phase 3, skills from .sage/skills/ append to this same list.
@@ -133,6 +170,17 @@ export default function App() {
           } catch (e) {
             setError(String(e));
           }
+        },
+      },
+      {
+        id: "view.split",
+        title: split ? "Close split pane" : "Open backlog in a split pane",
+        keywords: "side by side planning two panes",
+        hint: "⌘\\",
+        run: async () => {
+          if (split) return setSplit(null);
+          const { backlogs } = await backend.week();
+          if (backlogs[0]) await openSplit(backlogs[0]);
         },
       },
       {
@@ -194,7 +242,7 @@ export default function App() {
       });
     }
     return list;
-  }, [files, path, backlog, open, refresh]);
+  }, [files, path, backlog, split, open, openSplit, refresh]);
 
   // ⌘K is the single invocation surface; ⌘⇧T is the one capture shortcut worth its own key.
   useEffect(() => {
@@ -210,10 +258,19 @@ export default function App() {
         e.preventDefault();
         setQuickAdd(true);
       }
+      if (mod && e.key === "\\") {
+        e.preventDefault();
+        if (split) setSplit(null);
+        else {
+          backend.week().then((w) => {
+            if (w.backlogs[0]) void openSplit(w.backlogs[0]);
+          });
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [split, openSplit]);
 
   // Status messages are transient; errors stay until the next action.
   useEffect(() => {
@@ -236,13 +293,18 @@ export default function App() {
           <SyncIndicator status={sync} />
         </div>
         <div className="flex-1 overflow-auto">
-          <FileTree nodes={files} selected={path} onOpen={open} />
+          <FileTree
+            nodes={files}
+            selected={path}
+            onOpen={open}
+            onOpenAlt={openSplit}
+          />
         </div>
         <div
           className="border-t px-3 py-2 text-[11px]"
           style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
         >
-          ⌘K commands · ⌘⇧T add · ⌘⏎ done · ⌘⇧↑ top
+          ⌘K commands · ⌘⇧T add · ⌘⏎ done · ⌘\ split
         </div>
       </aside>
 
@@ -270,14 +332,44 @@ export default function App() {
             {status}
           </div>
         )}
-        <div className="min-h-0 flex-1">
-          <Editor
-            path={doc.path}
-            content={doc.content}
-            onSave={save}
-            onCursor={(n) => (line.current = n)}
-          />
+        <div className="flex min-h-0 flex-1">
+          <div className="min-w-0 flex-1">
+            <Editor
+              path={doc.path}
+              content={doc.content}
+              onSave={save}
+              onCursor={(n) => (line.current = n)}
+              files={files}
+              onOpenLink={open}
+            />
+          </div>
+          {split && (
+            <div
+              className="flex min-w-0 flex-1 flex-col border-l"
+              style={{ borderColor: "var(--sage-border)" }}
+            >
+              <div
+                className="flex h-7 shrink-0 items-center justify-between border-b px-3 text-[11px]"
+                style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+              >
+                <span className="truncate">{split.path}</span>
+                <button onClick={() => setSplit(null)} className="shrink-0 px-1">
+                  ✕
+                </button>
+              </div>
+              <div className="min-h-0 flex-1">
+                <Editor
+                  path={split.path}
+                  content={split.content}
+                  onSave={save}
+                  files={files}
+                  onOpenLink={open}
+                />
+              </div>
+            </div>
+          )}
         </div>
+        <BacklinksPanel hits={backlinks} onOpen={open} />
       </main>
 
       <QuickAdd open={quickAdd} onClose={() => setQuickAdd(false)} onSubmit={addTask} />
