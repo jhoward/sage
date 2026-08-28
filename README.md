@@ -176,8 +176,14 @@ ones, so you never have to guess what a key is called:
 # ~/.config/sage/config.toml
 vault_path = "/Users/you/notes"
 sync = "local"
-anthropic_api_key = ""     # ANTHROPIC_API_KEY in the environment wins over this
+anthropic_api_key = ""       # ANTHROPIC_API_KEY in the environment wins over this
+anthropic_workspace_id = ""  # only for identity-linked keys
 ```
+
+If your key is **identity-linked** (it acts on behalf of a person rather than an
+organisation) the API also needs a workspace ID, and returns a 400 without one. Find it in
+the Anthropic Console under Settings → Workspaces; it looks like `wrkspc_…`. A standard
+organisation key ignores this setting.
 
 `⌘K` → "Set the Anthropic API key…" opens that file in your editor; restart Sage after
 saving, since config is read at startup. Until a key is set the palette shows skills marked

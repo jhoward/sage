@@ -45,6 +45,14 @@ sync = "{sync}"
 #
 # Keep the key here rather than anywhere inside the vault — the vault becomes a git repo.
 anthropic_api_key = "{anthropic_api_key}"
+
+# Workspace ID, required only if the key above is an identity-linked key. Those keys act
+# on behalf of a person rather than an organisation, so the API needs to know which
+# workspace the request belongs to and returns a 400 without it.
+#
+# Find it in the Anthropic Console under Settings -> Workspaces; it looks like
+# "wrkspc_...". Leave empty for a standard API key.
+anthropic_workspace_id = "{anthropic_workspace_id}"
 """
 
 
@@ -60,12 +68,15 @@ class Config:
     # Optional. ANTHROPIC_API_KEY takes precedence; either way the key stays in the
     # backend and never reaches the frontend bundle.
     anthropic_api_key: str | None = None
+    # Only needed for identity-linked keys; a standard key ignores it.
+    anthropic_workspace_id: str | None = None
 
     def render(self) -> str:
         return TEMPLATE.format(
             vault_path=_escape(str(self.vault_path)),
             sync=_escape(self.sync),
             anthropic_api_key=_escape(self.anthropic_api_key or ""),
+            anthropic_workspace_id=_escape(self.anthropic_workspace_id or ""),
         )
 
     def save(self, path: Path | None = None) -> None:
@@ -99,4 +110,5 @@ def load(path: Path | None = None) -> Config:
         vault_path=Path(raw.get("vault_path", DEFAULT_VAULT)).expanduser(),
         sync=raw.get("sync", DEFAULT_SYNC),
         anthropic_api_key=raw.get("anthropic_api_key") or None,
+        anthropic_workspace_id=raw.get("anthropic_workspace_id") or None,
     )

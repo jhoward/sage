@@ -93,6 +93,14 @@ body {
   text-underline-offset: 3px;
 }
 
+/* Text that must be copyable — errors above all. Panels in a webview are not reliably
+   selectable by default, so say so explicitly and give the region a text cursor. */
+.cm-selectable {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
 /* ---- AI provenance ---- */
 
 /* Markers stay visible and editable — a marker you cannot see is one you cannot
