@@ -95,6 +95,8 @@ export interface VaultBackend {
   /** Lift a task out of one file and append it to another. */
   moveTask(source: string, line: number, target: string): Promise<void>;
 
+  /** Delete a note. Confirmation is the caller's job. */
+  deleteFile(path: string): Promise<void>;
   /** Move a note and repoint every [[link]] that referenced it. */
   rename(path: string, newPath: string): Promise<{ newPath: string; updated: string[] }>;
 

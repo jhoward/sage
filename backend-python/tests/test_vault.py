@@ -223,3 +223,29 @@ def test_backlog_target_prefers_existing_project_file(vault: Vault):
     (vault.root / "todo" / "backlog.md").unlink(missing_ok=True)
     vault.write_file("todo/backlog/general.md", "## Inbox\n")
     assert todo.backlog_target(vault) == "todo/backlog/general.md"
+
+
+def test_delete_file(vault: Vault):
+    vault.delete_file("notes/alpha.md")
+    assert not (vault.root / "notes/alpha.md").exists()
+    with pytest.raises(VaultError):
+        vault.read_file("notes/alpha.md")
+
+
+def test_delete_missing_file(vault: Vault):
+    with pytest.raises(VaultError):
+        vault.delete_file("notes/nope.md")
+
+
+def test_delete_refuses_to_escape_the_vault(vault: Vault, tmp_path: Path):
+    outside = tmp_path / "outside.md"
+    outside.write_text("keep me")
+    with pytest.raises(VaultError):
+        vault.delete_file("../outside.md")
+    assert outside.exists()
+
+
+def test_delete_refuses_a_directory(vault: Vault):
+    with pytest.raises(VaultError):
+        vault.delete_file("notes")
+    assert (vault.root / "notes").is_dir()

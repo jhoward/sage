@@ -54,6 +54,7 @@ nothing can drift out of sync with it.
 | Search the vault | `⌘⇧F` |
 | New note | `⌘N` |
 | Rename a note, updating inbound links | `⌘K` → rename |
+| Delete a note (asks you to type its name) | `⌘K` → delete |
 | Settings (reveal `.sage/`) | `⌘K` → settings |
 | Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
 | Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |

@@ -50,6 +50,7 @@ export default function App() {
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   // Most-recently-opened first; drives ranking in the file switcher.
   const [recent, setRecent] = useState<string[]>([]);
   const [status, setStatus] = useState<string | null>(null);
@@ -171,7 +172,13 @@ export default function App() {
 
   const acceptRun = useCallback(
     (withProvenance: boolean) => {
-      if (!run || !editor.current) return;
+      if (!run) return;
+      if (!editor.current) {
+        // Previously a silent return, which made a missing editor ref look like a
+        // button that simply did nothing. Say so instead.
+        setError("Cannot apply: no editor is focused. Open a note and try again.");
+        return;
+      }
       const text = withProvenance
         ? wrap(run.text, {
             model: "claude-opus-5",
@@ -291,6 +298,12 @@ export default function App() {
         keywords: "find grep text",
         hint: label(BINDINGS.search),
         run: () => setSearching(true),
+      },
+      {
+        id: "note.delete",
+        title: "Delete this note…",
+        keywords: "remove trash",
+        run: () => setConfirmDelete(true),
       },
       {
         id: "note.rename",
@@ -563,6 +576,8 @@ export default function App() {
               onCursor={(n) => (line.current = n)}
               files={files}
               onOpenLink={open}
+              onCreateLink={(name) => void createNote(name)}
+              ref={editor}
             />
           </div>
           {split && (
@@ -657,6 +672,32 @@ export default function App() {
         onSubmit={(name) => {
           setNewNote(false);
           void createNote(name);
+        }}
+      />
+      <Prompt
+        open={confirmDelete && !!path}
+        label={`Delete ${path ?? ""}? Type the note name to confirm — this cannot be undone.`}
+        placeholder={path ? path.split("/").pop()!.replace(/\.md$/, "") : ""}
+        onClose={() => setConfirmDelete(false)}
+        onSubmit={async (typed) => {
+          if (!path) return;
+          const expected = path.split("/").pop()!.replace(/\.md$/, "");
+          if (typed !== expected) {
+            setStatus(`Not deleted — type "${expected}" exactly to confirm`);
+            return;
+          }
+          setConfirmDelete(false);
+          try {
+            await backend.deleteFile(path);
+            setDoc({ path: null, content: "" });
+            setRecent((r) => r.filter((x) => x !== path));
+            await refresh();
+            const week = await backend.week();
+            await open(week.path);
+            setStatus(`Deleted ${path}`);
+          } catch (e) {
+            setError(String(e));
+          }
         }}
       />
       <Prompt
