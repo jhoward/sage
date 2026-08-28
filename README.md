@@ -58,7 +58,7 @@ nothing can drift out of sync with it.
 | Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
 | Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
 | Toggle done | `⌘⏎` |
-| Promote to top of section | `⌘⇧↑` |
+| Promote to top of section | `⌥⇧↑` |
 | Nudge up / down | `⌥↑` / `⌥↓` |
 | Delete line | `⌘⇧K` |
 | Hide completed (view only) | `⌘⇧H` |
@@ -97,6 +97,27 @@ The palette also moves tasks between the week and the backlog — "Send this tas
 backlog" acts on the cursor line, and every open backlog item appears as its own
 `Pull: …` entry. A moved task keeps its rolled count, so parking something does not reset
 the record of how long it has been avoided.
+
+## Keybindings and the readline rule
+
+**Ctrl is never an alias for Cmd on macOS.** The emacs/readline bindings — `⌃A`, `⌃E`,
+`⌃K`, `⌃N`, `⌃P`, `⌃D` — work in every macOS text field, and treating `metaKey || ctrlKey`
+as "the modifier" silently eats them: `⌃K` stops killing to end of line and opens a palette
+instead. On macOS Mod means Cmd and nothing else; on Linux and Windows it means Ctrl.
+
+That rule lives in `frontend/src/lib/keybindings.ts`, which is also where every global
+shortcut is declared, and there are tests asserting that no `⌃`-anything matches a binding
+on macOS. Phase 4 loads overrides from `<vault>/.sage/keybindings.toml` from that same table.
+
+The second rule: **do not shadow a text-editing shortcut people rely on.** `⌥⇧↑` promotes a
+task to the top of its section rather than `⌘⇧↑`, because on macOS that extends the
+selection to the start of the document — worth more than a task shortcut. It also pairs
+better: `⌥↑` nudges one line, `⌥⇧↑` goes all the way.
+
+Two shortcuts do deliberately shadow something. `⌥↑`/`⌥↓` move a line instead of moving by
+paragraph, which is what VS Code, Sublime, and JetBrains all do. And inside the palettes,
+`⌃N`/`⌃P` move the selection — that *honours* the emacs convention rather than breaking it,
+and in a one-line input there is no line to move to anyway.
 
 ## Two palettes, not one
 
