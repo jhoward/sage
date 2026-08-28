@@ -104,6 +104,59 @@ Backlinks ride on `search()` rather than an index: search for `[[name`, then re-
 hit to confirm the link really resolves. Nothing to rebuild, nothing to go stale, and the
 backend contract stayed the same size.
 
+## AI
+
+Nothing runs without an API key, and the app is a perfectly good plain editor without one.
+The key lives in the backend — `ANTHROPIC_API_KEY`, or `anthropic_api_key` in
+`~/.config/sage/config.toml` — and never reaches the frontend bundle.
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Skills are files
+
+A skill is a markdown file in `<vault>/.sage/skills/`. Four ship on first run — Clean up,
+Expand, Ask, Weekly summary — and they are a starting point to edit, not a library.
+
+```markdown
+---
+title: Tighten
+context: selection      # selection | note | note-and-links | week-done
+mode: replace           # replace | insert | append
+effort: low             # low | medium | high | xhigh | max
+---
+Cut this text by a third without losing meaning. Return only the text.
+```
+
+They appear in `⌘K` alongside built-in commands, because a skill and a command are the same
+kind of thing. `Edit skill: …` opens the prompt in the editor — it is a note like any other.
+This is the anti-bloat mechanism in practice: the app does not grow, your skill folder does,
+and a skill you stop using is a file you delete.
+
+### Nothing is applied without review
+
+Generated text streams into a review panel, never straight into the document. `⌘↵` accepts,
+`esc` discards. Accepting wraps the text in provenance markers:
+
+```markdown
+<!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-28T09:15 -->
+Generated content.
+<!-- /sage:ai -->
+```
+
+Generated regions render tinted, with the markers dimmed but still visible and editable — a
+marker you cannot see is one you cannot remove when you have made the text your own.
+"Accept as mine" inserts without markers. HTML comments because they vanish in any markdown
+renderer and survive a round trip through Obsidian or `grep`.
+
+### Context is the point
+
+Each skill declares what goes in the context window: just the selection, the whole note, the
+note plus every note it links to, or a week's completed tasks. That is why
+"ask, with this note as context" is worth having and generic research is not — a chat window
+cannot see your vault, and this can.
+
 ## Design principles
 
 1. **The file is the source of truth.** No database of record. The vault survives the app.
@@ -180,7 +233,7 @@ was human-written by definition.
 |---|---|
 | **1** ✅ | Editor, file tree, autosave, three contracts, atomic writes, core todo interactions |
 | **2** ✅ | `⌘K` palette, deterministic weekly rollover, backlog pull/send, wiki-links, backlinks, split view |
-| 3 | Skill runner, selection transforms (cleanup/expand), ask-with-context, weekly summary, diff review |
+| **3** ✅ | Skill runner, selection transforms, ask-with-context, weekly summary, diff review, provenance |
 | 4 | Git-backed sync, auto-link suggestions, keybinding overrides |
 | 5 | External resolvers (Jira/Docs), per-project backlogs, semantic search only if needed |
 

@@ -57,6 +57,25 @@ export interface WeekInfo {
   backlogs: string[]; // one now, one per project later
 }
 
+export type SkillContext = "selection" | "note" | "note-and-links" | "week-done";
+export type SkillMode = "replace" | "insert" | "append";
+
+export interface SkillInfo {
+  id: string;
+  title: string;
+  context: SkillContext;
+  mode: SkillMode;
+  /** Vault path, so a skill can be opened and edited like any other note. */
+  path: string;
+}
+
+export interface SkillRunArgs {
+  skill: string;
+  notePath?: string | null;
+  selection?: string | null;
+  instruction?: string | null;
+}
+
 export interface VaultBackend {
   listFiles(): Promise<{ files: FileNode[]; sync: SyncStatus }>;
   readFile(path: string): Promise<string>;
@@ -74,6 +93,11 @@ export interface VaultBackend {
   rollover(): Promise<RolloverResult>;
   /** Lift a task out of one file and append it to another. */
   moveTask(source: string, line: number, target: string): Promise<void>;
+
+  /** Skills are vault files, so this is re-read rather than cached. */
+  skills(): Promise<{ skills: SkillInfo[]; available: boolean }>;
+  /** Streams generated text. The API key stays in the backend. */
+  runSkill(args: SkillRunArgs, signal?: AbortSignal): AsyncIterable<string>;
 
   // Phase 3: runSkill(skill, selection): AsyncIterable<string>
 }

@@ -10,6 +10,7 @@ the UI has its indicator slot and needs no restructuring when git sync lands.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -17,9 +18,16 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config as config_mod
+from fastapi.responses import StreamingResponse
+
+from . import ai, config as config_mod
+from . import skills as skills_mod
 from . import todo, vault_sync
 from .vault import Vault, VaultError
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 class WriteRequest(BaseModel):
@@ -32,6 +40,13 @@ class QuickAddRequest(BaseModel):
     target: str = "week"  # or "backlog"
 
 
+class SkillRunRequest(BaseModel):
+    skill: str
+    notePath: str | None = None
+    selection: str | None = None
+    instruction: str | None = None
+
+
 class MoveRequest(BaseModel):
     source: str
     line: int
@@ -39,13 +54,20 @@ class MoveRequest(BaseModel):
     heading: str | None = None
 
 
-def create_app(vault: Vault | None = None, sync=None, static_dir: Path | None = None):
+def create_app(
+    vault: Vault | None = None,
+    sync=None,
+    static_dir: Path | None = None,
+    cfg=None,
+    ai_client=None,
+):
     if vault is None:
-        cfg = config_mod.load()
+        cfg = cfg or config_mod.load()
         vault = Vault(cfg.vault_path)
         vault.ensure()
         sync = sync or vault_sync.make(cfg.sync, vault.root)
     sync = sync or vault_sync.make("local", vault.root)
+    skills_mod.ensure_default_skills(vault)
 
     app = FastAPI(title="sage", docs_url=None, redoc_url=None)
     app.state.vault = vault
@@ -134,6 +156,51 @@ def create_app(vault: Vault | None = None, sync=None, static_dir: Path | None = 
             raise HTTPException(status_code=400, detail="empty task")
         path = todo.append_task(vault, req.text, req.target)
         return {"ok": True, "path": path}
+
+    @app.get("/api/skills")
+    def list_skills():
+        """Skills are vault files, so this is re-read rather than cached — editing a
+        prompt in the editor takes effect on the next palette open."""
+        return {
+            "skills": [s.to_dict() for s in skills_mod.load_skills(vault)],
+            "available": ai.api_key(cfg) is not None or ai_client is not None,
+        }
+
+    @app.post("/api/skills/run")
+    def run_skill(req: SkillRunRequest):
+        skill = next(
+            (s for s in skills_mod.load_skills(vault) if s.id == req.skill), None
+        )
+        if skill is None:
+            raise HTTPException(status_code=404, detail=f"no skill {req.skill!r}")
+
+        request = ai.SkillRequest(
+            skill=skill,
+            note_path=req.notePath,
+            selection=req.selection,
+            instruction=req.instruction,
+        )
+
+        def events():
+            """Server-sent events: one `chunk` per piece of text, then `done`.
+
+            Errors are streamed as an `error` event rather than raised, because by the
+            time the first byte is out an HTTP status can no longer be changed.
+            """
+            try:
+                for piece in ai.stream_skill(vault, request, cfg, ai_client):
+                    yield _sse("chunk", {"text": piece})
+                yield _sse("done", {"mode": skill.mode, "skill": skill.id})
+            except ai.AIUnavailable as exc:
+                yield _sse("error", {"message": str(exc)})
+            except Exception as exc:  # surface API failures in the UI, not the console
+                yield _sse("error", {"message": f"{type(exc).__name__}: {exc}"})
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     # Built frontend assets, when running as a packaged app rather than against Vite.
     if static_dir and static_dir.is_dir():

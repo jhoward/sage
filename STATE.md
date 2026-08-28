@@ -1,6 +1,6 @@
 # Where this is
 
-_Last updated: 2026-08-28 — end of Phase 2._
+_Last updated: 2026-08-28 — end of Phase 3._
 
 ## Running it in 30 seconds
 
@@ -12,15 +12,15 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run sage`.
 
 ```bash
-cd backend-python && uv run pytest   # 43 passed, 1 skipped
-cd frontend && npm test              # 39 passed
+cd backend-python && uv run pytest   # 63 passed, 1 skipped
+cd frontend && npm test              # 49 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
 so `vault.search()` uses the pure-Python fallback. Not a problem at current scale — see
 the search ladder in the README.
 
-## Done — Phases 1 and 2
+## Done — Phases 1 through 3
 
 Editor, file tree, autosave, native window, and the core todo loop, all working:
 
@@ -34,28 +34,35 @@ Editor, file tree, autosave, native window, and the core todo loop, all working:
 - `[[wiki-links]]` with `⌘`-click, dotted rendering for unresolved links
 - Backlinks panel, built on `search()` — no index
 - `⌘\` split pane, ⌥-click a file to open it there
+- Skills as vault files (`.sage/skills/*.md`), joining the palette as ordinary commands
+- Streaming generation into a review panel — `⌘↵` accept, `esc` discard, nothing silent
+- Provenance markers on accepted text, rendered tinted and still editable
+- Four context strategies: selection, note, note-and-links, week-done
+
+**No API key is configured**, so skills appear in the palette but report a clear message
+when run. Set `ANTHROPIC_API_KEY` or add `anthropic_api_key` to
+`~/.config/sage/config.toml`. Every test uses a fake client, so the suite costs nothing.
 
 Vault lives at `~/notes` (config: `~/.config/sage/config.toml`).
 
-## Next — Phase 3 (the AI layer)
+## Next — Phase 4
 
-In rough order:
+1. **Git-backed sync** (`sage/vault_sync/git.py`) — `pull --rebase` / commit / push on a
+   timer, behind the `VaultSync` protocol that has been in place since Phase 1. This is
+   the biggest outstanding gap: the vault still has no version history, and it doubles as
+   the undo layer for AI edits.
+2. **Auto-link suggestions** — surface `[[notes]]` that already exist as you type. Where
+   the model genuinely beats you, since remembering what is in the vault is the hard part.
+3. **Keybinding overrides** from `<vault>/.sage/keybindings.toml`.
 
-1. **Skill runner** — load `.sage/skills/*.md` (frontmatter: title, model, context
-   strategy; body: the prompt) and append them to the palette's command list. The palette
-   needs no changes; that was the point of making commands data.
-2. **Selection transforms** — cleanup, expand, tighten. Highest frequency, unambiguous
-   context, verifiable at a glance. Build these before generation.
-3. **Diff review** — never replace text silently. Show the change, accept or reject.
-4. **Provenance rendering** — the `<!-- sage:ai … -->` markers, and CodeMirror handling
-   that does not let editing corrupt them.
-5. **Weekly summary** — read the `- [x]` lines from a week file, write prose back under a
-   `## Summary` heading in that same file so it archives with the week.
-6. **Ask-with-context** — the one research feature worth building, because the vault is the
-   context. Generic research belongs in a chat window.
+Then Phase 5: external resolvers (Jira/Docs), per-project backlogs, and semantic search
+only if the escalation ladder in the README actually demands it.
 
-The API key belongs in the Python backend, read from an env var or a config file — never
-in the frontend bundle. Use the official `anthropic` package.
+### Worth doing soon, out of phase order
+
+- **Try the skills on real notes.** The four defaults are a first guess at prompts. They
+  are files — edit them until the output is what you want, which is the whole point.
+- **A "tighten" skill.** Named in the design as high-frequency, never written.
 
 ## Open questions
 
@@ -77,6 +84,10 @@ in the frontend bundle. Use the official `anthropic` package.
   this and was verified to fail against the old implementation — keep those tests passing.
 - **Headings are not a schema.** Capture creates whatever section it targets. Renaming or
   deleting one must never break anything; there is a test for it.
+- **Nothing AI-generated reaches a file without review.** Generated text goes to a panel,
+  and only accepting writes. Keep it that way — an app where a model can silently rewrite
+  your thinking is one you cannot trust with your thinking.
+- **The API key stays in the backend.** Never pass it to the frontend, never log it.
 - **Rollover must never lose a task.** It is deterministic precisely so it can be trusted.
   `tests/test_todo_phase2.py` covers ordering, sections, rolled counts, idempotency, and
   leaving the archive untouched — keep those green.

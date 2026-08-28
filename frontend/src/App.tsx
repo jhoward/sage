@@ -6,15 +6,17 @@ import {
   type TaskRef,
   type TaskTarget,
 } from "./backend";
+import { AIReview } from "./components/AIReview";
 import { BacklinksPanel } from "./components/BacklinksPanel";
 import { CommandPalette } from "./components/CommandPalette";
-import { Editor } from "./components/Editor";
+import { Editor, type EditorHandle } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
 import { lineLinksTo, linkNameFor } from "./lib/wikilinks";
-import type { SearchHit } from "./backend";
+import type { SearchHit, SkillInfo } from "./backend";
+import { wrap } from "./lib/provenance";
 
 /** Flatten the tree so every note is reachable from the palette. */
 function flatten(nodes: FileNode[], out: FileNode[] = []): FileNode[] {
@@ -45,6 +47,18 @@ export default function App() {
   // special-casing — it is just two editors.
   const [split, setSplit] = useState<{ path: string; content: string } | null>(null);
   const line = useRef(1);
+  const editor = useRef<EditorHandle>(null);
+
+  // A skill run in flight. Generated text lands here for review — never straight into
+  // the document.
+  const [skills, setSkills] = useState<SkillInfo[]>([]);
+  const [run, setRun] = useState<{
+    skill: SkillInfo;
+    text: string;
+    streaming: boolean;
+    error: string | null;
+  } | null>(null);
+  const abort = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -87,6 +101,55 @@ export default function App() {
     } catch (e) {
       setError(String(e));
     }
+  }, []);
+
+  const runSkill = useCallback(
+    async (skill: SkillInfo, instruction?: string) => {
+      abort.current?.abort();
+      const controller = new AbortController();
+      abort.current = controller;
+
+      const selection = editor.current?.selection() ?? "";
+      setRun({ skill, text: "", streaming: true, error: null });
+
+      try {
+        for await (const chunk of backend.runSkill(
+          { skill: skill.id, notePath: path, selection, instruction },
+          controller.signal,
+        )) {
+          setRun((r) => (r ? { ...r, text: r.text + chunk } : r));
+        }
+        setRun((r) => (r ? { ...r, streaming: false } : r));
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        setRun((r) =>
+          r ? { ...r, streaming: false, error: String(e) } : r,
+        );
+      }
+    },
+    [path],
+  );
+
+  const acceptRun = useCallback(
+    (withProvenance: boolean) => {
+      if (!run || !editor.current) return;
+      const text = withProvenance
+        ? wrap(run.text, {
+            model: "claude-opus-5",
+            skill: run.skill.id,
+            at: new Date().toISOString().slice(0, 16),
+          })
+        : run.text.trim();
+
+      editor.current.apply(text, run.skill.mode);
+      setRun(null);
+    },
+    [run],
+  );
+
+  const rejectRun = useCallback(() => {
+    abort.current?.abort();
+    setRun(null);
   }, []);
 
   const save = useCallback(async (p: string, body: string) => {
@@ -212,6 +275,23 @@ export default function App() {
       },
     ];
 
+    for (const sk of skills) {
+      list.push({
+        id: `skill:${sk.id}`,
+        title: sk.title,
+        keywords: `ai skill ${sk.context} ${sk.mode}`,
+        hint: sk.context === "selection" ? "selection" : sk.context,
+        run: () => runSkill(sk),
+      });
+      list.push({
+        id: `skill-edit:${sk.id}`,
+        title: `Edit skill: ${sk.title}`,
+        keywords: `prompt ${sk.path}`,
+        hint: sk.path,
+        run: () => open(sk.path),
+      });
+    }
+
     for (const t of backlog) {
       list.push({
         id: `pull:${t.path}:${t.line}`,
@@ -242,7 +322,7 @@ export default function App() {
       });
     }
     return list;
-  }, [files, path, backlog, split, open, openSplit, refresh]);
+  }, [files, path, backlog, split, skills, open, openSplit, refresh, runSkill]);
 
   // ⌘K is the single invocation surface; ⌘⇧T is the one capture shortcut worth its own key.
   useEffect(() => {
@@ -252,6 +332,12 @@ export default function App() {
         e.preventDefault();
         // Refresh backlog entries so "Pull: …" reflects the file, not a stale snapshot.
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
+        // Skills are vault files, so re-read them rather than trusting a snapshot —
+        // editing a prompt takes effect on the next palette open.
+        backend
+          .skills()
+          .then((r) => setSkills(r.skills))
+          .catch(() => setSkills([]));
         setPalette(true);
       }
       if (mod && e.shiftKey && e.key.toLowerCase() === "t") {
@@ -369,6 +455,15 @@ export default function App() {
             </div>
           )}
         </div>
+        <AIReview
+          skill={run?.skill ?? null}
+          text={run?.text ?? ""}
+          streaming={run?.streaming ?? false}
+          error={run?.error ?? null}
+          onAccept={() => acceptRun(true)}
+          onAcceptPlain={() => acceptRun(false)}
+          onReject={rejectRun}
+        />
         <BacklinksPanel hits={backlinks} onOpen={open} />
       </main>
 

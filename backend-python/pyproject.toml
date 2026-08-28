@@ -8,6 +8,7 @@ dependencies = [
     "uvicorn>=0.32",
     "pywebview>=5.3",
     "tomli-w>=1.0",
+    "anthropic>=0.69",
 ]
 
 [project.optional-dependencies]

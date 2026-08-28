@@ -92,3 +92,19 @@ body {
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }
+
+/* ---- AI provenance ---- */
+
+/* Markers stay visible and editable — a marker you cannot see is one you cannot
+   remove when you have made the text your own. */
+.cm-ai-marker {
+  opacity: 0.4;
+  font-size: 0.85em;
+}
+
+/* A tint rather than a left border: CodeMirror's line padding clips a border, and a
+   background reads at a glance without shifting the text. */
+.cm-ai-generated {
+  background: color-mix(in srgb, var(--sage-accent) 7%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--sage-accent) 45%, transparent);
+}

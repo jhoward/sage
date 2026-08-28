@@ -27,10 +27,18 @@ DEFAULT_SYNC = "local"
 class Config:
     vault_path: Path
     sync: str = DEFAULT_SYNC
+    # Optional. ANTHROPIC_API_KEY takes precedence; either way the key stays in the
+    # backend and never reaches the frontend bundle.
+    anthropic_api_key: str | None = None
 
     def save(self) -> None:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        payload = {"vault_path": str(self.vault_path), "sync": self.sync}
+        payload: dict[str, str] = {
+            "vault_path": str(self.vault_path),
+            "sync": self.sync,
+        }
+        if self.anthropic_api_key:
+            payload["anthropic_api_key"] = self.anthropic_api_key
         CONFIG_PATH.write_text(tomli_w.dumps(payload), encoding="utf-8")
 
 
@@ -47,4 +55,5 @@ def load(path: Path = CONFIG_PATH) -> Config:
     return Config(
         vault_path=Path(raw.get("vault_path", DEFAULT_VAULT)).expanduser(),
         sync=raw.get("sync", DEFAULT_SYNC),
+        anthropic_api_key=raw.get("anthropic_api_key") or None,
     )

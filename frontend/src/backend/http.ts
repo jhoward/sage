@@ -4,6 +4,7 @@ import type {
   FileNode,
   RolloverResult,
   SearchHit,
+  SkillInfo,
   SyncStatus,
   TaskRef,
   VaultBackend,
@@ -86,5 +87,56 @@ export const httpBackend: VaultBackend = {
       method: "POST",
       body: JSON.stringify({ source, line, target }),
     });
+  },
+
+  async skills() {
+    return request<{ skills: SkillInfo[]; available: boolean }>("/api/skills");
+  },
+
+  /**
+   * Server-sent events, read off the response body.
+   *
+   * EventSource cannot POST, and a skill run needs a body, so the stream is parsed by
+   * hand. Errors arrive as an `error` event rather than an HTTP status: once the first
+   * byte is out the status is already committed.
+   */
+  async *runSkill(args, signal) {
+    const res = await fetch(`${apiBase()}/api/skills/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+      signal,
+    });
+    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    if (!res.body) throw new Error("no response body");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE frames are separated by a blank line; a partial frame stays buffered.
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() ?? "";
+
+      for (const frame of frames) {
+        let event = "message";
+        let data = "";
+        for (const line of frame.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data += line.slice(5).trim();
+        }
+        if (!data) continue;
+
+        const payload = JSON.parse(data);
+        if (event === "chunk") yield payload.text as string;
+        else if (event === "error") throw new Error(payload.message);
+        else if (event === "done") return;
+      }
+    }
   },
 };

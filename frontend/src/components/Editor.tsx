@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, highlightActiveLine, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -6,6 +6,8 @@ import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { todoExtension } from "../lib/todo";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
+import { provenanceExtension } from "../lib/provenanceExtension";
+import type { SkillMode } from "../backend";
 import type { FileNode } from "../backend";
 
 const AUTOSAVE_MS = 500;
@@ -22,7 +24,16 @@ interface Props {
   onOpenLink?: (path: string) => void;
 }
 
-export function Editor({ path, content, onSave, onCursor, files, onOpenLink }: Props) {
+export interface EditorHandle {
+  selection(): string;
+  /** Apply generated text. `replace` swaps the selection, or the whole doc if none. */
+  apply(text: string, mode: SkillMode): void;
+}
+
+export const Editor = forwardRef<EditorHandle, Props>(function Editor(
+  { path, content, onSave, onCursor, files, onOpenLink },
+  ref,
+) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const filesRef = useRef<FileNode[]>(files ?? []);
@@ -68,6 +79,7 @@ export function Editor({ path, content, onSave, onCursor, files, onOpenLink }: P
         EditorView.lineWrapping,
         todoExtension(),
         wikilinkExtension((p) => openLink.current?.(p)),
+        provenanceExtension(),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },
           ...historyKeymap,
@@ -105,6 +117,38 @@ export function Editor({ path, content, onSave, onCursor, files, onOpenLink }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      selection() {
+        const v = view.current;
+        if (!v) return "";
+        const { from, to } = v.state.selection.main;
+        return from === to ? "" : v.state.sliceDoc(from, to);
+      },
+      apply(text, mode) {
+        const v = view.current;
+        if (!v) return;
+        const { from, to } = v.state.selection.main;
+        const doc = v.state.doc;
+
+        // Each mode maps to exactly one document edit, so undo reverses it in one step.
+        const change =
+          mode === "append"
+            ? { from: doc.length, to: doc.length, insert: `\n\n${text}\n` }
+            : mode === "insert"
+              ? { from: to, to, insert: text }
+              : from === to
+                ? { from: 0, to: doc.length, insert: text }
+                : { from, to, insert: text };
+
+        v.dispatch({ changes: change, userEvent: "input.ai", scrollIntoView: true });
+        v.focus();
+      },
+    }),
+    [],
+  );
+
   // Keep link resolution current as notes are created or renamed.
   useEffect(() => {
     filesRef.current = files ?? [];
@@ -130,4 +174,4 @@ export function Editor({ path, content, onSave, onCursor, files, onOpenLink }: P
   }
 
   return <div ref={host} className="h-full overflow-auto" />;
-}
+});
