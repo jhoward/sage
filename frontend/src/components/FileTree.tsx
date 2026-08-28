@@ -5,13 +5,22 @@ interface Props {
   nodes: FileNode[];
   selected: string | null;
   onOpen: (path: string) => void;
+  /** Alt-click: open in the split pane instead. */
+  onOpenAlt?: (path: string) => void;
 }
 
-export function FileTree({ nodes, selected, onOpen }: Props) {
+export function FileTree({ nodes, selected, onOpen, onOpenAlt }: Props) {
   return (
     <div className="py-2 text-sm">
       {nodes.map((n) => (
-        <Node key={n.path} node={n} depth={0} selected={selected} onOpen={onOpen} />
+        <Node
+          key={n.path}
+          node={n}
+          depth={0}
+          selected={selected}
+          onOpen={onOpen}
+          onOpenAlt={onOpenAlt}
+        />
       ))}
     </div>
   );
@@ -22,11 +31,13 @@ function Node({
   depth,
   selected,
   onOpen,
+  onOpenAlt,
 }: {
   node: FileNode;
   depth: number;
   selected: string | null;
   onOpen: (path: string) => void;
+  onOpenAlt?: (path: string) => void;
 }) {
   // Top-level folders start open; deeper ones stay collapsed.
   const [open, setOpen] = useState(depth === 0);
@@ -54,7 +65,10 @@ function Node({
 
   return (
     <button
-      onClick={() => onOpen(node.path)}
+      onClick={(e) =>
+        e.altKey && onOpenAlt ? onOpenAlt(node.path) : onOpen(node.path)
+      }
+      title={onOpenAlt ? "⌥-click to open in split pane" : undefined}
       className="block w-full truncate py-[3px] text-left"
       style={{
         ...pad,

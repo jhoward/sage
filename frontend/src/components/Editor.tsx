@@ -5,6 +5,8 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { todoExtension } from "../lib/todo";
+import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
+import type { FileNode } from "../backend";
 
 const AUTOSAVE_MS = 500;
 
@@ -14,11 +16,16 @@ interface Props {
   onSave: (path: string, content: string) => void;
   /** 1-based line under the cursor, so palette commands can act on "this task". */
   onCursor?: (line: number) => void;
+  /** Vault tree, for resolving [[links]]. */
+  files?: FileNode[];
+  /** Cmd-click on a resolving [[link]]. */
+  onOpenLink?: (path: string) => void;
 }
 
-export function Editor({ path, content, onSave, onCursor }: Props) {
+export function Editor({ path, content, onSave, onCursor, files, onOpenLink }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
+  const filesRef = useRef<FileNode[]>(files ?? []);
 
   // onSave is read through a ref so the save closure never goes stale, while the *path*
   // is deliberately NOT: each editor instance saves only to the file it was opened with.
@@ -26,6 +33,8 @@ export function Editor({ path, content, onSave, onCursor }: Props) {
   save.current = onSave;
   const cursor = useRef(onCursor);
   cursor.current = onCursor;
+  const openLink = useRef(onOpenLink);
+  openLink.current = onOpenLink;
 
   useEffect(() => {
     if (!host.current || !path) return;
@@ -58,6 +67,7 @@ export function Editor({ path, content, onSave, onCursor }: Props) {
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorView.lineWrapping,
         todoExtension(),
+        wikilinkExtension((p) => openLink.current?.(p)),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },
           ...historyKeymap,
@@ -78,6 +88,7 @@ export function Editor({ path, content, onSave, onCursor }: Props) {
 
     const instance = new EditorView({ state, parent: host.current });
     view.current = instance;
+    instance.dispatch({ effects: setLinkFiles.of(filesRef.current) });
 
     const onUnload = () => flush();
     window.addEventListener("beforeunload", onUnload);
@@ -93,6 +104,12 @@ export function Editor({ path, content, onSave, onCursor }: Props) {
     // handled by the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
+
+  // Keep link resolution current as notes are created or renamed.
+  useEffect(() => {
+    filesRef.current = files ?? [];
+    view.current?.dispatch({ effects: setLinkFiles.of(files ?? []) });
+  }, [files]);
 
   // Adopt content that changed underneath us (e.g. quick-add appended to this file).
   useEffect(() => {
