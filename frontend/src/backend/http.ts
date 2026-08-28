@@ -2,8 +2,10 @@
 
 import type {
   FileNode,
+  RolloverResult,
   SearchHit,
   SyncStatus,
+  TaskRef,
   VaultBackend,
   WeekInfo,
 } from "./types";
@@ -67,6 +69,22 @@ export const httpBackend: VaultBackend = {
     return request<{ path: string }>("/api/todo/quick-add", {
       method: "POST",
       body: JSON.stringify({ text, target }),
+    });
+  },
+
+  async backlogTasks() {
+    const r = await request<{ tasks: TaskRef[] }>("/api/todo/backlog");
+    return r.tasks;
+  },
+
+  async rollover() {
+    return request<RolloverResult>("/api/todo/rollover", { method: "POST" });
+  },
+
+  async moveTask(source, line, target) {
+    await request("/api/todo/move", {
+      method: "POST",
+      body: JSON.stringify({ source, line, target }),
     });
   },
 };

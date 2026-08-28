@@ -34,6 +34,23 @@ export interface SyncStatus {
 
 export type TaskTarget = "week" | "backlog";
 
+export interface TaskRef {
+  path: string;
+  line: number;
+  text: string;
+  section: string;
+  rolled: number;
+}
+
+export interface RolloverResult {
+  source: string | null;
+  target: string;
+  moved: string[];
+  /** Rolled STALE_AFTER times or more — worth a do/delegate/drop decision. */
+  stale: string[];
+  skipped: number;
+}
+
 export interface WeekInfo {
   path: string;
   week: string; // e.g. "2026-W35"
@@ -49,8 +66,14 @@ export interface VaultBackend {
 
   /** This week's todo file, created on first access. */
   week(): Promise<WeekInfo>;
-  /** Append a task under `## Inbox`. Target is the week by default. */
+  /** Append a task. Target is the week by default. */
   quickAdd(text: string, target?: TaskTarget): Promise<{ path: string }>;
+  /** Open tasks across every backlog file. */
+  backlogTasks(): Promise<TaskRef[]>;
+  /** Carry unfinished work into this week. Deterministic — no model involved. */
+  rollover(): Promise<RolloverResult>;
+  /** Lift a task out of one file and append it to another. */
+  moveTask(source: string, line: number, target: string): Promise<void>;
 
   // Phase 3: runSkill(skill, selection): AsyncIterable<string>
 }

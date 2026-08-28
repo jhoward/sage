@@ -14,10 +14,21 @@ project later is `mkdir` + `mv` with no code change.
 
 from __future__ import annotations
 
-from datetime import date
+import re
+from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 
 TODO_DIR = "todo"
+
+TASK_RE = re.compile(r"^(\s*[-*]\s+\[)([ xX])(\]\s?)(.*)$")
+HEADING_RE = re.compile(r"^#{1,6}\s")
+ROLLED_RE = re.compile(r"\s*<!--\s*rolled:(\d+)\s*-->")
+WEEK_FILE_RE = re.compile(r"^(\d{4})-W(\d{2})\.md$")
+
+# A task that has moved this many weeks is telling you something: do it, delegate it, or
+# drop it. Surfaced by rollover rather than acted on automatically.
+STALE_AFTER = 5
 
 # Where quick-add lands. Not a schema — append_to_heading creates whatever heading it is
 # given, so these can be renamed or deleted in the file without breaking anything.
@@ -81,12 +92,12 @@ def backlog_paths(root: Path) -> list[str]:
     return found
 
 
-def ensure_week_files(vault) -> str:
-    """Create this week's file and a backlog if neither exists. Returns the week path."""
-    path = week_path()
+def ensure_week_files(vault, when: date | None = None) -> str:
+    """Create the week's file and a backlog if neither exists. Returns the week path."""
+    path = week_path(when)
     target = vault.root / path
     if not target.exists():
-        vault.write_file(path, WEEK_TEMPLATE.format(week=week_id()))
+        vault.write_file(path, WEEK_TEMPLATE.format(week=week_id(when)))
 
     if not backlog_paths(vault.root):
         vault.write_file(f"{TODO_DIR}/backlog.md", BACKLOG_TEMPLATE)
@@ -117,11 +128,13 @@ def append_task(vault, text: str, target: str = "week") -> str:
 
 
 def append_to_heading(vault, text: str, path: str, heading: str) -> str:
-    """Append a task at the end of a section, creating the heading if absent."""
-    content = vault.read_file(path)
-    task = f"- [ ] {text.strip()}"
+    """Append a new task at the end of a section, creating the heading if absent."""
+    return append_line(vault, path, f"- [ ] {text.strip()}", heading)
 
-    lines = content.splitlines()
+
+def append_line(vault, path: str, task: str, heading: str) -> str:
+    """Append a rendered task line at the end of a section."""
+    lines = vault.read_file(path).splitlines()
     try:
         idx = next(i for i, line in enumerate(lines) if line.strip() == heading)
     except StopIteration:
@@ -137,3 +150,154 @@ def append_to_heading(vault, text: str, path: str, heading: str) -> str:
 
     vault.write_file(path, "\n".join(lines) + "\n")
     return path
+
+
+# ---- task lines ------------------------------------------------------
+
+
+@dataclass
+class Task:
+    line: int  # 1-based, as the editor counts
+    done: bool
+    text: str  # without the checkbox or the rolled marker
+    section: str
+    rolled: int = 0
+    raw: str = ""
+
+
+def parse_tasks(content: str) -> list[Task]:
+    """Every task line in a file, tagged with the section it sits under."""
+    tasks: list[Task] = []
+    section = ""
+
+    for n, raw in enumerate(content.splitlines(), start=1):
+        if HEADING_RE.match(raw):
+            section = raw.strip()
+            continue
+        m = TASK_RE.match(raw)
+        if not m:
+            continue
+
+        body = m.group(4)
+        rolled_m = ROLLED_RE.search(body)
+        tasks.append(
+            Task(
+                line=n,
+                done=m.group(2) != " ",
+                text=ROLLED_RE.sub("", body).strip(),
+                section=section,
+                rolled=int(rolled_m.group(1)) if rolled_m else 0,
+                raw=raw,
+            )
+        )
+    return tasks
+
+
+def render_task(text: str, rolled: int = 0, done: bool = False) -> str:
+    mark = "x" if done else " "
+    suffix = f" <!-- rolled:{rolled} -->" if rolled else ""
+    return f"- [{mark}] {text}{suffix}"
+
+
+# ---- rollover --------------------------------------------------------
+
+
+@dataclass
+class RolloverResult:
+    source: str | None = None
+    target: str = ""
+    moved: list[str] = field(default_factory=list)
+    stale: list[str] = field(default_factory=list)
+    skipped: int = 0  # already present in the target
+
+    def to_dict(self) -> dict:
+        return {
+            "source": self.source,
+            "target": self.target,
+            "moved": self.moved,
+            "stale": self.stale,
+            "skipped": self.skipped,
+        }
+
+
+def week_files(root: Path) -> list[str]:
+    """Every week file, oldest first."""
+    folder = root / TODO_DIR
+    if not folder.is_dir():
+        return []
+    names = sorted(p.name for p in folder.glob("*.md") if WEEK_FILE_RE.match(p.name))
+    return [f"{TODO_DIR}/{n}" for n in names]
+
+
+def previous_week_file(root: Path, before: str) -> str | None:
+    """The most recent week file older than `before` (a week id like 2026-W35)."""
+    candidates = [
+        p for p in week_files(root) if Path(p).stem < before
+    ]
+    return candidates[-1] if candidates else None
+
+
+def rollover(vault, when: date | None = None) -> RolloverResult:
+    """Carry unfinished work from the previous week file into the current one.
+
+    Deterministic on purpose — no model is involved, so it is instant and it cannot
+    silently drop a task. The source file is left untouched as the week's archive; what
+    got done stays recorded there for the weekly summary.
+
+    Safe to run twice: items already present in the target are skipped rather than
+    duplicated.
+    """
+    target = ensure_week_files(vault, when)
+    result = RolloverResult(target=target)
+
+    source = previous_week_file(vault.root, before=week_id(when))
+    if not source:
+        return result
+    result.source = source
+
+    unfinished = [t for t in parse_tasks(vault.read_file(source)) if not t.done]
+    if not unfinished:
+        return result
+
+    existing = {t.text for t in parse_tasks(vault.read_file(target))}
+
+    for task in unfinished:
+        if task.text in existing:
+            result.skipped += 1
+            continue
+        rolled = task.rolled + 1
+        heading = task.section or WEEK_CAPTURE
+        append_line(vault, target, render_task(task.text, rolled), heading)
+        existing.add(task.text)
+        result.moved.append(task.text)
+        if rolled >= STALE_AFTER:
+            result.stale.append(task.text)
+
+    return result
+
+
+# ---- moving between files --------------------------------------------
+
+
+def move_task(vault, source: str, line: int, target: str, heading: str | None = None) -> Task:
+    """Lift one task out of a file and append it to a section of another.
+
+    Used for send-to-backlog and pull-from-backlog. The task keeps its rolled count, so
+    parking something in the backlog does not reset the record of how long it has been
+    avoided.
+    """
+    lines = vault.read_file(source).splitlines()
+    if not 1 <= line <= len(lines):
+        raise ValueError(f"line {line} out of range for {source}")
+
+    task = next((t for t in parse_tasks("\n".join(lines)) if t.line == line), None)
+    if task is None:
+        raise ValueError(f"line {line} of {source} is not a task")
+
+    if heading is None:
+        heading = BACKLOG_CAPTURE if target in backlog_paths(vault.root) else WEEK_CAPTURE
+
+    del lines[line - 1]
+    vault.write_file(source, "\n".join(lines).rstrip() + "\n")
+    append_line(vault, target, render_task(task.text, task.rolled, task.done), heading)
+    return task

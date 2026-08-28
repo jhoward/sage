@@ -32,6 +32,13 @@ class QuickAddRequest(BaseModel):
     target: str = "week"  # or "backlog"
 
 
+class MoveRequest(BaseModel):
+    source: str
+    line: int
+    target: str
+    heading: str | None = None
+
+
 def create_app(vault: Vault | None = None, sync=None, static_dir: Path | None = None):
     if vault is None:
         cfg = config_mod.load()
@@ -87,6 +94,39 @@ def create_app(vault: Vault | None = None, sync=None, static_dir: Path | None = 
             "week": todo.week_id(),
             "backlogs": todo.backlog_paths(vault.root),
         }
+
+    @app.get("/api/todo/backlog")
+    def backlog_tasks():
+        """Open tasks across every backlog file, for pull-from-backlog in the palette."""
+        out = []
+        for path in todo.backlog_paths(vault.root):
+            for t in todo.parse_tasks(vault.read_file(path)):
+                if not t.done:
+                    out.append(
+                        {
+                            "path": path,
+                            "line": t.line,
+                            "text": t.text,
+                            "section": t.section,
+                            "rolled": t.rolled,
+                        }
+                    )
+        return {"tasks": out}
+
+    @app.post("/api/todo/rollover")
+    def rollover():
+        """Carry unfinished work forward. Deterministic — no model involved."""
+        return guard(todo.rollover, vault).to_dict()
+
+    @app.post("/api/todo/move")
+    def move(req: MoveRequest):
+        try:
+            task = todo.move_task(vault, req.source, req.line, req.target, req.heading)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except VaultError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"ok": True, "text": task.text, "target": req.target}
 
     @app.post("/api/todo/quick-add")
     def quick_add(req: QuickAddRequest):
