@@ -82,3 +82,17 @@ export function linkNameFor(path: string): string {
 export function lineLinksTo(line: string, path: string, files: FileNode[]): boolean {
   return parseLinks(line).some((l) => resolveLink(l.target, files) === path);
 }
+
+/**
+ * A note name to a filename. Keeps unicode letters (notes are personal, not URLs) and
+ * only collapses what would actually be awkward in a path.
+ */
+export function slugify(name: string): string {
+  return name
+    .trim()
+    .replace(/\.md$/i, "")
+    .replace(/[/\\:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+}

@@ -5,6 +5,7 @@ import {
   linkNameFor,
   parseLinks,
   resolveLink,
+  slugify,
 } from "../wikilinks";
 
 const FILES: FileNode[] = [
@@ -97,5 +98,32 @@ describe("lineLinksTo", () => {
 describe("linkNameFor", () => {
   it("strips folder and extension", () => {
     expect(linkNameFor("notes/cloud-networking.md")).toBe("cloud-networking");
+  });
+});
+
+describe("slugify", () => {
+  it("turns a name into a filename", () => {
+    expect(slugify("Cross-cloud networking")).toBe("Cross-cloud-networking");
+  });
+
+  it("strips characters that are awkward in a path", () => {
+    expect(slugify('a/b:c*d?e"f<g>h|i')).toBe("a-b-c-d-e-f-g-h-i");
+  });
+
+  it("collapses runs and trims edges", () => {
+    expect(slugify("  hello   world  ")).toBe("hello-world");
+    expect(slugify("--x--")).toBe("x");
+  });
+
+  it("keeps unicode letters — notes are personal, not URLs", () => {
+    expect(slugify("Café résumé")).toBe("Café-résumé");
+  });
+
+  it("drops a trailing .md", () => {
+    expect(slugify("notes.md")).toBe("notes");
+  });
+
+  it("returns empty for a name with nothing usable", () => {
+    expect(slugify("   ")).toBe("");
   });
 });

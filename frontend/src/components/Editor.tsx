@@ -7,6 +7,7 @@ import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language"
 import { todoExtension } from "../lib/todo";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
 import { provenanceExtension } from "../lib/provenanceExtension";
+import { livePreviewExtension } from "../lib/livePreview";
 import type { SkillMode } from "../backend";
 import type { FileNode } from "../backend";
 
@@ -22,6 +23,8 @@ interface Props {
   files?: FileNode[];
   /** Cmd-click on a resolving [[link]]. */
   onOpenLink?: (path: string) => void;
+  /** Cmd-click on an unresolved [[link]] — create that note. */
+  onCreateLink?: (name: string) => void;
 }
 
 export interface EditorHandle {
@@ -31,7 +34,7 @@ export interface EditorHandle {
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
-  { path, content, onSave, onCursor, files, onOpenLink },
+  { path, content, onSave, onCursor, files, onOpenLink, onCreateLink },
   ref,
 ) {
   const host = useRef<HTMLDivElement>(null);
@@ -46,6 +49,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   cursor.current = onCursor;
   const openLink = useRef(onOpenLink);
   openLink.current = onOpenLink;
+  const createLink = useRef(onCreateLink);
+  createLink.current = onCreateLink;
 
   useEffect(() => {
     if (!host.current || !path) return;
@@ -78,8 +83,12 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorView.lineWrapping,
         todoExtension(),
-        wikilinkExtension((p) => openLink.current?.(p)),
+        wikilinkExtension(
+          (p) => openLink.current?.(p),
+          (name) => createLink.current?.(name),
+        ),
         provenanceExtension(),
+        livePreviewExtension(),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },
           ...historyKeymap,

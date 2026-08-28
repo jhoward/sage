@@ -77,7 +77,8 @@ export interface SkillRunArgs {
 }
 
 export interface VaultBackend {
-  listFiles(): Promise<{ files: FileNode[]; sync: SyncStatus }>;
+  /** `hidden` reveals `.sage/` — what "settings" means here. */
+  listFiles(hidden?: boolean): Promise<{ files: FileNode[]; sync: SyncStatus }>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;
   search(query: string): Promise<SearchHit[]>;
@@ -93,6 +94,9 @@ export interface VaultBackend {
   rollover(): Promise<RolloverResult>;
   /** Lift a task out of one file and append it to another. */
   moveTask(source: string, line: number, target: string): Promise<void>;
+
+  /** Move a note and repoint every [[link]] that referenced it. */
+  rename(path: string, newPath: string): Promise<{ newPath: string; updated: string[] }>;
 
   /** Skills are vault files, so this is re-read rather than cached. */
   skills(): Promise<{ skills: SkillInfo[]; available: boolean }>;

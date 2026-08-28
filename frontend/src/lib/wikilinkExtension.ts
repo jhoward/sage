@@ -52,7 +52,10 @@ function build(view: EditorView): DecorationSet {
   return builder.finish();
 }
 
-export function wikilinkExtension(onOpen: (path: string) => void) {
+export function wikilinkExtension(
+  onOpen: (path: string) => void,
+  onCreate?: (name: string) => void,
+) {
   const decorations = ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
@@ -90,10 +93,12 @@ export function wikilinkExtension(onOpen: (path: string) => void) {
 
       const files = view.state.field(linkFilesField, false) ?? [];
       const target = resolveLink(link.target, files);
-      if (!target) return false;
 
       event.preventDefault();
-      onOpen(target);
+      // An unresolved link is an invitation: ⌘-clicking it creates the note. That is how
+      // a wiki is meant to feel — you write the link first and the page follows.
+      if (target) onOpen(target);
+      else onCreate?.(link.target);
       return true;
     },
   });

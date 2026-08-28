@@ -108,3 +108,34 @@ body {
   background: color-mix(in srgb, var(--sage-accent) 7%, transparent);
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--sage-accent) 45%, transparent);
 }
+
+/* ---- live preview ----
+   Markers are dimmed, never hidden: nothing is concealed, so there is no mode to
+   toggle back out of. */
+
+.cm-md-marker {
+  opacity: 0.3;
+}
+
+.cm-md-h1 { font-size: 1.5em; font-weight: 650; line-height: 1.4; }
+.cm-md-h2 { font-size: 1.3em; font-weight: 650; line-height: 1.45; }
+.cm-md-h3 { font-size: 1.15em; font-weight: 600; }
+.cm-md-h4,
+.cm-md-h5,
+.cm-md-h6 { font-weight: 600; }
+
+.cm-md-strong { font-weight: 700; }
+.cm-md-em { font-style: italic; }
+.cm-md-strike { text-decoration: line-through; opacity: 0.7; }
+
+.cm-md-code {
+  background: color-mix(in srgb, var(--sage-fg) 8%, transparent);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.cm-md-quote {
+  color: var(--sage-muted);
+  box-shadow: inset 2px 0 0 var(--sage-border);
+  padding-left: 8px;
+}

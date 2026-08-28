@@ -14,6 +14,12 @@ export interface Command {
   keywords?: string;
   /** Shown right-aligned: a shortcut, a path, whatever identifies the target. */
   hint?: string;
+  /**
+   * Tie-breaker added to the match score; lower sorts earlier. Used to put
+   * recently-opened files at the top of the switcher, which is the single biggest
+   * quality-of-life win in a file picker.
+   */
+  rank?: number;
   run: () => void | Promise<void>;
 }
 
@@ -46,6 +52,8 @@ export function filterCommands(query: string, commands: Command[]): Command[] {
   return commands
     .map((c) => ({ c, s: score(query, c) }))
     .filter((x): x is { c: Command; s: number } => x.s !== null)
-    .sort((a, b) => a.s - b.s)
+    // Rank breaks ties without overriding relevance: a strong text match still wins over
+    // a recently-opened file that barely matches.
+    .sort((a, b) => a.s - b.s || (a.c.rank ?? 0) - (b.c.rank ?? 0))
     .map((x) => x.c);
 }

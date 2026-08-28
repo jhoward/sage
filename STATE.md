@@ -1,6 +1,6 @@
 # Where this is
 
-_Last updated: 2026-08-28 — end of Phase 3._
+_Last updated: 2026-08-28 — end of Phase 3.5 (editor and todo polish)._
 
 ## Running it in 30 seconds
 
@@ -12,15 +12,15 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run sage`.
 
 ```bash
-cd backend-python && uv run pytest   # 63 passed, 1 skipped
-cd frontend && npm test              # 49 passed
+cd backend-python && uv run pytest   # 74 passed, 1 skipped
+cd frontend && npm test              # 58 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
 so `vault.search()` uses the pure-Python fallback. Not a problem at current scale — see
 the search ladder in the README.
 
-## Done — Phases 1 through 3
+## Done — Phases 1 through 3.5
 
 Editor, file tree, autosave, native window, and the core todo loop, all working:
 
@@ -38,6 +38,11 @@ Editor, file tree, autosave, native window, and the core todo loop, all working:
 - Streaming generation into a review panel — `⌘↵` accept, `esc` discard, nothing silent
 - Provenance markers on accepted text, rendered tinted and still editable
 - Four context strategies: selection, note, note-and-links, week-done
+- `⌘O` file switcher (recently opened first) split out from `⌘K`, `⌘⇧F` vault search
+- `⌘N` new note; `⌘`-click an unresolved `[[link]]` to create it
+- Rename with inbound link rewriting
+- Settings = revealing `.sage/` in the tree; no settings panel
+- Live-preview styling (persistent, nothing hidden, so no mode to toggle)
 
 **No API key is configured**, so skills appear in the palette but report a clear message
 when run. Set `ANTHROPIC_API_KEY` or add `anthropic_api_key` to

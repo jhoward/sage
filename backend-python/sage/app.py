@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 
 from . import ai, config as config_mod
+from . import links as links_mod
 from . import skills as skills_mod
 from . import todo, vault_sync
 from .vault import Vault, VaultError
@@ -38,6 +39,11 @@ class WriteRequest(BaseModel):
 class QuickAddRequest(BaseModel):
     text: str
     target: str = "week"  # or "backlog"
+
+
+class RenameRequest(BaseModel):
+    path: str
+    newPath: str
 
 
 class SkillRunRequest(BaseModel):
@@ -84,9 +90,9 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/files")
-    def list_files():
+    def list_files(hidden: bool = False):
         return {
-            "files": [n.to_dict() for n in vault.list_files()],
+            "files": [n.to_dict() for n in vault.list_files(include_hidden=hidden)],
             "sync": sync.status().to_dict(),
         }
 
@@ -98,6 +104,14 @@ def create_app(
     def write_file(req: WriteRequest):
         guard(vault.write_file, req.path, req.content)
         return {"ok": True, "sync": sync.status().to_dict()}
+
+    @app.post("/api/rename")
+    def rename(req: RenameRequest):
+        """Move a note and repoint every link that referenced it."""
+        try:
+            return links_mod.rename(vault, req.path, req.newPath).to_dict()
+        except (ValueError, VaultError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/search")
     def search(q: str = ""):

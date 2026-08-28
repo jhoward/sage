@@ -23,6 +23,9 @@ from pathlib import Path
 MARKDOWN_SUFFIXES = {".md", ".markdown"}
 SKIP_DIRS = {".git", ".obsidian", "node_modules", "__pycache__"}
 
+# The one hidden directory the app will reveal on request.
+SETTINGS_DIR = ".sage"
+
 # Cap search output so a pathological query cannot flood the UI.
 MAX_SEARCH_HITS = 200
 
@@ -87,15 +90,23 @@ class Vault:
 
     # ---- operations --------------------------------------------------
 
-    def list_files(self) -> list[FileNode]:
-        """Recursive markdown tree, directories first then files, both alphabetical."""
+    def list_files(self, include_hidden: bool = False) -> list[FileNode]:
+        """Recursive markdown tree, directories first then files, both alphabetical.
+
+        Dotfiles are hidden by default. `include_hidden` reveals `.sage/` — which is what
+        "settings" means here: skills and config are ordinary files you edit in the editor,
+        so there is no settings panel to build.
+        """
 
         def walk(directory: Path) -> list[FileNode]:
             dirs: list[FileNode] = []
             files: list[FileNode] = []
 
             for entry in sorted(directory.iterdir(), key=lambda p: p.name.lower()):
-                if entry.name.startswith(".") or entry.name in SKIP_DIRS:
+                if entry.name in SKIP_DIRS:
+                    continue
+                hidden = entry.name.startswith(".")
+                if hidden and not (include_hidden and entry.name == SETTINGS_DIR):
                     continue
                 if entry.is_dir():
                     children = walk(entry)
@@ -103,7 +114,7 @@ class Vault:
                         dirs.append(
                             FileNode(entry.name, self._rel(entry), True, children)
                         )
-                elif entry.suffix.lower() in MARKDOWN_SUFFIXES:
+                elif entry.suffix.lower() in MARKDOWN_SUFFIXES or entry.suffix == ".toml":
                     files.append(FileNode(entry.name, self._rel(entry), False))
 
             return dirs + files

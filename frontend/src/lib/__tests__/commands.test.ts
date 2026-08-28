@@ -57,6 +57,32 @@ describe("score", () => {
   });
 });
 
+describe("rank", () => {
+  it("orders equal matches by rank", () => {
+    const items: Command[] = [
+      { id: "old", title: "Open alpha", rank: 5, run: () => {} },
+      { id: "recent", title: "Open beta", rank: 0, run: () => {} },
+    ];
+    expect(filterCommands("open", items).map((c) => c.id)).toEqual(["recent", "old"]);
+  });
+
+  it("does not let rank override a better text match", () => {
+    const items: Command[] = [
+      { id: "recent", title: "Zebra notes", rank: 0, run: () => {} },
+      { id: "exact", title: "Alpha", rank: 9, run: () => {} },
+    ];
+    expect(filterCommands("alpha", items)[0].id).toBe("exact");
+  });
+
+  it("treats a missing rank as zero", () => {
+    const items: Command[] = [
+      { id: "ranked", title: "Open x", rank: 3, run: () => {} },
+      { id: "unranked", title: "Open y", run: () => {} },
+    ];
+    expect(filterCommands("open", items)[0].id).toBe("unranked");
+  });
+});
+
 describe("filterCommands", () => {
   it("returns everything for an empty query", () => {
     expect(filterCommands("", COMMANDS)).toHaveLength(COMMANDS.length);

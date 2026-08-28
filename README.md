@@ -49,7 +49,12 @@ nothing can drift out of sync with it.
 
 | Action | Key |
 |---|---|
-| Command palette | `⌘K` |
+| Command palette (commands and skills) | `⌘K` |
+| Open a note (recently opened first) | `⌘O` |
+| Search the vault | `⌘⇧F` |
+| New note | `⌘N` |
+| Rename a note, updating inbound links | `⌘K` → rename |
+| Settings (reveal `.sage/`) | `⌘K` → settings |
 | Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
 | Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
 | Toggle done | `⌘⏎` |
@@ -59,7 +64,7 @@ nothing can drift out of sync with it.
 | Hide completed (view only) | `⌘⇧H` |
 | Force save | `⌘S` (autosaves after 500ms anyway) |
 | Split pane (week + backlog) | `⌘\`, or ⌥-click a file |
-| Follow a `[[link]]` | `⌘`-click |
+| Follow a `[[link]]`, or create it if it does not exist | `⌘`-click |
 
 Quick-add is global — it goes to this week's file regardless of which note you are
 looking at, so capture never depends on where you happen to be.
@@ -93,12 +98,45 @@ backlog" acts on the cursor line, and every open backlog item appears as its own
 `Pull: …` entry. A moved task keeps its rolled count, so parking something does not reset
 the record of how long it has been avoided.
 
+## Two palettes, not one
+
+`⌘K` lists commands and skills. `⌘O` lists notes, most recently opened first.
+
+They are separate because a **file is an object and a command is an action** — mixing them
+in one list is what makes a palette useless once a vault has hundreds of notes. Both are
+the same component with different lists, so the split costs nothing.
+
+## Settings is a folder
+
+There is no settings panel. `⌘K` → Settings reveals the hidden `.sage/` directory in the
+file tree, and you edit skills and config as ordinary files in the editor you already have.
+
+```
+<vault>/.sage/skills/*.md        prompts
+<vault>/.sage/keybindings.toml   (Phase 4)
+~/.config/sage/config.toml       machine-specific
+```
+
+## Live preview
+
+Headings are sized, bold is bold, code is in a code face, blockquotes are ruled — but the
+`**` and `#` markers stay visible, just dimmed.
+
+This is not a mode and there is no toggle. Obsidian needs a separate Source view because
+its Live Preview *conceals* syntax, so you sometimes need a way back to the real text.
+Nothing is hidden here, so there is nothing to escape from.
+
 ## Wiki-links
 
 `[[note-name]]` resolves by unique basename or full path, and `⌘`-click follows it. A link
 to a note that does not exist yet renders dotted rather than hidden — while writing, that
 is a normal state and seeing it is the point. An ambiguous name (the same basename in two
-folders) deliberately does not resolve rather than guessing.
+folders) deliberately does not resolve rather than guessing. `⌘`-clicking an unresolved
+link **creates** that note — you write the link first and the page follows.
+
+Renaming through the palette rewrites every `[[link]]` that pointed at the note, aliases
+included. This is the one piece of wiki rot worth preventing early: without it a rename
+quietly breaks every inbound link, and the damage is invisible and cumulative.
 
 Backlinks ride on `search()` rather than an index: search for `[[name`, then re-parse each
 hit to confirm the link really resolves. Nothing to rebuild, nothing to go stale, and the

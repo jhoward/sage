@@ -8,13 +8,14 @@ import {
 } from "./backend";
 import { AIReview } from "./components/AIReview";
 import { BacklinksPanel } from "./components/BacklinksPanel";
-import { CommandPalette } from "./components/CommandPalette";
+import { Switcher } from "./components/Switcher";
 import { Editor, type EditorHandle } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
+import { Prompt } from "./components/Prompt";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
-import { lineLinksTo, linkNameFor } from "./lib/wikilinks";
+import { lineLinksTo, linkNameFor, slugify } from "./lib/wikilinks";
 import type { SearchHit, SkillInfo } from "./backend";
 import { wrap } from "./lib/provenance";
 
@@ -38,7 +39,18 @@ export default function App() {
   });
   const path = doc.path;
   const [quickAdd, setQuickAdd] = useState(false);
+  // Three overlays, one component. Commands and files are deliberately separate lists:
+  // a file is an object, a command is an action, and mixing them makes the palette
+  // useless once the vault has hundreds of notes.
   const [palette, setPalette] = useState(false);
+  const [switcher, setSwitcher] = useState(false);
+  const [newNote, setNewNote] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  // Most-recently-opened first; drives ranking in the file switcher.
+  const [recent, setRecent] = useState<string[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [backlog, setBacklog] = useState<TaskRef[]>([]);
@@ -62,19 +74,20 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const { files, sync } = await backend.listFiles();
+      const { files, sync } = await backend.listFiles(showSettings);
       setFiles(files);
       setSync(sync);
       setError(null);
     } catch (e) {
       setError(String(e));
     }
-  }, []);
+  }, [showSettings]);
 
   const open = useCallback(async (p: string) => {
     try {
       const content = await backend.readFile(p);
       setDoc({ path: p, content });
+      setRecent((r) => [p, ...r.filter((x) => x !== p)].slice(0, 50));
       setError(null);
     } catch (e) {
       setError(String(e));
@@ -94,6 +107,28 @@ export default function App() {
       }
     })();
   }, [refresh, open]);
+
+  /**
+   * Create a note and open it. Shared by ⌘N and by ⌘-clicking an unresolved [[link]] —
+   * both are "make this note exist", so they are one path.
+   */
+  const createNote = useCallback(
+    async (name: string, folder = "notes") => {
+      const slug = slugify(name);
+      if (!slug) return;
+      const path = `${folder}/${slug}.md`;
+      try {
+        const existing = await backend.listFiles();
+        const already = JSON.stringify(existing.files).includes(`"${path}"`);
+        if (!already) await backend.writeFile(path, `# ${name.trim()}\n\n`);
+        await refresh();
+        await open(path);
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [open, refresh],
+  );
 
   const openSplit = useCallback(async (p: string) => {
     try {
@@ -151,6 +186,10 @@ export default function App() {
     abort.current?.abort();
     setRun(null);
   }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [showSettings, refresh]);
 
   const save = useCallback(async (p: string, body: string) => {
     try {
@@ -236,6 +275,32 @@ export default function App() {
         },
       },
       {
+        id: "note.new",
+        title: "New note",
+        keywords: "create add page",
+        hint: "⌘N",
+        run: () => setNewNote(true),
+      },
+      {
+        id: "vault.search",
+        title: "Search the vault",
+        keywords: "find grep text",
+        hint: "⌘⇧F",
+        run: () => setSearching(true),
+      },
+      {
+        id: "note.rename",
+        title: "Rename this note (updates links)",
+        keywords: "move title",
+        run: () => setRenaming(true),
+      },
+      {
+        id: "vault.settings",
+        title: showSettings ? "Hide settings" : "Settings (show .sage folder)",
+        keywords: "config skills keybindings preferences",
+        run: () => setShowSettings((v) => !v),
+      },
+      {
         id: "view.split",
         title: split ? "Close split pane" : "Open backlog in a split pane",
         keywords: "side by side planning two panes",
@@ -312,22 +377,55 @@ export default function App() {
       });
     }
 
-    for (const f of flatten(files)) {
-      list.push({
-        id: `open:${f.path}`,
-        title: `Open ${f.name.replace(/\.md$/, "")}`,
-        keywords: f.path,
-        hint: f.path,
-        run: () => open(f.path),
-      });
-    }
+    // Files live in ⌘O, not here — see the note on the overlay state above.
     return list;
-  }, [files, path, backlog, split, skills, open, openSplit, refresh, runSkill]);
+  }, [path, backlog, split, skills, showSettings, open, openSplit, refresh, runSkill]);
+
+  const fileCommands = useMemo<Command[]>(
+    () =>
+      flatten(files).map((f) => {
+        const seen = recent.indexOf(f.path);
+        return {
+          id: `open:${f.path}`,
+          title: f.name.replace(/\.md$/, ""),
+          keywords: f.path,
+          hint: f.path,
+          // Unseen files sort after every recently-opened one.
+          rank: seen === -1 ? 1000 : seen,
+          run: () => open(f.path),
+        };
+      }),
+    [files, recent, open],
+  );
+
+  const searchCommands = useMemo<Command[]>(
+    () =>
+      hits.map((h, i) => ({
+        id: `hit:${h.path}:${h.line}:${i}`,
+        title: h.text,
+        keywords: h.path,
+        hint: `${h.path.replace(/\.md$/, "")}:${h.line}`,
+        run: () => open(h.path),
+      })),
+    [hits, open],
+  );
 
   // ⌘K is the single invocation surface; ⌘⇧T is the one capture shortcut worth its own key.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
+      if (mod && !e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        setSwitcher(true);
+      }
+      if (mod && !e.shiftKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setNewNote(true);
+      }
+      if (mod && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSearching(true);
+      }
       if (mod && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         // Refresh backlog entries so "Pull: …" reflects the file, not a stale snapshot.
@@ -390,7 +488,7 @@ export default function App() {
           className="border-t px-3 py-2 text-[11px]"
           style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
         >
-          ⌘K commands · ⌘⇧T add · ⌘⏎ done · ⌘\ split
+          ⌘K commands · ⌘O files · ⌘⇧F search · ⌘N new
         </div>
       </aside>
 
@@ -468,10 +566,83 @@ export default function App() {
       </main>
 
       <QuickAdd open={quickAdd} onClose={() => setQuickAdd(false)} onSubmit={addTask} />
-      <CommandPalette
+      <Switcher
         open={palette}
-        commands={commands}
+        items={commands}
+        placeholder="Type a command…"
+        footer="⌘O files · ⌘⇧F search"
         onClose={() => setPalette(false)}
+        emptyLabel="No matching command"
+      />
+      <Switcher
+        open={switcher}
+        items={fileCommands}
+        placeholder="Open a note…"
+        footer="recently opened first · ⌘K for commands"
+        onClose={() => setSwitcher(false)}
+        emptyLabel="No matching note"
+      />
+      <Switcher
+        open={searching && hits.length > 0}
+        items={searchCommands}
+        placeholder="Results"
+        onClose={() => {
+          setSearching(false);
+          setHits([]);
+        }}
+        emptyLabel="No matches"
+      />
+      <Prompt
+        open={searching && hits.length === 0}
+        label="Search the vault"
+        placeholder="Find text in any note…"
+        onClose={() => setSearching(false)}
+        onSubmit={async (q) => {
+          try {
+            const found = await backend.search(q);
+            if (found.length) setHits(found);
+            else {
+              setSearching(false);
+              setStatus(`No matches for "${q}"`);
+            }
+          } catch (e) {
+            setSearching(false);
+            setError(String(e));
+          }
+        }}
+      />
+      <Prompt
+        open={newNote}
+        label="New note"
+        placeholder="Note name…"
+        onClose={() => setNewNote(false)}
+        onSubmit={(name) => {
+          setNewNote(false);
+          void createNote(name);
+        }}
+      />
+      <Prompt
+        open={renaming}
+        label="Rename note (inbound links are updated)"
+        placeholder={path ?? ""}
+        initial={path ? path.replace(/\.md$/, "") : ""}
+        onClose={() => setRenaming(false)}
+        onSubmit={async (next) => {
+          setRenaming(false);
+          if (!path) return;
+          try {
+            const r = await backend.rename(path, next);
+            await refresh();
+            await open(r.newPath);
+            setStatus(
+              r.updated.length
+                ? `Renamed · updated links in ${r.updated.length} note${r.updated.length > 1 ? "s" : ""}`
+                : "Renamed",
+            );
+          } catch (e) {
+            setError(String(e));
+          }
+        }}
       />
     </div>
   );
