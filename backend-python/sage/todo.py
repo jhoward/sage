@@ -88,12 +88,29 @@ def ensure_week_files(vault) -> str:
     return path
 
 
-def append_to_inbox(vault, text: str, path: str | None = None) -> str:
-    """Append a task under `## Inbox`, creating the heading if absent.
+def backlog_target(vault) -> str:
+    """Where a backlog capture goes: the first backlog file, created if there is none."""
+    existing = backlog_paths(vault.root)
+    if existing:
+        return existing[0]
+    path = f"{TODO_DIR}/backlog.md"
+    vault.write_file(path, BACKLOG_TEMPLATE)
+    return path
 
-    Quick-add has no decisions at capture time — everything lands in the same place and
-    gets triaged later.
+
+def append_task(vault, text: str, target: str = "week") -> str:
+    """Quick-add. `target` is "week" (the default) or "backlog".
+
+    Capture stays decision-free: both destinations use the same `## Inbox` bucket, and
+    triage happens later.
     """
+    if target == "backlog":
+        return append_to_inbox(vault, text, backlog_target(vault))
+    return append_to_inbox(vault, text)
+
+
+def append_to_inbox(vault, text: str, path: str | None = None) -> str:
+    """Append a task under `## Inbox`, creating the heading if absent."""
     path = path or ensure_week_files(vault)
     content = vault.read_file(path)
     task = f"- [ ] {text.strip()}"

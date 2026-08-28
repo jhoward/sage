@@ -21,7 +21,7 @@ For frontend hot-reload, run `npm run dev` in `frontend/` and start the app with
 
 ```bash
 cd backend-python && uv run pytest     # vault conformance suite
-cd frontend && npm test                # todo command logic
+cd frontend && npm test                # todo commands + editor save safety
 ```
 
 ## Your vault
@@ -49,13 +49,17 @@ nothing can drift out of sync with it.
 
 | Action | Key |
 |---|---|
-| Quick-add from anywhere → `## Inbox` | `⌘⇧T` |
+| Quick-add from anywhere → this week's `## Inbox` | `⌘⇧T`, then `↵` |
+| Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
 | Toggle done | `⌘⏎` |
 | Promote to top of section | `⌘⇧↑` |
 | Nudge up / down | `⌥↑` / `⌥↓` |
 | Delete line | `⌘⇧K` |
 | Hide completed (view only) | `⌘⇧H` |
 | Force save | `⌘S` (autosaves after 500ms anyway) |
+
+Quick-add is global — it goes to this week's file regardless of which note you are
+looking at, so capture never depends on where you happen to be.
 
 **Position is priority.** Line order is sort order — no priority field to maintain.
 Sections are ordinary markdown headings.

@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import type { TaskTarget } from "../backend";
 
 /**
- * ⌘⇧T from anywhere. Everything lands in `## Inbox` with no decisions at capture time;
- * triage happens later, when you are in that mode.
+ * ⌘⇧T from anywhere, regardless of which file is open.
+ *
+ * Enter captures to this week, ⇧Enter to the backlog. Both land in `## Inbox` so there
+ * are still no decisions to make at capture time beyond "is this happening this week?"
  */
 export function QuickAdd({
   open,
@@ -11,7 +14,7 @@ export function QuickAdd({
 }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (text: string) => void;
+  onSubmit: (text: string, target: TaskTarget) => void;
 }) {
   const [text, setText] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -32,7 +35,7 @@ export function QuickAdd({
       onMouseDown={onClose}
     >
       <div
-        className="w-[min(560px,90vw)] rounded-lg border p-1 shadow-2xl"
+        className="w-[min(560px,90vw)] overflow-hidden rounded-lg border shadow-2xl"
         style={{ background: "var(--sage-panel)", borderColor: "var(--sage-border)" }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -44,13 +47,19 @@ export function QuickAdd({
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
             if (e.key === "Enter" && text.trim()) {
-              onSubmit(text.trim());
+              onSubmit(text.trim(), e.shiftKey ? "backlog" : "week");
               onClose();
             }
           }}
           className="w-full bg-transparent px-3 py-2.5 text-sm outline-none"
           style={{ color: "var(--sage-fg)" }}
         />
+        <div
+          className="border-t px-3 py-1.5 text-[11px]"
+          style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+        >
+          ↵ this week · ⇧↵ backlog
+        </div>
       </div>
     </div>
   );
