@@ -29,6 +29,7 @@ class WriteRequest(BaseModel):
 
 class QuickAddRequest(BaseModel):
     text: str
+    target: str = "week"  # or "backlog"
 
 
 def create_app(vault: Vault | None = None, sync=None, static_dir: Path | None = None):
@@ -91,7 +92,7 @@ def create_app(vault: Vault | None = None, sync=None, static_dir: Path | None = 
     def quick_add(req: QuickAddRequest):
         if not req.text.strip():
             raise HTTPException(status_code=400, detail="empty task")
-        path = todo.append_to_inbox(vault, req.text)
+        path = todo.append_task(vault, req.text, req.target)
         return {"ok": True, "path": path}
 
     # Built frontend assets, when running as a packaged app rather than against Vite.

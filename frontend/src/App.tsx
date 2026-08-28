@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { backend, type FileNode, type SyncStatus } from "./backend";
+import { backend, type FileNode, type SyncStatus, type TaskTarget } from "./backend";
 import { Editor } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
@@ -75,13 +75,13 @@ export default function App() {
   }, []);
 
   const addTask = useCallback(
-    async (text: string) => {
+    async (text: string, target: TaskTarget) => {
       try {
-        const { path: weekPath } = await backend.quickAdd(text);
+        const { path: written } = await backend.quickAdd(text, target);
         await refresh();
         // Reload if the file being edited is the one that just changed.
-        if (weekPath === path) {
-          setDoc({ path: weekPath, content: await backend.readFile(weekPath) });
+        if (written === path) {
+          setDoc({ path: written, content: await backend.readFile(written) });
         }
       } catch (e) {
         setError(String(e));

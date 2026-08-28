@@ -176,3 +176,25 @@ def test_quick_add_creates_missing_heading(vault: Vault):
     todo.append_to_inbox(vault, "Task", path="todo/scratch.md")
     body = vault.read_file("todo/scratch.md")
     assert "## Inbox" in body and "- [ ] Task" in body
+
+
+def test_append_task_targets_backlog(vault: Vault):
+    todo.ensure_week_files(vault)
+    path = todo.append_task(vault, "Look into caching", target="backlog")
+
+    assert path == "todo/backlog.md"
+    assert "- [ ] Look into caching" in vault.read_file(path)
+    # The week file is untouched.
+    assert "Look into caching" not in vault.read_file(todo.week_path())
+
+
+def test_append_task_defaults_to_week(vault: Vault):
+    path = todo.append_task(vault, "Ship it")
+    assert path == todo.week_path()
+    assert "- [ ] Ship it" in vault.read_file(path)
+
+
+def test_backlog_target_prefers_existing_project_file(vault: Vault):
+    (vault.root / "todo" / "backlog.md").unlink(missing_ok=True)
+    vault.write_file("todo/backlog/general.md", "## Inbox\n")
+    assert todo.backlog_target(vault) == "todo/backlog/general.md"

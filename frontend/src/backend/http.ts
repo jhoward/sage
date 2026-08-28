@@ -63,10 +63,10 @@ export const httpBackend: VaultBackend = {
     return request<WeekInfo>("/api/todo/week");
   },
 
-  async quickAdd(text) {
+  async quickAdd(text, target = "week") {
     return request<{ path: string }>("/api/todo/quick-add", {
       method: "POST",
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, target }),
     });
   },
 };

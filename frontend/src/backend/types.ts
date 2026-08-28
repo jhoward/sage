@@ -32,6 +32,8 @@ export interface SyncStatus {
   conflicts: string[];
 }
 
+export type TaskTarget = "week" | "backlog";
+
 export interface WeekInfo {
   path: string;
   week: string; // e.g. "2026-W35"
@@ -47,8 +49,8 @@ export interface VaultBackend {
 
   /** This week's todo file, created on first access. */
   week(): Promise<WeekInfo>;
-  /** Append a task under `## Inbox` with no decisions at capture time. */
-  quickAdd(text: string): Promise<{ path: string }>;
+  /** Append a task under `## Inbox`. Target is the week by default. */
+  quickAdd(text: string, target?: TaskTarget): Promise<{ path: string }>;
 
   // Phase 3: runSkill(skill, selection): AsyncIterable<string>
 }

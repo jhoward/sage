@@ -17,26 +17,35 @@ interface Props {
 export function Editor({ path, content, onSave }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const timer = useRef<number | null>(null);
 
-  // Keep the latest save target in a ref so the debounce closure never goes stale.
-  const target = useRef({ path, onSave });
-  target.current = { path, onSave };
-
-  const flush = () => {
-    if (timer.current) {
-      window.clearTimeout(timer.current);
-      timer.current = null;
-    }
-    const { path: p, onSave: save } = target.current;
-    if (p && view.current) save(p, view.current.state.doc.toString());
-  };
+  // onSave is read through a ref so the save closure never goes stale, while the *path*
+  // is deliberately NOT: each editor instance saves only to the file it was opened with.
+  const save = useRef(onSave);
+  save.current = onSave;
 
   useEffect(() => {
-    if (!host.current) return;
+    if (!host.current || !path) return;
+
+    // Captured per instance. React runs cleanup after re-rendering with the next path,
+    // so reading `path` from props at flush time would write this document into the
+    // *next* file — silently destroying it.
+    const filePath = path;
+    const loaded = content;
+    let timer: number | null = null;
+    let dirty = false;
+
+    const flush = () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      if (!dirty || !view.current) return;
+      dirty = false;
+      save.current(filePath, view.current.state.doc.toString());
+    };
 
     const state = EditorState.create({
-      doc: content,
+      doc: loaded,
       extensions: [
         history(),
         drawSelection(),
@@ -52,43 +61,44 @@ export function Editor({ path, content, onSave }: Props) {
         ]),
         EditorView.updateListener.of((u) => {
           if (!u.docChanged) return;
-          if (timer.current) window.clearTimeout(timer.current);
-          timer.current = window.setTimeout(flush, AUTOSAVE_MS);
+          dirty = true;
+          if (timer !== null) window.clearTimeout(timer);
+          timer = window.setTimeout(flush, AUTOSAVE_MS);
         }),
       ],
     });
 
-    view.current = new EditorView({ state, parent: host.current });
+    const instance = new EditorView({ state, parent: host.current });
+    view.current = instance;
+
+    const onUnload = () => flush();
+    window.addEventListener("beforeunload", onUnload);
+
     return () => {
-      flush(); // never lose a pending edit on unmount
-      view.current?.destroy();
-      view.current = null;
+      window.removeEventListener("beforeunload", onUnload);
+      flush(); // pending edits land in filePath, not whatever is open next
+      instance.destroy();
+      if (view.current === instance) view.current = null;
     };
-    // Recreate only when the open file changes; content edits flow through CodeMirror.
+    // `content` is the file's loaded text and is intentionally not a dependency:
+    // re-running on every keystroke would rebuild the editor. External reloads are
+    // handled by the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
-  // Replace the document when the same file is reloaded from disk.
+  // Adopt content that changed underneath us (e.g. quick-add appended to this file).
   useEffect(() => {
     const v = view.current;
     if (!v || v.state.doc.toString() === content) return;
-    v.dispatch({
-      changes: { from: 0, to: v.state.doc.length, insert: content },
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: content } });
   }, [content]);
-
-  // Save on window close as well as on unmount.
-  useEffect(() => {
-    window.addEventListener("beforeunload", flush);
-    return () => window.removeEventListener("beforeunload", flush);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   if (!path) {
     return (
-      <div className="flex h-full items-center justify-center text-sm"
-           style={{ color: "var(--sage-muted)" }}>
+      <div
+        className="flex h-full items-center justify-center text-sm"
+        style={{ color: "var(--sage-muted)" }}
+      >
         Select a note, or press ⌘⇧T to add a task
       </div>
     );
