@@ -6,7 +6,6 @@ import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { todoExtension } from "../lib/todo";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
-import { provenanceExtension } from "../lib/provenanceExtension";
 import { livePreviewExtension } from "../lib/livePreview";
 import type { SkillMode } from "../backend";
 import type { FileNode } from "../backend";
@@ -87,7 +86,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           (p) => openLink.current?.(p),
           (name) => createLink.current?.(name),
         ),
-        provenanceExtension(),
         livePreviewExtension(),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },

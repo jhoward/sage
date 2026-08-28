@@ -20,7 +20,6 @@ import type { Command } from "./lib/commands";
 import { BINDINGS, label, matches } from "./lib/keybindings";
 import { lineLinksTo, linkNameFor, slugify } from "./lib/wikilinks";
 import type { SearchHit, SkillInfo } from "./backend";
-import { wrap } from "./lib/provenance";
 
 /**
  * A pane's filename bar. Both panes render this, which is the point: the left name used
@@ -199,7 +198,7 @@ export default function App() {
   );
 
   const acceptRun = useCallback(
-    (withProvenance: boolean) => {
+    () => {
       if (!run) return;
       if (!editor.current) {
         // Previously a silent return, which made a missing editor ref look like a
@@ -207,15 +206,7 @@ export default function App() {
         setError("Cannot apply: no editor is focused. Open a note and try again.");
         return;
       }
-      const text = withProvenance
-        ? wrap(run.text, {
-            model: "claude-opus-5",
-            skill: run.skill.id,
-            at: new Date().toISOString().slice(0, 16),
-          })
-        : run.text.trim();
-
-      editor.current.apply(text, run.skill.mode);
+      editor.current.apply(run.text.trim(), run.skill.mode);
       setRun(null);
     },
     [run],
@@ -694,8 +685,7 @@ export default function App() {
           text={run?.text ?? ""}
           streaming={run?.streaming ?? false}
           error={run?.error ?? null}
-          onAccept={() => acceptRun(true)}
-          onAcceptPlain={() => acceptRun(false)}
+          onAccept={acceptRun}
           onReject={rejectRun}
         />
         <BacklinksPanel hits={backlinks} onOpen={open} />

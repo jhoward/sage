@@ -66,7 +66,6 @@ describe("AIReview accept", () => {
         streaming={props.streaming ?? false}
         error={null}
         onAccept={() => {}}
-        onAcceptPlain={() => {}}
         onReject={() => {}}
       />
     );
