@@ -1,0 +1,161 @@
+# Sage
+
+A local-first, AI-native notes and todo app. Plain markdown files on disk, a fast editor,
+and a weekly todo list that generates its own work summaries.
+
+Phase 1 is built: editor, file tree, autosave, and the core todo interactions.
+
+## Running it
+
+```bash
+brew install node                      # once
+
+cd backend-python && uv sync --extra dev
+cd ../frontend && npm install && npm run build
+
+cd ../backend-python && uv run sage    # opens a native window
+```
+
+For frontend hot-reload, run `npm run dev` in `frontend/` and start the app with
+`SAGE_DEV=1 uv run sage`.
+
+```bash
+cd backend-python && uv run pytest     # vault conformance suite
+cd frontend && npm test                # todo command logic
+```
+
+## Your vault
+
+Notes live **outside this repo**, at `~/notes` by default, so the vault can be its own git
+repo later without entangling it with the app. Change the location in
+`~/.config/sage/config.toml`.
+
+```
+~/notes/
+├── todo/
+│   ├── 2026-W35.md      this week
+│   └── backlog.md       persistent; never rolls over
+├── notes/
+└── .sage/
+    ├── keybindings.toml   (later — follows the vault across machines)
+    └── skills/            (later — prompts as content)
+```
+
+## The todo system
+
+The whole thing is one markdown file per week plus a few keybindings. There is no task
+database, no index, and no separate todo view — the file is the only representation, so
+nothing can drift out of sync with it.
+
+| Action | Key |
+|---|---|
+| Quick-add from anywhere → `## Inbox` | `⌘⇧T` |
+| Toggle done | `⌘⏎` |
+| Promote to top of section | `⌘⇧↑` |
+| Nudge up / down | `⌥↑` / `⌥↓` |
+| Delete line | `⌘⇧K` |
+| Hide completed (view only) | `⌘⇧H` |
+| Force save | `⌘S` (autosaves after 500ms anyway) |
+
+**Position is priority.** Line order is sort order — no priority field to maintain.
+Sections are ordinary markdown headings.
+
+**The active week should fit on one screen.** If it doesn't, you have over-committed. That
+is why hide-completed exists: finished tasks stay in the file (they are the raw material
+for weekly summaries) but leave the active view.
+
+## Design principles
+
+1. **The file is the source of truth.** No database of record. The vault survives the app.
+2. **Every AI mutation is reviewable and revertible.** Diff before accept; a git commit per
+   AI edit.
+3. **Structure is derived but written back in standard markdown** — `- [ ]`, YAML
+   frontmatter, never custom syntax. The vault degrades gracefully into Obsidian or `grep`.
+4. **Prompts are content, not code.** Skills are markdown files in the vault.
+5. **One invocation surface.** `⌘K` takes intent; a skill and a built-in command are the
+   same kind of thing.
+6. **Context strategy is explicit and swappable.** Every AI feature reduces to what went in
+   the context window.
+7. **Latency budget.** Local operations are instant; AI is async and never blocks a keystroke.
+8. **Degrades to a good plain editor** with no network and no API key.
+
+### The anti-bloat mechanism
+
+OneNote and Evernote bloated because features are code, and code only accumulates. Here,
+most "features" are markdown files in the vault. A skill you don't use is a file you delete.
+The app doesn't grow — your skill folder does, and you prune it.
+
+### The "no" list
+
+Permanent, not "later":
+
+- No notebooks/sections/pages hierarchy — files in folders
+- No rich text, embedded objects, or drawing canvas — everything is markdown
+- No modes (edit vs. view vs. present)
+- No plugin API — skills are the extension point, and they are just prompts
+- No sharing, commenting, or multiplayer
+- No mobile app
+- No feature requiring a settings panel longer than one screen
+
+## Architecture
+
+Three contracts carry the flexibility. Components never import a transport, sync never
+touches the vault API, and AI features never build context strings inline.
+
+| Contract | Where | Now | Later |
+|---|---|---|---|
+| `VaultBackend` | `frontend/src/backend/types.ts` | `http.ts` → Python | `tauri.ts` → Rust |
+| `VaultSync` | `backend-python/sage/vault_sync/` | `LocalSync` (no-op) | `git.py`, `drive.py` |
+| `ContextStrategy` | `backend-python/sage/context.py` | `SelectionOnly`, `CurrentNote` | title-listing retrieval |
+
+The backend is deliberately dumb — list, read, write, search. Wiki-link parsing, markdown
+rendering, and the backlink index belong in the shared frontend. That is what keeps a future
+Rust port to about a day of work, and it is why the pytest suite in `backend-python/tests/`
+matters: whatever implements the contract must pass those same cases.
+
+### Why Python now
+
+Performance was never the deciding factor — the backend walks a folder, reads text files,
+and greps. Rust's real value is packaging a ~10MB double-clickable `.app`, which matters
+eventually, not yet. The frontend is ~80% of the work and is identical either way.
+
+### Provenance
+
+When AI generation lands in Phase 3, generated regions are marked with HTML comments —
+invisible in every renderer, and they survive round-tripping through other editors:
+
+```markdown
+<!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-27T14:32 -->
+Generated content.
+<!-- /sage:ai -->
+```
+
+Six months on, "did I verify this or did a model assert it?" is the most important question
+about any line in a vault. No pre-AI notes app has this concept, because everything in one
+was human-written by definition.
+
+## Roadmap
+
+| Phase | Contents |
+|---|---|
+| **1** ✅ | Editor, file tree, autosave, three contracts, atomic writes, core todo interactions |
+| 2 | `⌘K` palette, deterministic weekly rollover, backlog pull/send, wiki-links, backlinks, split view |
+| 3 | Skill runner, selection transforms (cleanup/expand), ask-with-context, weekly summary, diff review |
+| 4 | Git-backed sync, auto-link suggestions, keybinding overrides |
+| 5 | External resolvers (Jira/Docs), per-project backlogs, semantic search only if needed |
+
+### On search
+
+Three operations get conflated, and separating them removes the need for a vector store:
+
+- **Literal search** — ripgrep (or a pure-Python fallback) over a few thousand files is
+  tens of milliseconds. A non-problem.
+- **Context for one note** — notes run ~2 pages, so "current note + linked notes" is
+  10–20k tokens. Send whole notes.
+- **Retrieval across the vault** — at 1,000 notes the *list of titles* is ~15k tokens, which
+  fits in context. Send all titles, let the model pick 5–10, read those whole. No chunking,
+  no embeddings, nothing to go stale.
+
+Escalation ladder, each rung a swap behind the contracts: ripgrep → SQLite FTS5 (stdlib, no
+new dependency) → title-listing retrieval → embeddings, only if the first three genuinely
+fail.
