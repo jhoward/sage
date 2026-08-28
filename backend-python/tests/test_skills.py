@@ -255,3 +255,25 @@ def test_config_route_reports_where_the_key_goes(vault: Vault):
     body = _client(vault).get("/api/config").json()
     assert body["path"].endswith("config.toml")
     assert body["hasKey"] is False
+
+
+def test_create_app_loads_config_even_when_given_a_vault(tmp_path: Path, monkeypatch):
+    """Regression: cfg was only loaded when `vault is None`.
+
+    The real app always builds its own vault and passes it in, so it ran with cfg=None
+    and could never see the API key. The tests missed it because they pass cfg
+    explicitly — a path the app itself never takes.
+    """
+    from fastapi.testclient import TestClient
+
+    from sage import config as config_mod
+
+    cfg_path = tmp_path / "config.toml"
+    config_mod.Config(tmp_path / "vault", "local", "sk-test-key").save(cfg_path)
+    monkeypatch.setattr(config_mod, "CONFIG_PATH", cfg_path)
+
+    v = Vault(tmp_path / "vault")
+    v.ensure()
+    body = TestClient(create_app(v)).get("/api/config").json()
+
+    assert body["hasKey"] is True
