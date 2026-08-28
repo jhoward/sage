@@ -410,3 +410,38 @@ def test_a_commented_out_setting_still_counts_as_missing(tmp_path: Path):
 
     added = config_mod.add_missing_settings(path, config_mod.Config(Path("/tmp/v")))
     assert "anthropic_api_key" in added
+
+
+def test_api_errors_are_readable(vault: Vault):
+    """The SDK's default string is a class name wrapped around a dict repr."""
+
+    class ApiError(Exception):
+        body = {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": "Your credit balance is too low to access the Anthropic API.",
+            },
+        }
+
+        def __str__(self):
+            return f"Error code: 400 - {self.body}"
+
+    class Boom:
+        class messages:
+            @staticmethod
+            def stream(**kwargs):
+                raise ApiError()
+
+    skills.ensure_default_skills(vault)
+    skill = next(s for s in skills.load_skills(vault) if s.id == "cleanup")
+
+    with pytest.raises(ai.AIUnavailable) as caught:
+        list(ai.stream_skill(vault, ai.SkillRequest(skill, selection="x"), client=Boom()))
+
+    assert str(caught.value) == "Your credit balance is too low to access the Anthropic API."
+    assert "Error code" not in str(caught.value)
+
+
+def test_describe_error_falls_back_to_the_exception(vault: Vault):
+    assert ai.describe_error(RuntimeError("network down")) == "network down"
