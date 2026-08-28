@@ -79,6 +79,20 @@ export interface SkillRunArgs {
   instruction?: string | null;
 }
 
+export interface Proposal {
+  tool: "add_task" | "append_to_note" | "replace_in_note";
+  args: Record<string, string>;
+  /** A replacement loses the original; additive changes can be undone by deletion. */
+  destructive: boolean;
+}
+
+export interface AskAnswer {
+  text: string;
+  proposals: Proposal[];
+  /** Notes the model opened, for citation links. */
+  read: string[];
+}
+
 export interface VaultBackend {
   /** `hidden` reveals `.sage/` — what "settings" means here. */
   listFiles(hidden?: boolean): Promise<{ files: FileNode[]; sync: SyncStatus }>;
@@ -110,6 +124,13 @@ export interface VaultBackend {
 
   /** Skills are vault files, so this is re-read rather than cached. */
   skills(): Promise<{ skills: SkillInfo[]; available: boolean }>;
+  /** Ask a question across the whole vault. Reads run; writes come back as proposals. */
+  ask(messages: Array<{ role: string; content: string }>): Promise<AskAnswer>;
+  /** Apply accepted proposals. Snapshots the touched files so they can be undone. */
+  applyProposals(proposals: Proposal[]): Promise<{ changed: string[] }>;
+  /** Restore the files touched by the last applied batch. */
+  undoLastChange(): Promise<{ restored: string[] }>;
+
   /** Restore a shipped skill to its default, discarding local edits. */
   resetSkill(id: string): Promise<void>;
   /** Streams generated text. The API key stays in the backend. */

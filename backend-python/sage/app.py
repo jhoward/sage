@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from fastapi.responses import StreamingResponse
 
-from . import ai, config as config_mod
+from . import ai, chat as chat_mod, config as config_mod
 from . import links as links_mod
 from . import skills as skills_mod
 from . import todo, vault_sync
@@ -42,6 +42,14 @@ class WriteRequest(BaseModel):
 class QuickAddRequest(BaseModel):
     text: str
     target: str = "week"  # or "backlog"
+
+
+class ChatRequest(BaseModel):
+    messages: list[dict]
+
+
+class ApplyRequest(BaseModel):
+    proposals: list[dict]
 
 
 class RenameRequest(BaseModel):
@@ -215,6 +223,39 @@ def create_app(
         except OSError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return {"ok": True, "path": str(path)}
+
+    # The last applied batch, so it can be undone. In memory and session-scoped: a real
+    # history is git's job, and this only has to cover "that wasn't what I meant".
+    app.state.last_change: dict[str, str] = {}
+
+    @app.post("/api/chat")
+    def chat(req: ChatRequest):
+        try:
+            answer = chat_mod.ask(vault, req.messages, cfg=cfg, client=ai_client)
+        except ai.AIUnavailable as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500, detail=ai.describe_error(exc)
+            ) from exc
+        return answer.to_dict()
+
+    @app.post("/api/chat/apply")
+    def apply_changes(req: ApplyRequest):
+        try:
+            changed, snapshot = chat_mod.apply_proposals(vault, req.proposals)
+        except (ValueError, VaultError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        app.state.last_change = snapshot
+        return {"changed": changed, "canUndo": bool(snapshot)}
+
+    @app.post("/api/chat/undo")
+    def undo_changes():
+        if not app.state.last_change:
+            raise HTTPException(status_code=400, detail="Nothing to undo")
+        restored = chat_mod.undo(vault, app.state.last_change)
+        app.state.last_change = {}
+        return {"restored": restored}
 
     @app.get("/api/skills")
     def list_skills():

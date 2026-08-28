@@ -8,7 +8,7 @@ import {
   type TaskTarget,
 } from "./backend";
 import { AIReview, CopyButton } from "./components/AIReview";
-import { BacklinksPanel } from "./components/BacklinksPanel";
+import { AskPanel } from "./components/AskPanel";
 import { Switcher } from "./components/Switcher";
 import { Editor, type EditorHandle } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
@@ -26,13 +26,34 @@ import type { SearchHit, SkillInfo } from "./backend";
  * to live in an outer header spanning the whole area, so it sat a row above the right one
  * and no amount of height tuning could line them up.
  */
-function PaneHeader({ path, onClose }: { path: string | null; onClose?: () => void }) {
+function PaneHeader({
+  path,
+  links,
+  onLinks,
+  onClose,
+}: {
+  path: string | null;
+  /** Inbound link count, shown as a number rather than a permanent panel. */
+  links?: number;
+  onLinks?: () => void;
+  onClose?: () => void;
+}) {
   return (
     <div
       className="flex h-9 shrink-0 items-center gap-3 border-b px-4 text-xs"
       style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
     >
       <span className="min-w-0 flex-1 truncate">{path ?? "No file open"}</span>
+      {!!links && (
+        <button
+          onClick={onLinks}
+          className="shrink-0"
+          style={{ color: "var(--sage-accent)" }}
+          title="Notes linking here"
+        >
+          ← {links}
+        </button>
+      )}
       {onClose && (
         <button onClick={onClose} className="shrink-0" title="Close split">
           ✕
@@ -77,6 +98,8 @@ export default function App() {
   const [asking, setAsking] = useState<SkillInfo | null>(null);
   const [pulling, setPulling] = useState(false);
   const [week, setWeek] = useState<WeekInfo | null>(null);
+  const [asking2, setAsking2] = useState(false);
+  const [showBacklinks, setShowBacklinks] = useState(false);
   // Most-recently-opened first; drives ranking in the file switcher.
   const [recent, setRecent] = useState<string[]>([]);
   const [status, setStatus] = useState<string | null>(null);
@@ -307,6 +330,30 @@ export default function App() {
         },
       },
       {
+        id: "ask.panel",
+        group: "AI",
+        title: "Ask the vault…",
+        keywords: "question chat search across notes",
+        hint: label(BINDINGS.ask),
+        run: () => setAsking2(true),
+      },
+      {
+        id: "ai.undo",
+        group: "AI",
+        title: "Undo last AI change",
+        keywords: "revert restore",
+        run: async () => {
+          try {
+            const { restored } = await backend.undoLastChange();
+            await refresh();
+            if (path) await open(path);
+            setStatus(`Reverted ${restored.length} file${restored.length > 1 ? "s" : ""}`);
+          } catch (e) {
+            setError(String(e));
+          }
+        },
+      },
+      {
         id: "note.new",
         group: "Notes",
         title: "New note",
@@ -524,6 +571,9 @@ export default function App() {
       } else if (matches(e, BINDINGS.quickAdd)) {
         e.preventDefault();
         setQuickAdd(true);
+      } else if (matches(e, BINDINGS.ask)) {
+        e.preventDefault();
+        setAsking2((v) => !v);
       } else if (matches(e, BINDINGS.pull)) {
         e.preventDefault();
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
@@ -611,7 +661,7 @@ export default function App() {
           style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
         >
           {label(BINDINGS.palette)} commands · {label(BINDINGS.switcher)} files ·{" "}
-          {label(BINDINGS.search)} search · {label(BINDINGS.newNote)} new
+          {label(BINDINGS.search)} search · {label(BINDINGS.ask)} ask
         </div>
       </aside>
 
@@ -648,7 +698,11 @@ export default function App() {
         )}
         <div className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
-            <PaneHeader path={doc.path} />
+            <PaneHeader
+              path={doc.path}
+              links={backlinks.length}
+              onLinks={() => setShowBacklinks(true)}
+            />
             <div className="min-h-0 flex-1">
             <Editor
               path={doc.path}
@@ -688,9 +742,18 @@ export default function App() {
           onAccept={acceptRun}
           onReject={rejectRun}
         />
-        <BacklinksPanel hits={backlinks} onOpen={open} />
       </main>
 
+      <AskPanel
+        open={asking2}
+        onClose={() => setAsking2(false)}
+        onOpenNote={open}
+        onApplied={async () => {
+          await refresh();
+          if (path) await open(path);
+          setStatus("Applied — ⌘K → undo to revert");
+        }}
+      />
       <QuickAdd open={quickAdd} onClose={() => setQuickAdd(false)} onSubmit={addTask} />
       <Switcher
         open={palette}
@@ -699,6 +762,19 @@ export default function App() {
         footer={`${label(BINDINGS.switcher)} files · ${label(BINDINGS.search)} search`}
         onClose={() => setPalette(false)}
         emptyLabel="No matching command"
+      />
+      <Switcher
+        open={showBacklinks}
+        items={backlinks.map((h) => ({
+          id: `bl:${h.path}:${h.line}`,
+          title: h.text,
+          keywords: h.path,
+          hint: h.path.replace(/^notes\//, "").replace(/\.md$/, ""),
+          run: () => open(h.path),
+        }))}
+        placeholder="Notes linking here…"
+        onClose={() => setShowBacklinks(false)}
+        emptyLabel="Nothing links here yet"
       />
       <Switcher
         open={switcher}

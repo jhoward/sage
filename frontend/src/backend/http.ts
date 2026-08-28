@@ -1,6 +1,7 @@
 /** VaultBackend over HTTP, talking to the Python backend. */
 
 import type {
+  AskAnswer,
   FileNode,
   RolloverResult,
   SearchHit,
@@ -116,6 +117,24 @@ export const httpBackend: VaultBackend = {
 
   async skills() {
     return request<{ skills: SkillInfo[]; available: boolean }>("/api/skills");
+  },
+
+  async ask(messages) {
+    return request<AskAnswer>("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages }),
+    });
+  },
+
+  async applyProposals(proposals) {
+    return request<{ changed: string[] }>("/api/chat/apply", {
+      method: "POST",
+      body: JSON.stringify({ proposals }),
+    });
+  },
+
+  async undoLastChange() {
+    return request<{ restored: string[] }>("/api/chat/undo", { method: "POST" });
   },
 
   async resetSkill(id) {
