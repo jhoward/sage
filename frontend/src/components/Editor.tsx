@@ -12,9 +12,11 @@ interface Props {
   path: string | null;
   content: string;
   onSave: (path: string, content: string) => void;
+  /** 1-based line under the cursor, so palette commands can act on "this task". */
+  onCursor?: (line: number) => void;
 }
 
-export function Editor({ path, content, onSave }: Props) {
+export function Editor({ path, content, onSave, onCursor }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
 
@@ -22,6 +24,8 @@ export function Editor({ path, content, onSave }: Props) {
   // is deliberately NOT: each editor instance saves only to the file it was opened with.
   const save = useRef(onSave);
   save.current = onSave;
+  const cursor = useRef(onCursor);
+  cursor.current = onCursor;
 
   useEffect(() => {
     if (!host.current || !path) return;
@@ -60,6 +64,10 @@ export function Editor({ path, content, onSave }: Props) {
           ...defaultKeymap,
         ]),
         EditorView.updateListener.of((u) => {
+          if (u.selectionSet || u.docChanged) {
+            const head = u.state.selection.main.head;
+            cursor.current?.(u.state.doc.lineAt(head).number);
+          }
           if (!u.docChanged) return;
           dirty = true;
           if (timer !== null) window.clearTimeout(timer);

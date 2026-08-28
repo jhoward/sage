@@ -1,9 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
-import { backend, type FileNode, type SyncStatus, type TaskTarget } from "./backend";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  backend,
+  type FileNode,
+  type SyncStatus,
+  type TaskRef,
+  type TaskTarget,
+} from "./backend";
+import { CommandPalette } from "./components/CommandPalette";
 import { Editor } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
 import { SyncIndicator } from "./components/SyncIndicator";
+import type { Command } from "./lib/commands";
+
+/** Flatten the tree so every note is reachable from the palette. */
+function flatten(nodes: FileNode[], out: FileNode[] = []): FileNode[] {
+  for (const n of nodes) {
+    if (n.isDir) flatten(n.children ?? [], out);
+    else out.push(n);
+  }
+  return out;
+}
 
 export default function App() {
   const [files, setFiles] = useState<FileNode[]>([]);
@@ -16,7 +33,11 @@ export default function App() {
   });
   const path = doc.path;
   const [quickAdd, setQuickAdd] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [backlog, setBacklog] = useState<TaskRef[]>([]);
+  const line = useRef(1);
 
   const refresh = useCallback(async () => {
     try {
@@ -62,18 +83,6 @@ export default function App() {
     }
   }, []);
 
-  // ⌘⇧T is global: capture from anywhere, including mid-note.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "t") {
-        e.preventDefault();
-        setQuickAdd(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   const addTask = useCallback(
     async (text: string, target: TaskTarget) => {
       try {
@@ -89,6 +98,129 @@ export default function App() {
     },
     [path, refresh],
   );
+
+  // Rebuilt whenever the vault changes so "Open …" always reflects what is on disk.
+  // In Phase 3, skills from .sage/skills/ append to this same list.
+  const commands = useMemo<Command[]>(() => {
+    const list: Command[] = [
+      {
+        id: "todo.week",
+        title: "Open this week",
+        keywords: "todo current",
+        hint: "⌘⇧T adds",
+        run: async () => open((await backend.week()).path),
+      },
+      {
+        id: "todo.rollover",
+        title: "Roll unfinished work into this week",
+        keywords: "new week rollover carry forward",
+        run: async () => {
+          try {
+            const r = await backend.rollover();
+            await refresh();
+            if (r.target === path) await open(r.target);
+
+            if (!r.source) setStatus("No earlier week to roll from");
+            else if (!r.moved.length && r.skipped)
+              setStatus(`Already up to date (${r.skipped} already here)`);
+            else if (!r.moved.length) setStatus("Nothing unfinished to carry");
+            else {
+              const stale = r.stale.length
+                ? ` · ${r.stale.length} rolled 5+ times: ${r.stale.join(", ")}`
+                : "";
+              setStatus(`Carried ${r.moved.length} from ${r.source}${stale}`);
+            }
+          } catch (e) {
+            setError(String(e));
+          }
+        },
+      },
+      {
+        id: "todo.send",
+        title: "Send this task to the backlog",
+        keywords: "move defer not this week",
+        run: async () => {
+          if (!path) return;
+          try {
+            const { backlogs } = await backend.week();
+            if (!backlogs[0]) return setError("No backlog file");
+            await backend.moveTask(path, line.current, backlogs[0]);
+            await open(path);
+            await refresh();
+            setStatus(`Moved to ${backlogs[0]}`);
+          } catch (e) {
+            setError(String(e));
+          }
+        },
+      },
+      {
+        id: "todo.backlog",
+        title: "Open backlog",
+        keywords: "todo someday",
+        run: async () => {
+          const { backlogs } = await backend.week();
+          if (backlogs[0]) await open(backlogs[0]);
+        },
+      },
+    ];
+
+    for (const t of backlog) {
+      list.push({
+        id: `pull:${t.path}:${t.line}`,
+        title: `Pull: ${t.text}`,
+        keywords: `backlog ${t.section}`,
+        hint: t.rolled ? `rolled ${t.rolled}×` : undefined,
+        run: async () => {
+          try {
+            const week = (await backend.week()).path;
+            await backend.moveTask(t.path, t.line, week);
+            await open(week);
+            await refresh();
+            setStatus(`Pulled "${t.text}" into this week`);
+          } catch (e) {
+            setError(String(e));
+          }
+        },
+      });
+    }
+
+    for (const f of flatten(files)) {
+      list.push({
+        id: `open:${f.path}`,
+        title: `Open ${f.name.replace(/\.md$/, "")}`,
+        keywords: f.path,
+        hint: f.path,
+        run: () => open(f.path),
+      });
+    }
+    return list;
+  }, [files, path, backlog, open, refresh]);
+
+  // ⌘K is the single invocation surface; ⌘⇧T is the one capture shortcut worth its own key.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        // Refresh backlog entries so "Pull: …" reflects the file, not a stale snapshot.
+        backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
+        setPalette(true);
+      }
+      if (mod && e.shiftKey && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        setQuickAdd(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Status messages are transient; errors stay until the next action.
+  useEffect(() => {
+    if (!status) return;
+    const t = window.setTimeout(() => setStatus(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [status]);
 
   return (
     <div className="flex h-full">
@@ -110,7 +242,7 @@ export default function App() {
           className="border-t px-3 py-2 text-[11px]"
           style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
         >
-          ⌘⇧T add · ⌘⏎ done · ⌘⇧↑ top · ⌘⇧H hide
+          ⌘K commands · ⌘⇧T add · ⌘⏎ done · ⌘⇧↑ top
         </div>
       </aside>
 
@@ -126,12 +258,34 @@ export default function App() {
             {error}
           </div>
         )}
+        {status && (
+          <div
+            className="border-b px-4 py-2 text-xs"
+            style={{
+              borderColor: "var(--sage-border)",
+              color: "var(--sage-muted)",
+              background: "color-mix(in srgb, var(--sage-accent) 6%, transparent)",
+            }}
+          >
+            {status}
+          </div>
+        )}
         <div className="min-h-0 flex-1">
-          <Editor path={doc.path} content={doc.content} onSave={save} />
+          <Editor
+            path={doc.path}
+            content={doc.content}
+            onSave={save}
+            onCursor={(n) => (line.current = n)}
+          />
         </div>
       </main>
 
       <QuickAdd open={quickAdd} onClose={() => setQuickAdd(false)} onSubmit={addTask} />
+      <CommandPalette
+        open={palette}
+        commands={commands}
+        onClose={() => setPalette(false)}
+      />
     </div>
   );
 }
