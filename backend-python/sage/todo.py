@@ -24,7 +24,11 @@ TODO_DIR = "todo"
 TASK_RE = re.compile(r"^(\s*[-*]\s+\[)([ xX])(\]\s?)(.*)$")
 HEADING_RE = re.compile(r"^#{1,6}\s")
 ROLLED_RE = re.compile(r"\s*<!--\s*rolled:(\d+)\s*-->")
-WEEK_FILE_RE = re.compile(r"^(\d{4})-W(\d{2})\.md$")
+# Week files are named for the Sunday that starts them: todo/2026-08-23.md. A date says
+# what it means at a glance, where a week number has to be looked up. Note this is a
+# Sunday-start week, not the ISO Monday-start one.
+WEEK_FILE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.md$")
+LEGACY_WEEK_RE = re.compile(r"^(\d{4})-W(\d{2})\.md$")
 
 # A task that has moved this many weeks is telling you something: do it, delegate it, or
 # drop it. Surfaced by rollover rather than acted on automatically.
@@ -41,6 +45,7 @@ BACKLOG_CAPTURE = "## General"
 
 WEEK_TEMPLATE = """---
 week: {week}
+dates: {label}
 ---
 
 ## Now
@@ -56,11 +61,26 @@ kind: backlog
 """
 
 
-def week_id(when: date | None = None) -> str:
-    """ISO week identifier, e.g. 2026-W35."""
+def week_start(when: date | None = None) -> date:
+    """The Sunday that begins the week containing `when`."""
     when = when or date.today()
-    iso = when.isocalendar()
-    return f"{iso.year}-W{iso.week:02d}"
+    # weekday(): Monday=0 … Sunday=6. Sunday should map to itself, not back six days.
+    return when - timedelta(days=(when.weekday() + 1) % 7)
+
+
+def week_id(when: date | None = None) -> str:
+    """Identifier for a week: the date of its Sunday, e.g. 2026-08-23."""
+    return week_start(when).isoformat()
+
+
+def week_label(when: date | None = None) -> str:
+    """Human label, e.g. "Aug 23 – Aug 29"."""
+    start = week_start(when)
+    end = start + timedelta(days=6)
+    same_month = start.month == end.month
+    return (
+        f"{start:%b %-d} – {end:%-d}" if same_month else f"{start:%b %-d} – {end:%b %-d}"
+    )
 
 
 def week_path(when: date | None = None) -> str:
@@ -97,7 +117,9 @@ def ensure_week_files(vault, when: date | None = None) -> str:
     path = week_path(when)
     target = vault.root / path
     if not target.exists():
-        vault.write_file(path, WEEK_TEMPLATE.format(week=week_id(when)))
+        vault.write_file(
+            path, WEEK_TEMPLATE.format(week=week_id(when), label=week_label(when))
+        )
 
     if not backlog_paths(vault.root):
         vault.write_file(f"{TODO_DIR}/backlog.md", BACKLOG_TEMPLATE)
@@ -301,3 +323,44 @@ def move_task(vault, source: str, line: int, target: str, heading: str | None = 
     vault.write_file(source, "\n".join(lines).rstrip() + "\n")
     append_line(vault, target, render_task(task.text, task.rolled, task.done), heading)
     return task
+
+
+def migrate_week_files(vault) -> list[tuple[str, str]]:
+    """Rename ISO-week files (2026-W35.md) to their Sunday date (2026-08-23.md).
+
+    Runs once on startup and is a no-op afterwards. Renaming rather than rewriting keeps
+    the contents, and skipping any target that already exists means a half-finished
+    migration can be re-run safely.
+    """
+    folder = vault.root / TODO_DIR
+    if not folder.is_dir():
+        return []
+
+    renamed: list[tuple[str, str]] = []
+    for file in sorted(folder.glob("*.md")):
+        m = LEGACY_WEEK_RE.match(file.name)
+        if not m:
+            continue
+        year, week = int(m.group(1)), int(m.group(2))
+        # ISO weeks start Monday; the Sunday that begins our week is the day before.
+        monday = date.fromisocalendar(year, week, 1)
+        target = folder / f"{week_start(monday).isoformat()}.md"
+        if target.exists():
+            continue
+        file.rename(target)
+        # The frontmatter names the week too; leaving it saying 2026-W35 next to a file
+        # called 2026-08-23.md is the kind of drift that makes people distrust the tool.
+        rel = f"{TODO_DIR}/{target.name}"
+        body = vault.read_file(rel)
+        start = week_start(monday)
+        body = re.sub(
+            r"^week:.*$",
+            f"week: {start.isoformat()}\ndates: {week_label(start)}",
+            body,
+            count=1,
+            flags=re.M,
+        )
+        vault.write_file(rel, body)
+        renamed.append((f"{TODO_DIR}/{file.name}", rel))
+
+    return renamed

@@ -127,10 +127,10 @@ def test_note_and_links_skips_ambiguous_names(vault: Vault):
 
 def test_week_done_sends_only_completed_tasks(vault: Vault):
     vault.write_file(
-        "todo/2026-W35.md",
+        "todo/2026-08-23.md",
         "## Now\n- [x] Shipped it\n- [ ] Still open\n- [X] Also done\n",
     )
-    out = context.get("week-done").build(vault, "todo/2026-W35.md", None)
+    out = context.get("week-done").build(vault, "todo/2026-08-23.md", None)
 
     assert "Shipped it" in out and "Also done" in out
     assert "Still open" not in out  # intentions must not drift into a report of the week

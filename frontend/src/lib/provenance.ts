@@ -21,7 +21,10 @@ const CLOSE = "<!-- /sage:ai -->";
 
 export function wrap(text: string, p: Provenance): string {
   const open = `<!-- sage:ai model=${p.model} skill=${p.skill} at=${p.at} -->`;
-  return `${open}\n${text.trim()}\n${CLOSE}`;
+  // Strip any markers already in the text before wrapping. Running a skill on generated
+  // text used to nest a fresh pair around the old ones, stacking a marker per pass. The
+  // useful fact is "a model touched this", not the full lineage — one pair says that.
+  return `${open}\n${strip(text).trim()}\n${CLOSE}`;
 }
 
 /** Parse the attributes of an opening marker, if the line has one. */

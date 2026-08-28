@@ -33,7 +33,7 @@ repo later without entangling it with the app. Change the location in
 ```
 ~/notes/
 ├── todo/
-│   ├── 2026-W35.md      this week — `## Now` and `## This week`
+│   ├── 2026-08-23.md   this week, named for its Sunday — `## Now`, `## This week`
 │   └── backlog.md       persistent; never rolls over
 ├── notes/
 └── .sage/
@@ -54,7 +54,8 @@ nothing can drift out of sync with it.
 | Search the vault | `⌘⇧F` |
 | New note | `⌘N` |
 | Rename a note, updating inbound links | `⌘K` → rename |
-| Delete a note (asks you to type its name) | `⌘K` → delete |
+| Delete a note (asks you to type its name) | `⌘⌫` |
+| Pull several tasks from the backlog | `⌘⇧P` |
 | Settings (reveal `.sage/`) | `⌘K` → settings |
 | Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
 | Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
