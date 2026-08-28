@@ -81,6 +81,7 @@ def create_app(
     sync = sync or vault_sync.make(cfg.sync, vault.root)
     skills_mod.ensure_default_skills(vault)
     todo.migrate_week_files(vault)
+    ai.strip_ai_markers(vault)
     skills_mod.ensure_reference_notes(vault)
 
     app = FastAPI(title="sage", docs_url=None, redoc_url=None)

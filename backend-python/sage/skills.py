@@ -319,16 +319,6 @@ Metadata at the very top of a file, between `---` lines:
     ---
     kind: reference
     ---
-
-## Sage's own markers
-
-Text a skill generated is wrapped like this, and renders tinted:
-
-    <!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-28T09:15 -->
-    generated text
-    <!-- /sage:ai -->
-
-Delete both lines once you have made the text your own.
 """
 
 REFERENCE = {".sage/markdown.md": CHEATSHEET}

@@ -227,18 +227,18 @@ and a skill you stop using is a file you delete.
 ### Nothing is applied without review
 
 Generated text streams into a review panel, never straight into the document. When it
-finishes, the panel takes focus so `↵` accepts and `esc` discards. Accepting wraps the text in provenance markers:
+finishes the panel takes focus, so `↵` accepts and `esc` discards. Accepting is the only
+thing that touches a file.
 
-```markdown
-<!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-28T09:15 -->
-Generated content.
-<!-- /sage:ai -->
-```
+There are deliberately **no provenance markers**. An earlier version wrapped generated text
+in `<!-- sage:ai … -->` comments, and it was removed for two reasons. The pairing is
+positional state in a plain text file, so any edit landing near a boundary stacked or
+orphaned the markers. More importantly a marker outlives the text it describes: expand a
+paragraph, rewrite it in your own words over the following week, and the marker still
+claims a model wrote it. Stale provenance is worse than none, because you would act on it.
 
-Generated regions render tinted, with the markers dimmed but still visible and editable — a
-marker you cannot see is one you cannot remove when you have made the text your own.
-"Accept as mine" inserts without markers. HTML comments because they vanish in any markdown
-renderer and survive a round trip through Obsidian or `grep`.
+Git answers the same question properly — a commit shows exactly what the model wrote and
+what you changed afterwards — and it does not rot.
 
 ### Context is the point
 
@@ -302,28 +302,13 @@ Performance was never the deciding factor — the backend walks a folder, reads 
 and greps. Rust's real value is packaging a ~10MB double-clickable `.app`, which matters
 eventually, not yet. The frontend is ~80% of the work and is identical either way.
 
-### Provenance
-
-When AI generation lands in Phase 3, generated regions are marked with HTML comments —
-invisible in every renderer, and they survive round-tripping through other editors:
-
-```markdown
-<!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-27T14:32 -->
-Generated content.
-<!-- /sage:ai -->
-```
-
-Six months on, "did I verify this or did a model assert it?" is the most important question
-about any line in a vault. No pre-AI notes app has this concept, because everything in one
-was human-written by definition.
-
 ## Roadmap
 
 | Phase | Contents |
 |---|---|
 | **1** ✅ | Editor, file tree, autosave, three contracts, atomic writes, core todo interactions |
 | **2** ✅ | `⌘K` palette, deterministic weekly rollover, backlog pull/send, wiki-links, backlinks, split view |
-| **3** ✅ | Skill runner, selection transforms, ask-with-context, weekly summary, diff review, provenance |
+| **3** ✅ | Skill runner, selection transforms, ask-with-context, weekly summary, diff review |
 | 4 | Git-backed sync, auto-link suggestions, keybinding overrides |
 | 5 | External resolvers (Jira/Docs), per-project backlogs, semantic search only if needed |
 

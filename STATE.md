@@ -36,7 +36,6 @@ Editor, file tree, autosave, native window, and the core todo loop, all working:
 - `⌘\` split pane, ⌥-click a file to open it there
 - Skills as vault files (`.sage/skills/*.md`), joining the palette as ordinary commands
 - Streaming generation into a review panel — `⌘↵` accept, `esc` discard, nothing silent
-- Provenance markers on accepted text, rendered tinted and still editable
 - Four context strategies: selection, note, note-and-links, week-done
 - `⌘O` file switcher (recently opened first) split out from `⌘K`, `⌘⇧F` vault search
 - `⌘N` new note; `⌘`-click an unresolved `[[link]]` to create it
@@ -119,6 +118,9 @@ only if the escalation ladder in the README actually demands it.
   this and was verified to fail against the old implementation — keep those tests passing.
 - **Headings are not a schema.** Capture creates whatever section it targets. Renaming or
   deleting one must never break anything; there is a test for it.
+- **No provenance markers.** They were tried and removed: the pairing broke on any edit
+  near a boundary, and a marker outlived the text it described, so it made false claims
+  about paragraphs you had since rewritten. Git is the right place for this.
 - **Nothing AI-generated reaches a file without review.** Generated text goes to a panel,
   and only accepting writes. Keep it that way — an app where a model can silently rewrite
   your thinking is one you cannot trust with your thinking.

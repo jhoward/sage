@@ -508,3 +508,47 @@ def test_reset_skill_restores_the_default(vault: Vault):
 def test_reset_refuses_a_skill_it_does_not_ship(vault: Vault):
     with pytest.raises(ValueError):
         skills.reset_skill(vault, "mine")
+
+
+# ---- retired provenance markers --------------------------------------
+
+def test_ai_markers_are_stripped(vault: Vault):
+    vault.write_file(
+        "notes/a.md",
+        "Before\n<!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-28T18:07 -->\n"
+        "Generated.\n<!-- /sage:ai -->\nAfter\n",
+    )
+    changed = ai.strip_ai_markers(vault)
+
+    assert changed == ["notes/a.md"]
+    assert vault.read_file("notes/a.md") == "Before\nGenerated.\nAfter\n"
+
+
+def test_stacked_markers_all_go(vault: Vault):
+    """The failure that retired the format: a replace landing inside a marked region."""
+    vault.write_file(
+        "notes/a.md",
+        "<!-- sage:ai model=m skill=expand at=1 -->\n"
+        "<!-- sage:ai model=m skill=expand at=2 -->\n"
+        "## Heading\nBody\n<!-- /sage:ai -->\n<!-- /sage:ai -->\n",
+    )
+    ai.strip_ai_markers(vault)
+    assert vault.read_file("notes/a.md") == "## Heading\nBody\n"
+
+
+def test_stripping_is_idempotent(vault: Vault):
+    vault.write_file("notes/a.md", "Plain note.\n")
+    assert ai.strip_ai_markers(vault) == []
+
+
+def test_ordinary_html_comments_survive(vault: Vault):
+    vault.write_file("notes/a.md", "<!-- a note to myself -->\nBody\n")
+    ai.strip_ai_markers(vault)
+    assert "a note to myself" in vault.read_file("notes/a.md")
+
+
+def test_rolled_markers_are_untouched(vault: Vault):
+    """The todo system uses its own comment marker; only sage:ai is retired."""
+    vault.write_file("todo/x.md", "- [ ] Task <!-- rolled:3 -->\n")
+    ai.strip_ai_markers(vault)
+    assert "rolled:3" in vault.read_file("todo/x.md")

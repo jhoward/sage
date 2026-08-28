@@ -46,7 +46,6 @@ export function AIReview({
   streaming,
   error,
   onAccept,
-  onAcceptPlain,
   onReject,
 }: {
   skill: SkillInfo | null;
@@ -54,7 +53,6 @@ export function AIReview({
   streaming: boolean;
   error: string | null;
   onAccept: () => void;
-  onAcceptPlain: () => void;
   onReject: () => void;
 }) {
   const body = useRef<HTMLDivElement>(null);
@@ -132,14 +130,6 @@ export function AIReview({
             style={{ background: "var(--sage-accent)", color: "white" }}
           >
             Accept
-          </button>
-          <button
-            onClick={onAcceptPlain}
-            className="rounded border px-2.5 py-1 text-xs"
-            style={{ borderColor: "var(--sage-border)", color: "var(--sage-fg)" }}
-            title="Insert without the sage:ai provenance markers"
-          >
-            Accept as mine
           </button>
           <button
             onClick={onReject}

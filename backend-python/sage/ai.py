@@ -14,6 +14,7 @@ Design notes worth keeping:
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -43,6 +44,39 @@ MISSING_WORKSPACE = (
     "Settings -> Workspaces, it looks like wrkspc_...), then restart Sage.\n\n"
     "A standard organisation API key does not need this."
 )
+
+
+AI_MARKER_RE = re.compile(r"^[ \t]*<!--[ \t]*/?sage:ai\b.*?-->[ \t]*\n?", re.M)
+
+
+def strip_ai_markers(vault) -> list[str]:
+    """Remove the retired `<!-- sage:ai … -->` markers from every note.
+
+    These wrapped generated text to record what a model had written. Two problems killed
+    them: the pairing is positional state in a plain text file, so any edit landing near a
+    boundary stacked or orphaned them; and a marker outlives the text it describes, so a
+    paragraph you later rewrote still claimed to be model output. Stale provenance is
+    worse than none, because you would act on it.
+
+    Git carries this properly — a commit shows exactly what the model wrote and what you
+    changed afterwards — so nothing of value is lost.
+
+    Idempotent: a vault with no markers is only read, never written.
+    """
+    changed = []
+    for path in sorted(vault.root.rglob("*.md")):
+        if any(part.startswith(".") for part in path.parts[:-1]):
+            continue
+        rel = path.relative_to(vault.root).as_posix()
+        try:
+            body = vault.read_file(rel)
+        except (OSError, UnicodeDecodeError):
+            continue
+        cleaned = AI_MARKER_RE.sub("", body)
+        if cleaned != body:
+            vault.write_file(rel, cleaned)
+            changed.append(rel)
+    return changed
 
 
 class AIUnavailable(Exception):
