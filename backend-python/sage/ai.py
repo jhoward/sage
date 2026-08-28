@@ -128,4 +128,23 @@ def stream_skill(vault, req: SkillRequest, cfg=None, client=None) -> Iterator[st
         # the missing header, not the setting you have to edit.
         if "anthropic-workspace-id" in str(exc):
             raise AIUnavailable(MISSING_WORKSPACE) from exc
-        raise
+        raise AIUnavailable(describe_error(exc)) from exc
+
+
+def describe_error(exc: Exception) -> str:
+    """Turn an SDK exception into something worth showing a person.
+
+    The default string is a class name wrapped around a Python dict repr of the JSON
+    body — accurate and nearly unreadable. The API's own `message` is usually a good
+    sentence, so surface that and drop the packaging.
+    """
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        inner = body.get("error")
+        if isinstance(inner, dict) and inner.get("message"):
+            return str(inner["message"])
+        if body.get("message"):
+            return str(body["message"])
+
+    message = getattr(exc, "message", None)
+    return str(message or exc)
