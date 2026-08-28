@@ -56,7 +56,13 @@ export function AskPanel({
   useEffect(() => {
     if (!pending) return;
     setPicked(new Set(pending.map((p, i) => (p.destructive ? -1 : i)).filter((i) => i >= 0)));
-    setExpanded(new Set(pending.map((p, i) => (p.destructive ? i : -1)).filter((i) => i >= 0)));
+    setExpanded(
+      new Set(
+        pending
+          .map((p, i) => (p.destructive || p.tool === "create_note" ? i : -1))
+          .filter((i) => i >= 0),
+      ),
+    );
   }, [pending]);
 
   if (!open) return null;
@@ -86,6 +92,34 @@ export function AskPanel({
       setError(String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * Capture an answer the model did not offer to keep. Sources become [[links]] so the
+   * note joins the graph — an orphaned synthesis note is one you will never find again.
+   */
+  const saveAsNote = async (turn: Turn) => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const sources = (turn.read ?? [])
+      .map((p) => `- [[${p.replace(/^notes\//, "").replace(/\.md$/, "")}]]`)
+      .join("\n");
+    const body = sources ? `${turn.text}\n\n## Sources\n\n${sources}` : turn.text;
+
+    try {
+      const { changed } = await backend.applyProposals([
+        {
+          tool: "create_note",
+          destructive: false,
+          args: { path: `notes/${stamp}-note.md`, title: "Saved answer", body },
+        },
+      ]);
+      setTurns((t) =>
+        t.map((x) => (x === turn ? { ...x, applied: changed } : x)),
+      );
+      onApplied();
+    } catch (e) {
+      setError(String(e));
     }
   };
 
@@ -159,6 +193,20 @@ export function AskPanel({
                       </button>
                     ))}
                   </div>
+                )}
+
+                {turn.role === "assistant" && !turn.applied && turn.text && (
+                  <button
+                    onClick={() => void saveAsNote(turn)}
+                    className="mt-2 rounded border px-1.5 py-0.5 text-[11px]"
+                    style={{
+                      borderColor: "var(--sage-border)",
+                      color: "var(--sage-muted)",
+                    }}
+                    title="Keep this answer as a note, linked to its sources"
+                  >
+                    Save as note
+                  </button>
                 )}
 
                 {turn.applied && (
@@ -286,6 +334,7 @@ export function AskPanel({
 function describe(p: Proposal): string {
   const a = p.args;
   if (p.tool === "add_task") return `${a.target === "week" ? "This week" : "Backlog"}: ${a.text}`;
+  if (p.tool === "create_note") return `New note: ${short(a.path)}`;
   if (p.tool === "append_to_note") return `${short(a.path)}: append`;
   if (p.tool === "replace_in_note") return `${short(a.path)}: replace text`;
   return p.tool;
@@ -295,6 +344,7 @@ function detail(p: Proposal): string {
   const a = p.args;
   const why = a.why ? `${a.why}\n\n` : "";
   if (p.tool === "replace_in_note") return `${why}- ${a.old}\n+ ${a.new}`;
+  if (p.tool === "create_note") return `${why}${a.body ?? ""}`;
   if (p.tool === "append_to_note") return `${why}+ ${a.text}`;
   return `${why}+ ${a.text ?? ""}`;
 }

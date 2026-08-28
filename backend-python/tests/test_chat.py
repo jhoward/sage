@@ -219,3 +219,71 @@ def test_undo_removes_a_file_that_did_not_exist(vault: Vault):
 def test_unknown_proposal_is_refused(vault: Vault):
     with pytest.raises(ValueError, match="unknown proposal"):
         chat.apply_proposals(vault, [{"tool": "rm_rf", "args": {}}])
+
+
+# ---- synthesis into new notes ----------------------------------------
+
+def test_create_note_is_additive(vault: Vault):
+    proposals = [{
+        "tool": "create_note",
+        "args": {
+            "path": "notes/override-threshold.md",
+            "title": "Override threshold",
+            "body": "Settled at 5%. Drawn from [[human-oversight]] and [[evals]].",
+        },
+    }]
+    changed, snapshot = chat.apply_proposals(vault, proposals)
+
+    body = vault.read_file("notes/override-threshold.md")
+    assert body.startswith("# Override threshold")
+    assert "[[human-oversight]]" in body
+    assert changed == ["notes/override-threshold.md: created"]
+    # Snapshot records that the file did not exist, so undo deletes it.
+    assert snapshot["notes/override-threshold.md"] == ""
+
+
+def test_undo_removes_a_created_note(vault: Vault):
+    _, snapshot = chat.apply_proposals(vault, [{
+        "tool": "create_note",
+        "args": {"path": "notes/new.md", "title": "New", "body": "From [[evals]]."},
+    }])
+    assert (vault.root / "notes/new.md").exists()
+
+    chat.undo(vault, snapshot)
+    assert not (vault.root / "notes/new.md").exists()
+
+
+def test_create_note_refuses_to_overwrite(vault: Vault):
+    with pytest.raises(ValueError, match="already exists"):
+        chat.apply_proposals(vault, [{
+            "tool": "create_note",
+            "args": {"path": "notes/evals.md", "title": "Evals", "body": "x"},
+        }])
+
+
+def test_create_note_appends_md(vault: Vault):
+    chat.apply_proposals(vault, [{
+        "tool": "create_note",
+        "args": {"path": "notes/no-extension", "title": "T", "body": "b"},
+    }])
+    assert (vault.root / "notes/no-extension.md").exists()
+
+
+def test_create_note_does_not_double_the_heading(vault: Vault):
+    chat.apply_proposals(vault, [{
+        "tool": "create_note",
+        "args": {"path": "notes/x.md", "title": "T", "body": "# Already has one\n\nBody"},
+    }])
+    body = vault.read_file("notes/x.md")
+    assert body.count("#") == 1
+
+
+def test_create_note_is_not_destructive(vault: Vault):
+    """Creating a file is undone by deleting it, so it should not require extra ceremony."""
+    client = FakeClient(
+        with_tools(("create_note", {"path": "notes/s.md", "title": "S", "body": "b"})),
+        text_only("Proposed a note."),
+    )
+    answer = chat.ask(vault, [{"role": "user", "content": "capture that"}], client=client)
+    assert answer.proposals[0].destructive is False
+    assert not (vault.root / "notes/s.md").exists()  # still only a proposal

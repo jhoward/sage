@@ -80,7 +80,7 @@ export interface SkillRunArgs {
 }
 
 export interface Proposal {
-  tool: "add_task" | "append_to_note" | "replace_in_note";
+  tool: "add_task" | "append_to_note" | "create_note" | "replace_in_note";
   args: Record<string, string>;
   /** A replacement loses the original; additive changes can be undone by deletion. */
   destructive: boolean;
