@@ -22,6 +22,27 @@ import { lineLinksTo, linkNameFor, slugify } from "./lib/wikilinks";
 import type { SearchHit, SkillInfo } from "./backend";
 import { wrap } from "./lib/provenance";
 
+/**
+ * A pane's filename bar. Both panes render this, which is the point: the left name used
+ * to live in an outer header spanning the whole area, so it sat a row above the right one
+ * and no amount of height tuning could line them up.
+ */
+function PaneHeader({ path, onClose }: { path: string | null; onClose?: () => void }) {
+  return (
+    <div
+      className="flex h-9 shrink-0 items-center gap-3 border-b px-4 text-xs"
+      style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+    >
+      <span className="min-w-0 flex-1 truncate">{path ?? "No file open"}</span>
+      {onClose && (
+        <button onClick={onClose} className="shrink-0" title="Close split">
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Flatten the tree so every note is reachable from the palette. */
 function flatten(nodes: FileNode[], out: FileNode[] = []): FileNode[] {
   for (const n of nodes) {
@@ -587,13 +608,6 @@ export default function App() {
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header
-          className="flex h-9 shrink-0 items-center border-b px-4 text-xs"
-          style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
-        >
-          <span className="min-w-0 flex-1 truncate">{path ?? "No file open"}</span>
-          {split && <span className="shrink-0 opacity-50">left</span>}
-        </header>
         {error && (
           <div className="flex items-start gap-3 px-4 py-2">
             <div
@@ -626,6 +640,8 @@ export default function App() {
         )}
         <div className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
+            <PaneHeader path={doc.path} />
+            <div className="min-h-0 flex-1">
             <Editor
               path={doc.path}
               content={doc.content}
@@ -636,25 +652,14 @@ export default function App() {
               onCreateLink={(name) => void createNote(name)}
               ref={editor}
             />
+            </div>
           </div>
           {split && (
             <div
               className="flex min-w-0 flex-1 flex-col border-l"
               style={{ borderColor: "var(--sage-border)" }}
             >
-              <div
-                className="flex h-9 shrink-0 items-center gap-3 border-b px-4 text-xs"
-                style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
-              >
-                <span className="min-w-0 flex-1 truncate">{split.path}</span>
-                <button
-                  onClick={() => setSplit(null)}
-                  className="shrink-0"
-                  title="Close split"
-                >
-                  ✕
-                </button>
-              </div>
+              <PaneHeader path={split.path} onClose={() => setSplit(null)} />
               <div className="min-h-0 flex-1">
                 <Editor
                   path={split.path}

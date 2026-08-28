@@ -50,3 +50,16 @@ describe("App wires every global binding it defines", () => {
     }
   });
 });
+
+describe("split panes are symmetric", () => {
+  it("renders both filenames through the same component", () => {
+    // The left name used to live in an outer header spanning both panes, so it sat a row
+    // above the right one. One component for both is what keeps them level.
+    const headers = app.match(/<PaneHeader\b/g) ?? [];
+    expect(headers).toHaveLength(2);
+  });
+
+  it("has no outer header competing with the pane headers", () => {
+    expect(app).not.toMatch(/<header\b/);
+  });
+});
