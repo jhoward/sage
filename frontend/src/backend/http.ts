@@ -98,6 +98,16 @@ export const httpBackend: VaultBackend = {
     });
   },
 
+  async config() {
+    return request<{ path: string; hasKey: boolean; keyFromEnv: boolean }>(
+      "/api/config",
+    );
+  },
+
+  async openConfig() {
+    return request<{ path: string }>("/api/config/open", { method: "POST" });
+  },
+
   async skills() {
     return request<{ skills: SkillInfo[]; available: boolean }>("/api/skills");
   },

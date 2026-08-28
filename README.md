@@ -169,9 +169,23 @@ Nothing runs without an API key, and the app is a perfectly good plain editor wi
 The key lives in the backend — `ANTHROPIC_API_KEY`, or `anthropic_api_key` in
 `~/.config/sage/config.toml` — and never reaches the frontend bundle.
 
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+The config file is created with every setting present and documented, including the empty
+ones, so you never have to guess what a key is called:
+
+```toml
+# ~/.config/sage/config.toml
+vault_path = "/Users/you/notes"
+sync = "local"
+anthropic_api_key = ""     # ANTHROPIC_API_KEY in the environment wins over this
 ```
+
+`⌘K` → "Set the Anthropic API key…" opens that file in your editor; restart Sage after
+saving, since config is read at startup. Until a key is set the palette shows skills marked
+`needs API key` rather than letting you discover it by running one.
+
+Prefer the file over the environment variable if you ever launch Sage as an app — a shell
+profile does not reach a GUI launch. And keep the key there rather than anywhere inside the
+vault, because the vault becomes a git repo.
 
 ### Skills are files
 
