@@ -224,6 +224,14 @@ def create_app(
             "available": ai.api_key(cfg) is not None or ai_client is not None,
         }
 
+    @app.post("/api/skills/{skill_id}/reset")
+    def reset_skill(skill_id: str):
+        try:
+            path = skills_mod.reset_skill(vault, skill_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"ok": True, "path": path}
+
     @app.post("/api/skills/run")
     def run_skill(req: SkillRunRequest):
         skill = next(

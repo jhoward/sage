@@ -443,6 +443,23 @@ export default function App() {
         run: () => (sk.asks ? setAsking(sk) : runSkill(sk)),
       });
       list.push({
+        id: `skill-reset:${sk.id}`,
+        group: "Settings",
+        title: `Reset skill to default: ${sk.title}`,
+        keywords: `restore original prompt ${sk.id}`,
+        run: async () => {
+          try {
+            await backend.resetSkill(sk.id);
+            const r = await backend.skills();
+            setSkills(r.skills);
+            await refresh();
+            setStatus(`Reset ${sk.title} to its shipped default`);
+          } catch (e) {
+            setError(String(e));
+          }
+        },
+      });
+      list.push({
         id: `skill-edit:${sk.id}`,
         title: `Edit skill: ${sk.title}`,
         group: "Settings",
