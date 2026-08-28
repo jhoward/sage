@@ -137,8 +137,10 @@ def test_week_id_format():
 
 def test_ensure_week_files_seeds_both(vault: Vault):
     path = todo.ensure_week_files(vault)
+    body = vault.read_file(path)
     assert path == todo.week_path()
-    assert "## Now" in vault.read_file(path)
+    assert "## Now" in body and "## This week" in body
+    assert "## Inbox" not in body
     assert todo.backlog_paths(vault.root) == ["todo/backlog.md"]
 
 
@@ -161,21 +163,44 @@ def test_backlog_lookup_accepts_folder_layout(vault: Vault):
     ]
 
 
-def test_quick_add_appends_to_inbox(vault: Vault):
-    path = todo.append_to_inbox(vault, "Write the sync layer")
-    body = vault.read_file(path)
-    assert "- [ ] Write the sync layer" in body
+def test_quick_add_appends_in_order(vault: Vault):
+    path = todo.append_task(vault, "Write the sync layer")
+    assert "- [ ] Write the sync layer" in vault.read_file(path)
 
-    todo.append_to_inbox(vault, "Second task")
+    todo.append_task(vault, "Second task")
     lines = [l for l in vault.read_file(path).splitlines() if l.startswith("- [ ]")]
     assert lines == ["- [ ] Write the sync layer", "- [ ] Second task"]
 
 
-def test_quick_add_creates_missing_heading(vault: Vault):
+def test_quick_add_lands_under_this_week(vault: Vault):
+    """Capture goes to the bottom of the week, not a separate inbox."""
+    path = todo.append_task(vault, "Draft the doc")
+    lines = vault.read_file(path).splitlines()
+
+    assert "## Inbox" not in lines
+    heading = lines.index(todo.WEEK_CAPTURE)
+    assert lines[heading + 1] == "- [ ] Draft the doc"
+    # "## Now" stays empty — capture never jumps the commitment line.
+    now = lines.index("## Now")
+    assert not lines[now + 1].startswith("- [ ]")
+
+
+def test_backlog_capture_lands_under_general(vault: Vault):
+    todo.ensure_week_files(vault)
+    path = todo.append_task(vault, "Look into caching", target="backlog")
+    lines = vault.read_file(path).splitlines()
+
+    assert "## Inbox" not in lines
+    heading = lines.index(todo.BACKLOG_CAPTURE)
+    assert lines[heading + 1] == "- [ ] Look into caching"
+
+
+def test_append_creates_missing_heading(vault: Vault):
+    """Headings are not a schema — a renamed or deleted section must not break capture."""
     vault.write_file("todo/scratch.md", "# Scratch\n")
-    todo.append_to_inbox(vault, "Task", path="todo/scratch.md")
+    todo.append_to_heading(vault, "Task", "todo/scratch.md", "## Someday")
     body = vault.read_file("todo/scratch.md")
-    assert "## Inbox" in body and "- [ ] Task" in body
+    assert "## Someday" in body and "- [ ] Task" in body
 
 
 def test_append_task_targets_backlog(vault: Vault):
