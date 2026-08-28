@@ -33,7 +33,7 @@ repo later without entangling it with the app. Change the location in
 ```
 ~/notes/
 ├── todo/
-│   ├── 2026-W35.md      this week
+│   ├── 2026-W35.md      this week — `## Now` and `## This week`
 │   └── backlog.md       persistent; never rolls over
 ├── notes/
 └── .sage/
@@ -49,7 +49,7 @@ nothing can drift out of sync with it.
 
 | Action | Key |
 |---|---|
-| Quick-add from anywhere → this week's `## Inbox` | `⌘⇧T`, then `↵` |
+| Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
 | Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
 | Toggle done | `⌘⏎` |
 | Promote to top of section | `⌘⇧↑` |
@@ -62,7 +62,13 @@ Quick-add is global — it goes to this week's file regardless of which note you
 looking at, so capture never depends on where you happen to be.
 
 **Position is priority.** Line order is sort order — no priority field to maintain.
-Sections are ordinary markdown headings.
+Sections are ordinary markdown headings, and nothing in the code enforces them: capture
+creates whatever heading it targets, so rename or delete them freely.
+
+The week has two sections because the only thing a flat ordered list cannot express is the
+commitment line — `## Now` answers "what am I doing right now" without re-reading twenty
+items. There is deliberately **no inbox**: an inbox earns its place only when there are
+several destinations to sort into, which is not true until backlogs split per project.
 
 **The active week should fit on one screen.** If it doesn't, you have over-committed. That
 is why hide-completed exists: finished tasks stay in the file (they are the raw material

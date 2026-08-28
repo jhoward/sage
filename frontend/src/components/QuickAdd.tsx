@@ -4,8 +4,9 @@ import type { TaskTarget } from "../backend";
 /**
  * ⌘⇧T from anywhere, regardless of which file is open.
  *
- * Enter captures to this week, ⇧Enter to the backlog. Both land in `## Inbox` so there
- * are still no decisions to make at capture time beyond "is this happening this week?"
+ * Enter captures to the bottom of this week, ⇧Enter to the backlog. Capture stays
+ * decision-free — always the same place — and the place means "I'll get to it". Promote
+ * with ⌘⇧↑ if it turns out to matter today.
  */
 export function QuickAdd({
   open,

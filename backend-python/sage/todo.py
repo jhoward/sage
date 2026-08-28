@@ -18,7 +18,15 @@ from datetime import date
 from pathlib import Path
 
 TODO_DIR = "todo"
-INBOX_HEADING = "## Inbox"
+
+# Where quick-add lands. Not a schema — append_to_heading creates whatever heading it is
+# given, so these can be renamed or deleted in the file without breaking anything.
+#
+# There is deliberately no "Inbox": an inbox earns its place only when there are several
+# destinations to sort into, and there are not. It becomes meaningful once backlogs split
+# per project and "unassigned" is a real state.
+WEEK_CAPTURE = "## This week"
+BACKLOG_CAPTURE = "## General"
 
 WEEK_TEMPLATE = """---
 week: {week}
@@ -27,8 +35,6 @@ week: {week}
 ## Now
 
 ## This week
-
-## Inbox
 """
 
 BACKLOG_TEMPLATE = """---
@@ -101,27 +107,25 @@ def backlog_target(vault) -> str:
 def append_task(vault, text: str, target: str = "week") -> str:
     """Quick-add. `target` is "week" (the default) or "backlog".
 
-    Capture stays decision-free: both destinations use the same `## Inbox` bucket, and
-    triage happens later.
+    Capture stays decision-free — always the same place — but the place now means
+    something: the bottom of the week is "I'll get to it", promote it with the editor if
+    it turns out to matter today.
     """
     if target == "backlog":
-        return append_to_inbox(vault, text, backlog_target(vault))
-    return append_to_inbox(vault, text)
+        return append_to_heading(vault, text, backlog_target(vault), BACKLOG_CAPTURE)
+    return append_to_heading(vault, text, ensure_week_files(vault), WEEK_CAPTURE)
 
 
-def append_to_inbox(vault, text: str, path: str | None = None) -> str:
-    """Append a task under `## Inbox`, creating the heading if absent."""
-    path = path or ensure_week_files(vault)
+def append_to_heading(vault, text: str, path: str, heading: str) -> str:
+    """Append a task at the end of a section, creating the heading if absent."""
     content = vault.read_file(path)
     task = f"- [ ] {text.strip()}"
 
     lines = content.splitlines()
     try:
-        idx = next(
-            i for i, line in enumerate(lines) if line.strip() == INBOX_HEADING
-        )
+        idx = next(i for i, line in enumerate(lines) if line.strip() == heading)
     except StopIteration:
-        lines.extend(["", INBOX_HEADING, task])
+        lines.extend(["", heading, task])
     else:
         # Insert after the last existing item in the section, so order is append.
         end = idx + 1
