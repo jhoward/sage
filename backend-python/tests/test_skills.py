@@ -216,3 +216,42 @@ def test_run_skill_streams_an_error_rather_than_failing_the_response(vault: Vaul
 
 def test_run_unknown_skill_is_404(vault: Vault):
     assert _client(vault).post("/api/skills/run", json={"skill": "nope"}).status_code == 404
+
+
+# ---- config discoverability -----------------------------------------
+
+def test_new_config_documents_the_api_key(tmp_path: Path):
+    """The file should teach you what is available, including the empty settings."""
+    from sage import config as config_mod
+
+    path = tmp_path / "config.toml"
+    cfg = config_mod.load(path)
+
+    body = path.read_text()
+    assert 'anthropic_api_key = ""' in body
+    assert "ANTHROPIC_API_KEY in the environment takes precedence" in body
+    assert cfg.anthropic_api_key is None
+
+
+def test_config_round_trips_through_the_template(tmp_path: Path):
+    from sage import config as config_mod
+
+    path = tmp_path / "config.toml"
+    config_mod.Config(tmp_path / "vault", "local", "sk-test-123").save(path)
+
+    assert config_mod.load(path).anthropic_api_key == "sk-test-123"
+
+
+def test_config_escapes_a_windows_style_path(tmp_path: Path):
+    from sage import config as config_mod
+
+    path = tmp_path / "config.toml"
+    config_mod.Config(Path(r"C:\Users\me\notes")).save(path)
+    assert "C:\\\\Users" in path.read_text()  # escaped for TOML
+    assert config_mod.load(path).vault_path == Path(r"C:\Users\me\notes")
+
+
+def test_config_route_reports_where_the_key_goes(vault: Vault):
+    body = _client(vault).get("/api/config").json()
+    assert body["path"].endswith("config.toml")
+    assert body["hasKey"] is False

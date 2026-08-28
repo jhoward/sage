@@ -11,6 +11,9 @@ the UI has its indicator slot and needs no restructuring when git sync lands.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -170,6 +173,36 @@ def create_app(
             raise HTTPException(status_code=400, detail="empty task")
         path = todo.append_task(vault, req.text, req.target)
         return {"ok": True, "path": path}
+
+    @app.get("/api/config")
+    def config_info():
+        """Where machine-local config lives, and whether a key is set.
+
+        The config file sits outside the vault, so the editor cannot open it — the vault
+        API refuses paths beyond its root, correctly. Hence a route that reports the path
+        and one that hands it to the OS.
+        """
+        return {
+            "path": str(config_mod.CONFIG_PATH),
+            "hasKey": ai.api_key(cfg) is not None,
+            "keyFromEnv": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        }
+
+    @app.post("/api/config/open")
+    def open_config():
+        """Hand the config file to the OS default editor."""
+        path = config_mod.CONFIG_PATH
+        if not path.exists():
+            config_mod.Config(vault_path=vault.root).save(path)
+
+        opener = {"darwin": ["open"], "win32": ["cmd", "/c", "start", ""]}.get(
+            sys.platform, ["xdg-open"]
+        )
+        try:
+            subprocess.Popen([*opener, str(path)])
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        return {"ok": True, "path": str(path)}
 
     @app.get("/api/skills")
     def list_skills():

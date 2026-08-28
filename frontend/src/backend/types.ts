@@ -98,6 +98,11 @@ export interface VaultBackend {
   /** Move a note and repoint every [[link]] that referenced it. */
   rename(path: string, newPath: string): Promise<{ newPath: string; updated: string[] }>;
 
+  /** Where machine-local config lives, and whether a key is set. */
+  config(): Promise<{ path: string; hasKey: boolean; keyFromEnv: boolean }>;
+  /** Hand the config file to the OS default editor. */
+  openConfig(): Promise<{ path: string }>;
+
   /** Skills are vault files, so this is re-read rather than cached. */
   skills(): Promise<{ skills: SkillInfo[]; available: boolean }>;
   /** Streams generated text. The API key stays in the backend. */

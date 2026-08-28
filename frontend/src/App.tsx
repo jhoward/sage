@@ -65,6 +65,9 @@ export default function App() {
   // A skill run in flight. Generated text lands here for review — never straight into
   // the document.
   const [skills, setSkills] = useState<SkillInfo[]>([]);
+  // Whether a key is configured. Surfaced up front rather than discovered by running a
+  // skill and getting an error.
+  const [aiReady, setAiReady] = useState(true);
   const [run, setRun] = useState<{
     skill: SkillInfo;
     text: string;
@@ -296,6 +299,23 @@ export default function App() {
         run: () => setRenaming(true),
       },
       {
+        id: "config.open",
+        title: aiReady
+          ? "Open Sage config (API key, vault path)"
+          : "Set the Anthropic API key…",
+        keywords: "anthropic claude api key config toml machine settings",
+        hint: aiReady ? undefined : "no key set",
+        run: async () => {
+          try {
+            const { path } = await backend.openConfig();
+            setStatus(`Opened ${path} — restart Sage after editing`);
+          } catch {
+            const { path } = await backend.config();
+            setStatus(`Edit ${path}, then restart Sage`);
+          }
+        },
+      },
+      {
         id: "vault.settings",
         title: showSettings ? "Hide settings" : "Settings (show .sage folder)",
         keywords: "config skills keybindings preferences",
@@ -346,7 +366,11 @@ export default function App() {
         id: `skill:${sk.id}`,
         title: sk.title,
         keywords: `ai skill ${sk.context} ${sk.mode}`,
-        hint: sk.context === "selection" ? "selection" : sk.context,
+        hint: aiReady
+          ? sk.context === "selection"
+            ? "selection"
+            : sk.context
+          : "needs API key",
         run: () => runSkill(sk),
       });
       list.push({
@@ -380,7 +404,7 @@ export default function App() {
 
     // Files live in ⌘O, not here — see the note on the overlay state above.
     return list;
-  }, [path, backlog, split, skills, showSettings, open, openSplit, refresh, runSkill]);
+  }, [path, backlog, split, skills, aiReady, showSettings, open, openSplit, refresh, runSkill]);
 
   const fileCommands = useMemo<Command[]>(
     () =>
@@ -433,7 +457,10 @@ export default function App() {
         // editing a prompt takes effect on the next palette open.
         backend
           .skills()
-          .then((r) => setSkills(r.skills))
+          .then((r) => {
+            setSkills(r.skills);
+            setAiReady(r.available);
+          })
           .catch(() => setSkills([]));
         setPalette(true);
       } else if (matches(e, BINDINGS.quickAdd)) {
