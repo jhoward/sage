@@ -56,7 +56,7 @@ def main() -> int:
     sync = vault_sync.make(cfg.sync, vault.root)
     sync.startup()
 
-    app = create_app(vault, sync, static_dir=None if dev else DIST_DIR)
+    app = create_app(vault, sync, static_dir=None if dev else DIST_DIR, cfg=cfg)
 
     port = free_port()
     server = uvicorn.Server(

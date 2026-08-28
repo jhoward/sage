@@ -68,19 +68,25 @@ class Config:
             anthropic_api_key=_escape(self.anthropic_api_key or ""),
         )
 
-    def save(self, path: Path = CONFIG_PATH) -> None:
+    def save(self, path: Path | None = None) -> None:
         """Write the documented template.
 
         Only called when creating the file. An existing config is never rewritten: it may
         carry the user's own comments, and clobbering those to tidy formatting would be a
         poor trade.
         """
+        path = path or CONFIG_PATH
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.render(), encoding="utf-8")
 
 
-def load(path: Path = CONFIG_PATH) -> Config:
-    """Read config, creating a documented one on first run."""
+def load(path: Path | None = None) -> Config:
+    """Read config, creating a documented one on first run.
+
+    The path is resolved at call time rather than bound as a default, so tests can point
+    CONFIG_PATH somewhere harmless instead of reading the developer's real key.
+    """
+    path = path or CONFIG_PATH
     if not path.exists():
         cfg = Config(vault_path=DEFAULT_VAULT)
         cfg.save(path)

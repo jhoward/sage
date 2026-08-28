@@ -70,12 +70,15 @@ def create_app(
     cfg=None,
     ai_client=None,
 ):
+    # Config is loaded whenever it was not supplied — including when a vault *was*.
+    # Scoping this to `vault is None` meant the real app, which always builds its own
+    # vault, ran with cfg=None and could never see the API key. Tests passed because they
+    # pass cfg explicitly, which is a path the app itself never takes.
+    cfg = cfg or config_mod.load()
     if vault is None:
-        cfg = cfg or config_mod.load()
         vault = Vault(cfg.vault_path)
         vault.ensure()
-        sync = sync or vault_sync.make(cfg.sync, vault.root)
-    sync = sync or vault_sync.make("local", vault.root)
+    sync = sync or vault_sync.make(cfg.sync, vault.root)
     skills_mod.ensure_default_skills(vault)
 
     app = FastAPI(title="sage", docs_url=None, redoc_url=None)
