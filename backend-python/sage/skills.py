@@ -135,9 +135,17 @@ effort: low
 ---
 Tidy the text below: fix grammar, tighten wording, and make the structure clear.
 
-Preserve the author's meaning, voice, and level of detail. Do not add new claims, do not
-editorialise, and do not expand — this is a cleanup, not a rewrite. Keep existing markdown
-formatting and any [[wiki-links]] intact.
+Return the same content, only better written. Specifically:
+
+- Do not add a heading, a title, or a summary line. If the text had no heading, the result
+  has no heading.
+- Do not add facts, framing, or transitions that were not there.
+- Do not remove content. Every point in the input appears in the output.
+- Keep the author's voice and level of formality. Rough notes stay rough notes; do not
+  turn them into prose for an audience.
+- Keep existing markdown, list structure, and [[wiki-links]] exactly as they are.
+
+If the text is already clear, return it unchanged rather than finding something to alter.
 
 Return only the cleaned text, with no preamble and no explanation.
 """,
