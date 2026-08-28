@@ -1,6 +1,6 @@
 # Where this is
 
-_Last updated: 2026-08-28 — end of Phase 3.5 (editor and todo polish)._
+_Last updated: 2026-08-28 — AI connected and working end to end._
 
 ## Running it in 30 seconds
 
@@ -12,20 +12,20 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run sage`.
 
 ```bash
-cd backend-python && uv run pytest   # 74 passed, 1 skipped
-cd frontend && npm test              # 58 passed
+cd backend-python && uv run pytest   # 93 passed, 1 skipped
+cd frontend && npm test              # 79 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
 so `vault.search()` uses the pure-Python fallback. Not a problem at current scale — see
 the search ladder in the README.
 
-## Done — Phases 1 through 3.5
+## Done — Phases 1 through 3.5, plus AI actually running
 
 Editor, file tree, autosave, native window, and the core todo loop, all working:
 
 - `⌘⇧T` quick-add (`↵` week, `⇧↵` backlog) · `⌘⏎` toggle · `⌘⇧↑` promote · `⌥↑/↓` nudge
-  · `⌘⇧K` delete · `⌘⇧H` hide completed · `⌘S` force save
+  · `⌘⇧K` delete line · `⌘⇧H` hide completed · `⌘S` force save (promote is `⌥⇧↑`)
 - Atomic writes, path-traversal guard, week/backlog seeding
 - The three contracts are in place: `VaultBackend`, `VaultSync`, `ContextStrategy`
 - `⌘K` palette (commands are data, so Phase 3 skills join the same list)
@@ -43,12 +43,42 @@ Editor, file tree, autosave, native window, and the core todo loop, all working:
 - Rename with inbound link rewriting
 - Settings = revealing `.sage/` in the tree; no settings panel
 - Live-preview styling (persistent, nothing hidden, so no mode to toggle)
+- Delete a note (`⌘K`), which asks you to type its name — there is no undo yet
+- All global shortcuts in one table; Ctrl is never treated as Cmd on macOS, so the
+  readline bindings (`⌃A`, `⌃E`, `⌃K`, `⌃N`…) still work
 
-**No API key is configured**, so skills appear in the palette but report a clear message
-when run. Set `ANTHROPIC_API_KEY` or add `anthropic_api_key` to
-`~/.config/sage/config.toml`. Every test uses a fake client, so the suite costs nothing.
+**The AI works.** Config lives at `~/.config/sage/config.toml` with the key and, because
+this is an identity-linked key, `anthropic_workspace_id` (workspace `sage`,
+`wrkspc_01JRamYCGCoa4QDfLgeKnAkC`). Verified against the real API: Clean up and Weekly
+summary both produce good output. Expand and Ask have generated but their output has not
+been judged yet.
+
+Every test injects a fake client, so the suite still needs no key and costs nothing.
+
+### Setup gotchas already solved
+
+Worth knowing, because each one cost time:
+
+- A Claude Pro/Max subscription does **not** include API access — the API is billed
+  separately with its own credits.
+- An identity-linked (personal) key needs `anthropic_workspace_id`. The org had zero
+  workspaces, so the console offered nothing to select; one had to be created first.
+- A personal key carries full account permissions. A workspace-scoped key would be
+  narrower and needs no workspace ID at all — worth switching to at some point.
 
 Vault lives at `~/notes` (config: `~/.config/sage/config.toml`).
+
+## Known rough edges
+
+The user's words: "there are a ton of other things." Not yet enumerated — ask before
+starting Phase 4, since polish on daily-use friction may be worth more than sync.
+
+Already known:
+
+- Expand and Ask prompts are unjudged. They are files in `.sage/skills/`; edit and re-run.
+- The Weekly summary ends with a caveat about vague tasks. Honest, but you would delete it
+  before pasting into a standup — consider whether that skill should suppress it.
+- The bold macOS app-menu title needs a real `.app` bundle to change; menu *items* say Sage.
 
 ## Next — Phase 4
 
@@ -93,6 +123,11 @@ only if the escalation ladder in the README actually demands it.
   and only accepting writes. Keep it that way — an app where a model can silently rewrite
   your thinking is one you cannot trust with your thinking.
 - **The API key stays in the backend.** Never pass it to the frontend, never log it.
+- **Test the wiring, not just the parts.** Accept silently did nothing for a while because
+  `ref={editor}` was missing in App, while every Editor test passed — they supplied the ref
+  themselves. `src/components/__tests__/wiring.test.tsx` guards the composition now.
+- **Do not restore source files from ad-hoc backups.** Twice a `cp` from /tmp silently
+  reverted props added after the backup was taken. Use git.
 - **Rollover must never lose a task.** It is deterministic precisely so it can be trusted.
   `tests/test_todo_phase2.py` covers ordering, sections, rolled counts, idempotency, and
   leaving the archive untouched — keep those green.
