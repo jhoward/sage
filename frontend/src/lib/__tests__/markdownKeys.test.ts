@@ -30,6 +30,12 @@ function lines(doc: string, first: number, last: number) {
   return target(doc, s.doc.line(first).from, s.doc.line(last).to);
 }
 
+/** Shift-select downwards: the cursor lands at column 0 of the line *after* the last. */
+function shiftDown(doc: string, first: number, throughLine: number) {
+  const s = EditorState.create({ doc });
+  return target(doc, s.doc.line(first).from, s.doc.line(throughLine + 1).from);
+}
+
 describe("single line", () => {
   it("wraps a selection", () => {
     const t = target("make this bold", 5, 9);
@@ -102,6 +108,32 @@ describe("across several lines", () => {
     const t = lines("- **one**\n- two", 1, 2);
     bold(t as never);
     expect(t.doc()).toBe("- **one**\n- **two**");
+  });
+
+  it("ignores a line the selection only touches at column 0", () => {
+    // ⇧↓ three times selects three lines and parks the cursor at the start of the fourth.
+    // Nothing of that line is selected, so it must not be bolded.
+    const doc = "- one\n- two\n- three\n- four";
+    const t = shiftDown(doc, 1, 3);
+    bold(t as never);
+    expect(t.doc()).toBe("- **one**\n- **two**\n- **three**\n- four");
+  });
+
+  it("still wraps a line the selection genuinely reaches into", () => {
+    // One character past column 0 means the line is part of the selection.
+    const doc = "- one\n- two";
+    const s = EditorState.create({ doc });
+    const t = target(doc, s.doc.line(1).from, s.doc.line(2).from + 3);
+    bold(t as never);
+    expect(t.doc()).toBe("- **one**\n- **two**");
+  });
+
+  it("a selection ending at column 0 of the next line still wraps one line", () => {
+    const doc = "- one\n- two";
+    const s = EditorState.create({ doc });
+    const t = target(doc, s.doc.line(1).from, s.doc.line(2).from);
+    bold(t as never);
+    expect(t.doc()).toBe("- **one**\n- two");
   });
 
   it("italic works the same way", () => {
