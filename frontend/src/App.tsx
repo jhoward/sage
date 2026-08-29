@@ -64,6 +64,18 @@ function PaneHeader({
   );
 }
 
+/** Short labels for the shortcut cheat sheet. */
+const HINTS: Record<string, string> = {
+  switcher: "notes",
+  search: "search",
+  newNote: "note",
+  quickAdd: "task",
+  startMeeting: "meeting",
+  ask: "ask",
+  meeting: "paste recap",
+  split: "split",
+};
+
 /** Flatten the tree so every note is reachable from the palette. */
 function flatten(nodes: FileNode[], out: FileNode[] = []): FileNode[] {
   for (const n of nodes) {
@@ -97,6 +109,7 @@ export default function App() {
   const [searching, setSearching] = useState(false);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -732,7 +745,7 @@ export default function App() {
         style={{ background: "var(--ink-panel)", borderColor: "var(--ink-border)" }}
       >
         <div
-          className="flex items-center justify-between border-b px-3 py-2"
+          className="flex h-9 shrink-0 items-center justify-between border-b px-3"
           style={{ borderColor: "var(--ink-border)" }}
         >
           <span className="text-xs font-semibold tracking-wide">OCCAM</span>
@@ -779,35 +792,39 @@ export default function App() {
             onOpenAlt={openSplit}
           />
         </div>
-        <div
-          className="border-t px-3 py-2 text-[11px]"
+        <button
+          onClick={() => setShowKeys((v) => !v)}
+          className="shrink-0 border-t px-3 py-1.5 text-left text-[11px]"
           style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
+          title="Keyboard shortcuts"
         >
-          {label(binding("palette"))} commands · {label(binding("switcher"))} files ·{" "}
-          {label(binding("ask"))} ask · {label(binding("newNote"))}/{label(binding("quickAdd"))}/
-          {label(binding("startMeeting"))} new note/task/meeting
-        </div>
+          {showKeys ? "▾" : "▸"} {label(binding("palette"))} commands
+        </button>
+        {showKeys && (
+          <div
+            className="shrink-0 space-y-0.5 border-t px-3 py-2 text-[11px]"
+            style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
+          >
+            {[
+              ["Find", ["switcher", "search"]],
+              ["New", ["newNote", "quickAdd", "startMeeting"]],
+              ["AI", ["ask", "meeting"]],
+              ["View", ["split"]],
+            ].map(([group, names]) => (
+              <div key={group as string} className="flex gap-2">
+                <span className="w-10 shrink-0 opacity-60">{group}</span>
+                <span className="min-w-0 flex-1">
+                  {(names as string[])
+                    .map((n) => `${label(binding(n as never))} ${HINTS[n]}`)
+                    .join(" · ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        {error && (
-          <div className="flex items-start gap-3 px-4 py-2">
-            <div
-              className="cm-selectable min-w-0 flex-1 whitespace-pre-wrap text-xs"
-              style={{ color: "#ef4444" }}
-            >
-              {error}
-            </div>
-            <CopyButton text={error} />
-            <button
-              onClick={() => setError(null)}
-              className="shrink-0 px-1 text-xs"
-              style={{ color: "var(--ink-muted)" }}
-            >
-              ✕
-            </button>
-          </div>
-        )}
         {status && (
           <div
             className="border-b px-4 py-2 text-xs"
@@ -858,6 +875,24 @@ export default function App() {
             </div>
           )}
         </div>
+        {error && (
+          <div className="flex items-start gap-3 px-4 py-2">
+            <div
+              className="cm-selectable min-w-0 flex-1 whitespace-pre-wrap text-xs"
+              style={{ color: "#ef4444" }}
+            >
+              {error}
+            </div>
+            <CopyButton text={error} />
+            <button
+              onClick={() => setError(null)}
+              className="shrink-0 px-1 text-xs"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <AIReview
           skill={run?.skill ?? null}
           text={run?.text ?? ""}

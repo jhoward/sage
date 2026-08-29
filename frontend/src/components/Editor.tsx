@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, highlightActiveLine, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { todoExtension } from "../lib/todo";
@@ -81,6 +82,11 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         markdown(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorView.lineWrapping,
+        // ⌘F, ⌘G, ⇧⌘G — find within the open note. Keeping the platform's own bindings
+        // where they exist means less to learn: ⌘⇧F searches the vault, ⌘F searches here,
+        // which is what both keys already mean everywhere else on the system.
+        search({ top: true }),
+        highlightSelectionMatches(),
         todoExtension(),
         wikilinkExtension(
           (p) => openLink.current?.(p),
@@ -89,6 +95,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         livePreviewExtension(),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },
+          ...searchKeymap,
           ...historyKeymap,
           ...defaultKeymap,
         ]),

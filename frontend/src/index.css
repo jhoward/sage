@@ -131,3 +131,52 @@ body {
   box-shadow: inset 2px 0 0 var(--ink-border);
   padding-left: 8px;
 }
+
+
+/* ---- find within a note (⌘F) ---- */
+
+.cm-panels {
+  background: var(--ink-panel);
+  color: var(--ink-fg);
+  border-color: var(--ink-border);
+}
+
+.cm-panels.cm-panels-top {
+  border-bottom: 1px solid var(--ink-border);
+}
+
+.cm-search {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.cm-search input,
+.cm-search button,
+.cm-search label {
+  font-size: 12px;
+}
+
+.cm-search input[type="text"] {
+  background: var(--ink-bg);
+  color: var(--ink-fg);
+  border: 1px solid var(--ink-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.cm-search button {
+  background: transparent;
+  color: var(--ink-muted);
+  border: 1px solid var(--ink-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 4px;
+}
+
+.cm-searchMatch {
+  background: color-mix(in srgb, var(--ink-accent) 22%, transparent);
+}
+
+.cm-searchMatch-selected {
+  background: color-mix(in srgb, var(--ink-accent) 45%, transparent);
+}
