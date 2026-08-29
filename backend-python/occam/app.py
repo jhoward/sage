@@ -334,7 +334,14 @@ def create_app(
 
     @app.post("/api/keybindings")
     def keybindings(req: DefaultsRequest):
-        """Overrides for the frontend to merge over its own defaults."""
+        """Overrides for the frontend to merge over its own defaults.
+
+        Seeds the file if it is missing, because the app asks for this on every start. A
+        settings file you have to know to create is not discoverable, which was the whole
+        reason for listing every command in it — so it has to be there before anyone goes
+        looking. The defaults come from the frontend, which owns them.
+        """
+        keys_mod.ensure_template(vault, req.defaults)
         return keys_mod.load(vault, known=set(req.defaults)).to_dict()
 
     @app.post("/api/keybindings/edit")
