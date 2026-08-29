@@ -8,6 +8,7 @@ import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language"
 import { todoExtension } from "../lib/todo";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
 import { livePreviewExtension } from "../lib/livePreview";
+import { bold, italic } from "../lib/markdownKeys";
 import type { SkillMode } from "../backend";
 import type { FileNode } from "../backend";
 
@@ -40,6 +41,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const filesRef = useRef<FileNode[]>(files ?? []);
+  // Where you were in each note. Reopening at the top of a long note loses your place for
+  // no reason; the browser does this for pages and an editor should for documents.
+  const scrollTops = useRef<Map<string, number>>(new Map());
 
   // onSave is read through a ref so the save closure never goes stale, while the *path*
   // is deliberately NOT: each editor instance saves only to the file it was opened with.
@@ -95,6 +99,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         livePreviewExtension(),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },
+          { key: "Mod-b", run: bold },
+          { key: "Mod-i", run: italic },
           ...searchKeymap,
           ...historyKeymap,
           ...defaultKeymap,
@@ -114,6 +120,11 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
 
     const instance = new EditorView({ state, parent: host.current });
     view.current = instance;
+
+    const remembered = scrollTops.current.get(filePath);
+    if (remembered) instance.scrollDOM.scrollTop = remembered;
+    const onScroll = () => scrollTops.current.set(filePath, instance.scrollDOM.scrollTop);
+    instance.scrollDOM.addEventListener("scroll", onScroll, { passive: true });
     instance.dispatch({ effects: setLinkFiles.of(filesRef.current) });
 
     const onUnload = () => flush();
@@ -121,6 +132,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
 
     return () => {
       window.removeEventListener("beforeunload", onUnload);
+      instance.scrollDOM.removeEventListener("scroll", onScroll);
       flush(); // pending edits land in filePath, not whatever is open next
       instance.destroy();
       if (view.current === instance) view.current = null;

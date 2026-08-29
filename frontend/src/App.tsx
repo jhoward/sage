@@ -105,6 +105,10 @@ export default function App() {
   // Mirrors doc.path so callbacks can read the currently open note without listing it as
   // a dependency and rebuilding themselves on every navigation.
   const path0 = useRef<string | null>(null);
+  // Navigation history. Following a chain of [[links]] with no way back is the worst of
+  // the gaps here — wiki-links make the absence sharper than it would be in a plain editor.
+  const history = useRef<{ stack: string[]; at: number }>({ stack: [], at: -1 });
+  const navigating = useRef(false);
   const path = doc.path;
   path0.current = path;
   const [quickAdd, setQuickAdd] = useState(false);
@@ -118,6 +122,19 @@ export default function App() {
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
+  // Mirrors sidebarWidth so the drag's mouseup handler can persist the final value
+  // without capturing a stale one from when the drag began.
+  // Width persists per machine: a pane you resized staying resized is the whole point.
+  const sidebarWidthRef = useRef(240);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      return Number(localStorage.getItem("occam.sidebarWidth")) || 240;
+    } catch {
+      return 240;
+    }
+  });
+  sidebarWidthRef.current = sidebarWidth;
   const [renaming, setRenaming] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -178,6 +195,15 @@ export default function App() {
       const content = await backend.readFile(p);
       setDoc({ path: p, content });
       setRecent((r) => [p, ...r.filter((x) => x !== p)].slice(0, 50));
+
+      // Going back should not itself become a history entry, or you could never leave.
+      if (!navigating.current) {
+        const h = history.current;
+        if (h.stack[h.at] !== p) {
+          h.stack = [...h.stack.slice(0, h.at + 1), p];
+          h.at = h.stack.length - 1;
+        }
+      }
       setError(null);
     } catch (e) {
       setError(String(e));
@@ -242,6 +268,22 @@ export default function App() {
     }
   }, [open, refresh]);
 
+  const go = useCallback(
+    async (delta: number) => {
+      const h = history.current;
+      const next = h.at + delta;
+      if (next < 0 || next >= h.stack.length) return;
+      h.at = next;
+      navigating.current = true;
+      try {
+        await open(h.stack[next]);
+      } finally {
+        navigating.current = false;
+      }
+    },
+    [open],
+  );
+
   const openSplit = useCallback(async (p: string) => {
     try {
       setSplit({ path: p, content: await backend.readFile(p) });
@@ -300,6 +342,12 @@ export default function App() {
   useEffect(() => {
     void refresh();
   }, [showSettings, refresh]);
+
+  // The title bar names what you are looking at, as every document app does.
+  useEffect(() => {
+    const name = path ? titleOf(doc.content, path) : "";
+    backend.setTitle(name ? `${name} — Occam Notes` : "Occam Notes").catch(() => {});
+  }, [path, doc.content]);
 
   // Overrides load once at startup. A problem in the file is surfaced rather than
   // swallowed: a shortcut that silently does nothing is the worst way to learn about a typo.
@@ -689,6 +737,9 @@ export default function App() {
   // reachable from a key the moment someone gives it one.
   const actions = useMemo<Record<string, () => void>>(
     () => ({
+      back: () => void go(-1),
+      forward: () => void go(1),
+      sidebar: () => setShowSidebar((v) => !v),
       palette: () => {
         // Refresh both so "Pull: …" and the skill list reflect the files, not a snapshot.
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
@@ -735,7 +786,7 @@ export default function App() {
       archiveNote: () => void runCommand("note.archive"),
       undo: () => void runCommand("ai.undo"),
     }),
-    [split, meetingFromClipboard, openSplit, open, runCommand],
+    [split, meetingFromClipboard, openSplit, open, runCommand, go],
   );
 
   useEffect(() => {
@@ -761,9 +812,14 @@ export default function App() {
 
   return (
     <div className="flex h-full">
+      {showSidebar && (
       <aside
-        className="flex w-60 shrink-0 flex-col border-r"
-        style={{ background: "var(--ink-panel)", borderColor: "var(--ink-border)" }}
+        className="flex shrink-0 flex-col border-r"
+        style={{
+          width: sidebarWidth,
+          background: "var(--ink-panel)",
+          borderColor: "var(--ink-border)",
+        }}
       >
         <div
           className="flex h-9 shrink-0 items-center justify-between border-b px-3"
@@ -911,6 +967,39 @@ export default function App() {
           </div>
         )}
       </aside>
+      )}
+      {showSidebar && (
+        <div
+          onMouseDown={(e) => {
+            // Track on the window, not the handle: the pointer routinely leaves a 4px
+            // target mid-drag, and a resize that stops when it does is maddening.
+            e.preventDefault();
+            const startX = e.clientX;
+            const startWidth = sidebarWidth;
+            const onMove = (ev: MouseEvent) => {
+              const next = Math.min(520, Math.max(160, startWidth + ev.clientX - startX));
+              setSidebarWidth(next);
+            };
+            const onUp = () => {
+              window.removeEventListener("mousemove", onMove);
+              window.removeEventListener("mouseup", onUp);
+              try {
+                localStorage.setItem("occam.sidebarWidth", String(sidebarWidthRef.current));
+              } catch {
+                // Private windows and cleared site data both throw; a forgotten width is
+                // not worth failing over.
+              }
+            };
+            window.addEventListener("mousemove", onMove);
+            window.addEventListener("mouseup", onUp);
+          }}
+          onDoubleClick={() => setSidebarWidth(240)}
+          className="w-1 shrink-0 cursor-col-resize"
+          style={{ background: "transparent" }}
+          title="Drag to resize · double-click to reset"
+        />
+      )}
+
 
       <main className="flex min-w-0 flex-1 flex-col">
         {status && (

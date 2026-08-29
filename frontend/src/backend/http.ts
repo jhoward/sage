@@ -53,6 +53,10 @@ export const httpBackend: VaultBackend = {
     });
   },
 
+  async setTitle(title) {
+    await request("/api/title", { method: "POST", body: JSON.stringify({ title }) });
+  },
+
   async renameFolder(path, newPath) {
     return request<{ moved: string[] }>("/api/rename-folder", {
       method: "POST",

@@ -70,6 +70,10 @@ class FolderRenameRequest(BaseModel):
     newPath: str
 
 
+class TitleRequest(BaseModel):
+    title: str
+
+
 class ArchiveRequest(BaseModel):
     path: str
 
@@ -195,6 +199,21 @@ def create_app(
         app.state.last_change = snapshot
         return {"moved": moved, "canUndo": bool(snapshot)}
 
+    @app.post("/api/title")
+    def set_title(req: TitleRequest):
+        """Put the open note in the title bar.
+
+        Best-effort: the window only exists when running as the app, not under tests, and
+        a title that failed to update is not worth an error.
+        """
+        window = getattr(app.state, "window", None)
+        if window is not None:
+            try:
+                window.set_title(req.title)
+            except Exception:
+                pass
+        return {"ok": True}
+
     @app.get("/api/search")
     def search(q: str = ""):
         return {"hits": [h.to_dict() for h in vault.search(q)]}
@@ -287,6 +306,7 @@ def create_app(
     # The last applied batch, so it can be undone. In memory and session-scoped: a real
     # history is git's job, and this only has to cover "that wasn't what I meant".
     app.state.last_change: dict[str, str] = {}
+    app.state.window = None
 
     @app.post("/api/chat")
     def chat(req: ChatRequest):

@@ -83,6 +83,14 @@ export const BINDINGS = {
   // Bindable but unbound by default. Listed so the keybindings file can show everything
   // you *could* bind rather than only what is already bound — the discoverability problem
   // with a sparse settings file. An empty key never matches.
+  // ⌘[ / ⌘] are the macOS back/forward (Safari, Finder, Preview, Mail). CodeMirror binds
+  // them to outdent/indent, which is a VS Code convention rather than a platform one, so
+  // the platform wins here.
+  back: { key: "[", mod: true },
+  forward: { key: "]", mod: true },
+  // ⌘B must stay Bold in a markdown editor, so the sidebar takes ⌘⇧B.
+  sidebar: { key: "b", mod: true, shift: true },
+
   rollover: { key: "", mod: true },
   archiveNote: { key: "", mod: true },
   moveNote: { key: "", mod: true },
