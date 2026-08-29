@@ -77,7 +77,9 @@ nothing can drift out of sync with it.
 | Settings (reveal `.occam/`) | `⌘K` → settings |
 | Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
 | Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
-| Meeting note from clipboard + follow-ups | `⌘⇧V` |
+| Start a meeting note (live notes) | `⌘⇧M` |
+| Paste a recap — into this meeting, or a new one | `⌘⇧V` |
+| Move a note to another folder | `⌘K` → move |
 | Toggle done | `⌘⏎` |
 | Promote to top of section | `⌥⇧↑` |
 | Nudge up / down | `⌥↑` / `⌥↓` |
@@ -150,6 +152,11 @@ and in a one-line input there is no line to move to anyway.
 There is no notebooks-or-sections concept, and there will not be: a folder already does
 that job, and a second hierarchy on top of the filesystem is the thing the "no" list
 exists to prevent.
+
+Moving a note between folders is `⌘K` → "Move this note…", which is a rename underneath, so
+inbound links follow it. There is no drag-and-drop: in a keyboard-first app a command that
+also works from the palette beats a gesture that only works with a mouse, and dropping onto
+the wrong folder in a nested tree is easier than it looks.
 
 **You make a folder by naming one.** `⌘N` → `governance/vendor-risk` writes
 `notes/governance/vendor-risk.md` and the folder comes into being by having a file in it;
@@ -293,7 +300,15 @@ what you changed afterwards — and it does not rot.
 
 ## Meetings to follow-ups
 
-The loop this app is for. `⌘⇧V` takes a meeting recap off the clipboard, writes it to
+The loop this app is for.
+
+`⌘⇧M` opens an empty meeting note to take live notes in while the meeting happens. When the
+recap arrives afterwards, `⌘⇧V` **appends it to that note** rather than starting a second
+one about the same meeting — so extraction reads your notes *and* the recap, which beats
+either alone: your notes record what you actually agreed to, the recap confirms and fills
+it in.
+
+If you are not in a meeting note, `⌘⇧V` takes a recap off the clipboard, writes it to
 `meetings/<date>-<short-title>.md` with a title taken from the recap's own name — or written for it when there isn't one — and
 immediately asks
 for the follow-ups **you** committed to — not everyone else's actions. Each proposed task

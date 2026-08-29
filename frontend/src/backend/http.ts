@@ -126,10 +126,17 @@ export const httpBackend: VaultBackend = {
     return request<{ skills: SkillInfo[]; available: boolean }>("/api/skills");
   },
 
-  async meetingFromClipboard() {
+  async startMeeting(title = "") {
+    return request<{ path: string; title: string }>("/api/meeting/start", {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    });
+  },
+
+  async meetingFromClipboard(path) {
     return request<{ path: string; title: string; followUpPrompt: string }>(
       "/api/meeting",
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify({ path: path ?? null }) },
     );
   },
 

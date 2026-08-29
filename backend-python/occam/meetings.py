@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 MEETINGS_DIR = "meetings"
@@ -30,6 +30,17 @@ date: {date}
 
 {body}
 """
+
+BLANK_TEMPLATE = """---
+kind: meeting
+date: {date}
+---
+
+# {title}
+
+"""
+
+RECAP_HEADING = "## Recap"
 
 # A line is boilerplate if every word in it is. Matching whole phrases was too strict:
 # "AI-generated meeting notes" is three noise words and slipped through a pattern that
@@ -264,3 +275,51 @@ def migrate_legacy_meetings(vault) -> list[str]:
     except OSError:
         pass
     return moved
+
+
+def start(vault, title: str = "", when: date | None = None) -> tuple[str, str]:
+    """Open an empty meeting note to take live notes in.
+
+    The other half of the paste flow. A meeting is usually *starting* when you reach for
+    this — the recap does not exist yet — so this makes the file first and the recap joins
+    it later.
+    """
+    when = when or date.today()
+    title = title.strip() or f"Meeting {datetime.now():%H:%M}"
+
+    existing = (
+        {p.relative_to(vault.root).as_posix() for p in (vault.root / MEETINGS_DIR).glob("*.md")}
+        if (vault.root / MEETINGS_DIR).is_dir()
+        else set()
+    )
+    path = note_path(title, when, existing)
+    vault.write_file(path, BLANK_TEMPLATE.format(date=when.isoformat(), title=title))
+    return path, title
+
+
+def is_meeting(vault, path: str) -> bool:
+    """Is this note a meeting? Judged by where it lives and what its frontmatter says."""
+    if path.startswith(f"{MEETINGS_DIR}/"):
+        return True
+    try:
+        head = vault.read_file(path)[:200]
+    except Exception:
+        return False
+    return "kind: meeting" in head
+
+
+def append_recap(vault, path: str, text: str) -> str:
+    """Add a pasted recap to an existing meeting note, under its own heading.
+
+    Appending rather than creating a second note is the point: your live notes record what
+    you actually agreed to, and the recap confirms and fills it in. Extraction then reads
+    both, which beats either alone.
+    """
+    text = text.strip()
+    if not text:
+        raise ValueError("Nothing on the clipboard")
+
+    body = vault.read_file(path).rstrip("\n")
+    heading = "" if RECAP_HEADING in body else f"\n\n{RECAP_HEADING}"
+    vault.write_file(path, f"{body}{heading}\n\n{text}\n")
+    return path
