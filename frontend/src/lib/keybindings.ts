@@ -52,19 +52,30 @@ export function matches(e: KeyboardEvent, spec: KeySpec): boolean {
   return e.key.toLowerCase() === spec.key.toLowerCase();
 }
 
+/**
+ * The tiering rule: **⌘ alone means you do it many times a day.** Everything else takes
+ * shift. Promotion is the signal that a command is core, so the set of unshifted keys
+ * stays small enough to be worth memorising.
+ *
+ * Peers share a tier — "new note", "new task" and "new meeting" are the same kind of
+ * action at the same frequency, so N/T/M are siblings rather than one being promoted and
+ * the others not.
+ */
 export const BINDINGS = {
   palette: { key: "k", mod: true },
   switcher: { key: "o", mod: true },
   newNote: { key: "n", mod: true },
   search: { key: "f", mod: true, shift: true },
-  quickAdd: { key: "t", mod: true, shift: true },
+  quickAdd: { key: "t", mod: true },
   split: { key: "\\", mod: true },
   // ⌘⌫ is the macOS idiom for "move to trash"; the confirmation still asks for the name.
   deleteNote: { key: "Backspace", mod: true },
   pull: { key: "p", mod: true, shift: true },
   ask: { key: "j", mod: true },
   meeting: { key: "v", mod: true, shift: true },
-  startMeeting: { key: "m", mod: true, shift: true },
+  // ⌘M is Minimize on macOS. Taken deliberately: a single-window app is rarely minimised,
+  // and keeping the three "new" verbs together is worth more than the system default.
+  startMeeting: { key: "m", mod: true },
 } satisfies Record<string, KeySpec>;
 
 export type BindingName = keyof typeof BINDINGS;

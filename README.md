@@ -75,9 +75,9 @@ nothing can drift out of sync with it.
 | Delete a note (confirm; undoable) | `⌘⌫` |
 | Pull several tasks from the backlog | `⌘⇧P` |
 | Settings (reveal `.occam/`) | `⌘K` → settings |
-| Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
-| Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
-| Start a meeting note (live notes) | `⌘⇧M` |
+| Quick-add from anywhere → bottom of `## This week` | `⌘T`, then `↵` |
+| Quick-add to the backlog instead | `⌘T`, then `⇧↵` |
+| Start a meeting note (live notes) | `⌘M` |
 | Paste a recap — into this meeting, or a new one | `⌘⇧V` |
 | Move a note to another folder | `⌘K` → move |
 | Toggle done | `⌘⏎` |
@@ -126,7 +126,22 @@ backlog" acts on the cursor line, and every open backlog item appears as its own
 `Pull: …` entry. A moved task keeps its rolled count, so parking something does not reset
 the record of how long it has been avoided.
 
-## Keybindings and the readline rule
+## Keybindings
+
+**⌘ alone means you do it many times a day.** Everything else takes shift. Promotion is the
+signal that a command is core, which keeps the unshifted set small enough to be worth
+memorising — and peers share a tier, so "new note", "new task" and "new meeting" are
+`⌘N`/`⌘T`/`⌘M` rather than one being promoted while its siblings are not.
+
+`⌘M` is Minimize on macOS. Taken deliberately: a single-window app is rarely minimised, and
+keeping the three "new" verbs together is worth more than the system default.
+
+Meeting notes are dated (`2026-08-29-vendor-2-escalation.md`) and topic notes are not. That
+looks like an inconsistency and is not one: meetings are *events*, so a date disambiguates
+twenty notes called "standup" and sorts them; a topic note is a thing that evolves, and
+dating it to its creation would start lying the moment you edited it.
+
+### The readline rule
 
 **Ctrl is never an alias for Cmd on macOS.** The emacs/readline bindings — `⌃A`, `⌃E`,
 `⌃K`, `⌃N`, `⌃P`, `⌃D` — work in every macOS text field, and treating `metaKey || ctrlKey`

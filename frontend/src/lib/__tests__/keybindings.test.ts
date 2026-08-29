@@ -92,9 +92,44 @@ describe("modifier precision", () => {
   });
 
   it("distinguishes bindings that differ only by shift", () => {
-    expect(matches(ev("t", { metaKey: true, shiftKey: true }), BINDINGS.quickAdd)).toBe(
-      true,
-    );
-    expect(matches(ev("t", { metaKey: true }), BINDINGS.quickAdd)).toBe(false);
+    expect(matches(ev("f", { metaKey: true, shiftKey: true }), BINDINGS.search)).toBe(true);
+    expect(matches(ev("f", { metaKey: true }), BINDINGS.search)).toBe(false);
+  });
+});
+
+describe("the tiering rule", () => {
+  beforeEach(() => underPlatform("MacIntel"));
+
+  const CORE = ["palette", "switcher", "ask", "newNote", "quickAdd", "startMeeting", "split"];
+
+  it("core commands are unshifted", () => {
+    for (const name of CORE) {
+      const spec: KeySpec = BINDINGS[name as keyof typeof BINDINGS];
+      expect(spec.mod, name).toBe(true);
+      expect(spec.shift, name).toBeFalsy();
+    }
+  });
+
+  it("everything else takes shift", () => {
+    for (const [name, spec] of Object.entries<KeySpec>(BINDINGS)) {
+      if (CORE.includes(name) || name === "deleteNote") continue;
+      expect(spec.shift, name).toBe(true);
+    }
+  });
+
+  it("the three new-verbs are siblings", () => {
+    // A peer promoted while its peers are not is the inconsistency this rule exists for.
+    expect(label(BINDINGS.newNote)).toBe("⌘N");
+    expect(label(BINDINGS.quickAdd)).toBe("⌘T");
+    expect(label(BINDINGS.startMeeting)).toBe("⌘M");
+  });
+
+  it("no two bindings collide", () => {
+    const seen = new Map<string, string>();
+    for (const [name, spec] of Object.entries<KeySpec>(BINDINGS)) {
+      const key = label(spec);
+      expect(seen.get(key), `${name} collides with ${seen.get(key)}`).toBeUndefined();
+      seen.set(key, name);
+    }
   });
 });
