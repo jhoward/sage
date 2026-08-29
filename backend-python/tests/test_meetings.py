@@ -262,3 +262,62 @@ def test_meeting_migration_does_not_clobber(vault: Vault):
     vault.write_file("meetings/x.md", "already moved")
     meetings.migrate_legacy_meetings(vault)
     assert vault.read_file("meetings/x.md") == "already moved"
+
+
+# ---- the live-notes-then-recap flow ----------------------------------
+
+def test_start_opens_an_empty_meeting_note(vault: Vault):
+    path, title = meetings.start(vault, "Q4 planning", date(2026, 8, 29))
+    body = vault.read_file(path)
+
+    assert path == "meetings/2026-08-29-q4-planning.md"
+    assert title == "Q4 planning"
+    assert "kind: meeting" in body
+    assert body.rstrip().endswith("# Q4 planning")  # nothing but the heading
+
+
+def test_start_without_a_title_uses_the_time(vault: Vault):
+    _, title = meetings.start(vault, "", date(2026, 8, 29))
+    assert title.startswith("Meeting ")
+
+
+def test_recap_appends_to_the_note_you_are_in(vault: Vault):
+    """Your live notes and the recap belong in one note, not two about one meeting."""
+    path, _ = meetings.start(vault, "Q4 planning", date(2026, 8, 29))
+    vault.write_file(path, vault.read_file(path) + "\nJim: I'll do the tiers.\n")
+
+    meetings.append_recap(vault, path, "- Jim Howard to finish the tool permission tiers")
+    body = vault.read_file(path)
+
+    assert "Jim: I'll do the tiers." in body       # live notes kept
+    assert meetings.RECAP_HEADING in body
+    assert "tool permission tiers" in body         # recap added
+    assert body.index("I'll do the tiers") < body.index("Recap")
+
+
+def test_a_second_recap_does_not_repeat_the_heading(vault: Vault):
+    path, _ = meetings.start(vault, "Q4 planning", date(2026, 8, 29))
+    meetings.append_recap(vault, path, "First half")
+    meetings.append_recap(vault, path, "Second half")
+
+    body = vault.read_file(path)
+    assert body.count(meetings.RECAP_HEADING) == 1
+    assert "First half" in body and "Second half" in body
+
+
+def test_append_refuses_an_empty_clipboard(vault: Vault):
+    path, _ = meetings.start(vault, "X", date(2026, 8, 29))
+    with pytest.raises(ValueError, match="Nothing on the clipboard"):
+        meetings.append_recap(vault, path, "   ")
+
+
+def test_is_meeting_by_folder_and_by_frontmatter(vault: Vault):
+    path, _ = meetings.start(vault, "X", date(2026, 8, 29))
+    assert meetings.is_meeting(vault, path)
+
+    vault.write_file("notes/plain.md", "# Just a note\n")
+    assert not meetings.is_meeting(vault, "notes/plain.md")
+
+    # A meeting note filed elsewhere is still a meeting.
+    vault.write_file("notes/odd.md", "---\nkind: meeting\n---\n\n# Odd\n")
+    assert meetings.is_meeting(vault, "notes/odd.md")

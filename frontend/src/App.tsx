@@ -82,7 +82,11 @@ export default function App() {
     path: null,
     content: "",
   });
+  // Mirrors doc.path so callbacks can read the currently open note without listing it as
+  // a dependency and rebuilding themselves on every navigation.
+  const path0 = useRef<string | null>(null);
   const path = doc.path;
+  path0.current = path;
   const [quickAdd, setQuickAdd] = useState(false);
   // Three overlays, one component. Commands and files are deliberately separate lists:
   // a file is an object, a command is an action, and mixing them makes the palette
@@ -95,6 +99,8 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [startingMeeting, setStartingMeeting] = useState(false);
   // A skill with `asks: true` needs a question before it can run.
   const [asking, setAsking] = useState<SkillInfo | null>(null);
   const [pulling, setPulling] = useState(false);
@@ -196,10 +202,12 @@ export default function App() {
    */
   const meetingFromClipboard = useCallback(async () => {
     try {
-      const { path, title, followUpPrompt } = await backend.meetingFromClipboard();
+      // Pass the open note: if it is a meeting, the recap joins it rather than starting a
+      // second note about the same meeting.
+      const { path, title, followUpPrompt } = await backend.meetingFromClipboard(path0.current);
       await refresh();
       await open(path);
-      setStatus(`Meeting note: ${title}`);
+      setStatus(title ? `Meeting note: ${title}` : "Recap added to this meeting");
       setAsking2(true);
       setPendingQuestion(followUpPrompt);
     } catch (e) {
@@ -376,9 +384,24 @@ export default function App() {
         },
       },
       {
+        id: "meeting.start",
+        group: "Notes",
+        title: "Start a meeting note",
+        keywords: "new meeting live notes during",
+        hint: label(BINDINGS.startMeeting),
+        run: () => setStartingMeeting(true),
+      },
+      {
+        id: "note.move",
+        group: "Notes",
+        title: "Move this note to another folder…",
+        keywords: "reassign relocate folder meetings notes",
+        run: () => setMoving(true),
+      },
+      {
         id: "meeting.paste",
         group: "Notes",
-        title: "Meeting note from clipboard, then extract my follow-ups",
+        title: "Paste recap (into this meeting, or a new one)",
         keywords: "paste recap teams loop minutes actions commitments",
         hint: label(BINDINGS.meeting),
         run: meetingFromClipboard,
@@ -620,6 +643,9 @@ export default function App() {
       } else if (matches(e, BINDINGS.quickAdd)) {
         e.preventDefault();
         setQuickAdd(true);
+      } else if (matches(e, BINDINGS.startMeeting)) {
+        e.preventDefault();
+        setStartingMeeting(true);
       } else if (matches(e, BINDINGS.meeting)) {
         e.preventDefault();
         void meetingFromClipboard();
@@ -936,6 +962,44 @@ export default function App() {
             const week = await backend.week();
             await open(week.path);
             setStatus(`Deleted ${path} — ⌘K → undo to restore`);
+          } catch (e) {
+            setError(String(e));
+          }
+        }}
+      />
+      <Prompt
+        open={startingMeeting}
+        label="Start a meeting note"
+        placeholder="What is the meeting? (blank uses the time)"
+        onClose={() => setStartingMeeting(false)}
+        onSubmit={async (title) => {
+          setStartingMeeting(false);
+          try {
+            const { path: p } = await backend.startMeeting(title);
+            await refresh();
+            await open(p);
+            setStatus(`${label(BINDINGS.meeting)} to add the recap afterwards`);
+          } catch (e) {
+            setError(String(e));
+          }
+        }}
+      />
+      <Prompt
+        open={moving && !!path}
+        label={`Move ${path ?? ""} — links are updated`}
+        placeholder="meetings, notes/governance, archive…"
+        initial={path ? path.split("/").slice(0, -1).join("/") : ""}
+        onClose={() => setMoving(false)}
+        onSubmit={async (folder) => {
+          setMoving(false);
+          if (!path) return;
+          const name = path.split("/").pop()!;
+          const target = folder.replace(/\/+$/, "");
+          try {
+            const r = await backend.rename(path, target ? `${target}/${name}` : name);
+            await refresh();
+            await open(r.newPath);
+            setStatus(`Moved to ${r.newPath}`);
           } catch (e) {
             setError(String(e));
           }

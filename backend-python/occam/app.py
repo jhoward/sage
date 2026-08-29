@@ -53,6 +53,12 @@ class ApplyRequest(BaseModel):
     proposals: list[dict]
 
 
+class MeetingRequest(BaseModel):
+    # When given, the recap is appended to this note instead of starting a new one.
+    path: str | None = None
+    title: str | None = None
+
+
 class ArchiveRequest(BaseModel):
     path: str
 
@@ -287,15 +293,28 @@ def create_app(
         app.state.last_change = {}
         return {"restored": restored}
 
+    @app.post("/api/meeting/start")
+    def start_meeting(req: MeetingRequest):
+        """An empty meeting note to take live notes in."""
+        path, title = meetings_mod.start(vault, req.title or "")
+        return {"path": path, "title": title}
+
     @app.post("/api/meeting")
-    def meeting_from_clipboard():
+    def meeting_from_clipboard(req: MeetingRequest | None = None):
         """Create a meeting note from whatever is on the clipboard.
 
         A paste rather than an integration — see the note in meetings.py.
         """
         text = meetings_mod.read_clipboard()
+        target = req.path if req else None
         try:
-            path, title = meetings_mod.create(vault, text, cfg=cfg, client=ai_client)
+            # Already in a meeting note: the recap belongs in it, not in a second note
+            # about the same meeting.
+            if target and meetings_mod.is_meeting(vault, target):
+                path = meetings_mod.append_recap(vault, target, text)
+                title = ""
+            else:
+                path, title = meetings_mod.create(vault, text, cfg=cfg, client=ai_client)
         except (ValueError, VaultError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

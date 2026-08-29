@@ -126,8 +126,13 @@ export interface VaultBackend {
 
   /** Skills are vault files, so this is re-read rather than cached. */
   skills(): Promise<{ skills: SkillInfo[]; available: boolean }>;
-  /** Create a meeting note from the clipboard, and get the follow-up question for it. */
-  meetingFromClipboard(): Promise<{
+  /** Open an empty meeting note to take live notes in. */
+  startMeeting(title?: string): Promise<{ path: string; title: string }>;
+  /**
+   * Paste a recap. When `path` is a meeting note the recap is appended to it, so live
+   * notes and the recap end up in one note rather than two about one meeting.
+   */
+  meetingFromClipboard(path?: string | null): Promise<{
     path: string;
     title: string;
     followUpPrompt: string;
