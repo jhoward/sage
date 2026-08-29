@@ -65,6 +65,32 @@ function ancestor(node: SyntaxNode, name: string): SyntaxNode | null {
   return null;
 }
 
+/**
+ * Widen a block marker to swallow the space that separates it from the content.
+ *
+ * The parser puts that space outside the mark, so hiding `##` on its own leaves the
+ * heading indented by exactly one character — visible as a ragged left edge against
+ * every other line. The space is syntax, not content, and goes with the marker.
+ *
+ * A closing marker (`## Now ##`) has nothing but whitespace after it, so it takes the
+ * space on its left instead.
+ */
+function withGap(state: EditorState, from: number, to: number) {
+  const line = state.doc.lineAt(from);
+  const text = line.text;
+  const rest = text.slice(to - line.from);
+
+  if (rest.trim() === "") {
+    let start = from;
+    while (start > line.from && /[ \t]/.test(text[start - line.from - 1])) start -= 1;
+    return { from: start, to };
+  }
+
+  let end = to;
+  while (end < line.to && /[ \t]/.test(text[end - line.from])) end += 1;
+  return { from, to: end };
+}
+
 const hidden = Decoration.replace({});
 const headings = [1, 2, 3, 4, 5, 6].map((n) =>
   Decoration.line({ class: `cm-md-h${n}` }),
@@ -142,7 +168,14 @@ function build(view: EditorView): Built {
               : (node.node.parent ?? node.node);
 
           if (!editing(state, scope.from, scope.to)) {
-            const r = hidden.range(node.from, node.to);
+            // Block markers take their trailing space with them; inline ones must not,
+            // since the space after `**bold**` is ordinary text.
+            const span =
+              name === "HeaderMark" || name === "QuoteMark"
+                ? withGap(state, node.from, node.to)
+                : { from: node.from, to: node.to };
+
+            const r = hidden.range(span.from, span.to);
             all.push(r);
             atomic.push(r);
           }

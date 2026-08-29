@@ -223,3 +223,72 @@ describe("blockquotes reveal per line", () => {
     v.destroy();
   });
 });
+
+describe("block markers take their trailing space", () => {
+  /** What is left visible on a line once the hidden ranges are cut out. */
+  function visible(v: EditorView, lineNo: number) {
+    const line = v.state.doc.line(lineNo);
+    const cuts = hiddenRanges(v)
+      .filter((d) => d.from >= line.from && d.to <= line.to)
+      .sort((a, b) => a.from - b.from);
+    let out = "";
+    let at = line.from;
+    for (const c of cuts) {
+      out += v.state.sliceDoc(at, c.from);
+      at = c.to;
+    }
+    return out + v.state.sliceDoc(at, line.to);
+  }
+
+  it("leaves no leading space on a heading", () => {
+    // Hiding ## but not the space after it indents the heading by one character, so it
+    // sits proud of every other line in the note.
+    const v = view("## Now\n\nbody", 8);
+    expect(visible(v, 1)).toBe("Now");
+    v.destroy();
+  });
+
+  it("handles every heading level", () => {
+    for (const hashes of ["#", "###", "######"]) {
+      const doc = `${hashes} Title\n\nbody`;
+      const v = view(doc, doc.length); // cursor off the heading line
+      expect(visible(v, 1)).toBe("Title");
+      v.destroy();
+    }
+  });
+
+  it("swallows extra spaces", () => {
+    const v = view("##   Now\n\nbody", 10);
+    expect(visible(v, 1)).toBe("Now");
+    v.destroy();
+  });
+
+  it("leaves no leading space on a quote", () => {
+    const v = view("> quoted\n\nbody", 11);
+    expect(visible(v, 1)).toBe("quoted");
+    v.destroy();
+  });
+
+  it("takes the space to its left on a closing marker", () => {
+    // `## Now ##` — the trailing mark has only whitespace after it, so it eats leftward.
+    const v = view("## Now ##\n\nbody", 11);
+    expect(visible(v, 1)).toBe("Now");
+    v.destroy();
+  });
+
+  it("does not eat the space after inline emphasis", () => {
+    // The space after **bold** is ordinary text and must survive.
+    const doc = "**bold** then more\n\nelsewhere";
+    const v = view(doc, doc.length); // off the span, so the ** are hidden
+    expect(visible(v, 1)).toBe("bold then more");
+    v.destroy();
+  });
+
+  it("restores the exact source when the cursor enters the heading", () => {
+    const doc = "## Now\n\nbody";
+    const v = view(doc, 3);
+    expect(visible(v, 1)).toBe("## Now");
+    expect(v.state.doc.toString()).toBe(doc);
+    v.destroy();
+  });
+});
