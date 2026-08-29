@@ -267,7 +267,7 @@ what you changed afterwards — and it does not rot.
 ## Meetings to follow-ups
 
 The loop this app is for. `⌘⇧V` takes a meeting recap off the clipboard, writes it to
-`notes/meetings/<date>-<title>.md` with a title taken from the recap's own name — or written for it when there isn't one — and
+`notes/meetings/<date>-<short-title>.md` with a title taken from the recap's own name — or written for it when there isn't one — and
 immediately asks
 for the follow-ups **you** committed to — not everyone else's actions. Each proposed task
 links back to the meeting, so the reason it exists stays visible, and they land in this

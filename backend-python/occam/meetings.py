@@ -156,10 +156,25 @@ def _is_all_noise(line: str) -> bool:
     return bool(words) and all(re.sub(r"[^\w]", "", w) in NOISE_WORDS for w in words)
 
 
+# Dropped from filenames but kept in titles: they carry no identifying weight and eat the
+# word budget. Anything in a four-word slug should help you recognise the meeting.
+SLUG_STOPWORDS = {
+    "a", "an", "the", "and", "or", "of", "for", "on", "in", "to", "with", "about",
+}
+SLUG_WORDS = 4
+
+
 def slug(title: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", title, flags=re.UNICODE).strip()
-    s = re.sub(r"[\s_]+", "-", s).strip("-").lower()
-    return s or "meeting"
+    """A short filename stem. The note keeps the full title; the filename stays scannable.
+
+    Capped at a few words to match how a person names these by hand —
+    `2026-08-11-ai-risk-forum.md`, not the whole sentence.
+    """
+    cleaned = re.sub(r"[^\w\s-]", " ", title, flags=re.UNICODE)
+    words = [w for w in re.split(r"[\s_-]+", cleaned.lower()) if w]
+
+    kept = [w for w in words if w not in SLUG_STOPWORDS] or words
+    return "-".join(kept[:SLUG_WORDS]) or "meeting"
 
 
 def note_path(title: str, when: date | None = None, taken: set[str] | None = None) -> str:

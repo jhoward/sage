@@ -209,3 +209,28 @@ def test_a_colon_inside_a_real_title_is_kept():
     assert meetings.derive_title("Q4 planning: scope and budget\n") == (
         "Q4 planning: scope and budget"
     )
+
+
+def test_slug_is_capped_so_filenames_stay_scannable():
+    """The note keeps the full title; the filename should read like a hand-named one."""
+    assert meetings.slug("Review of the vendor contract clauses for Q4") == (
+        "review-vendor-contract-clauses"
+    )
+    assert meetings.slug("Q4 planning: scope and budget") == "q4-planning-scope-budget"
+
+
+def test_slug_drops_stopwords_but_never_everything():
+    assert meetings.slug("The and of") == "the-and-of"  # all stopwords: keep them
+    assert meetings.slug("Standup") == "standup"
+
+
+def test_slug_matches_the_style_already_in_the_vault():
+    assert meetings.slug("AI risk forum") == "ai-risk-forum"
+    assert meetings.slug("Vendor review") == "vendor-review"
+
+
+def test_note_path_stays_short(vault: Vault):
+    path = meetings.note_path(
+        "Review of the vendor contract clauses for Q4", date(2026, 8, 28)
+    )
+    assert path == "notes/meetings/2026-08-28-review-vendor-contract-clauses.md"
