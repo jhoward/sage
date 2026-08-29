@@ -811,6 +811,37 @@ export default function App() {
             selected={path}
             onOpen={open}
             onOpenAlt={openSplit}
+            onRename={async (target, name) => {
+              try {
+                if (target.isDir) {
+                  const folder = target.path.split("/").slice(0, -1).join("/");
+                  const next = folder ? `${folder}/${slugify(name)}` : slugify(name);
+                  const { moved } = await backend.renameFolder(target.path, next);
+                  await refresh();
+                  setStatus(`Moved ${moved.length} note${moved.length > 1 ? "s" : ""}`);
+                  return;
+                }
+                const folder = target.path.split("/").slice(0, -1).join("/");
+                const file = slugify(name);
+                if (!file) return;
+                const r = await backend.rename(
+                  target.path,
+                  folder ? `${folder}/${file}` : file,
+                  name,
+                );
+                await refresh();
+                // Follow the note only if it was the one open; renaming from the sidebar
+                // should not yank you out of what you were reading.
+                if (target.path === path) await open(r.newPath);
+                setStatus(
+                  r.updated.length
+                    ? `Renamed · ${r.updated.length} link${r.updated.length > 1 ? "s" : ""} updated`
+                    : "Renamed",
+                );
+              } catch (e) {
+                setError(String(e));
+              }
+            }}
             onContext={(target, at) => {
               // Acting on the right-clicked note rather than the open one, which is what
               // a context menu means; so it is opened first and the command follows.

@@ -71,3 +71,33 @@ describe("split panes are symmetric", () => {
     expect(app).not.toMatch(/<header\b/);
   });
 });
+
+describe("renaming is reachable without knowing a command", () => {
+  const tree = readFileSync(join(__dirname, "../FileTree.tsx"), "utf8");
+
+  it("double-click edits the name in place", () => {
+    // The point is that nobody has to discover a rename command: you edit the name where
+    // you can see it, which is the gesture Finder and every file tree already taught.
+    expect(tree).toMatch(/onDoubleClick=\{\(\) => setEditing\(true\)\}/);
+    expect(tree).toContain("NameInput");
+  });
+
+  it("applies to folders as well as notes", () => {
+    expect(tree.match(/onDoubleClick/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("commits on Enter and on blur, cancels on Escape", () => {
+    expect(tree).toMatch(/onBlur=\{commit\}/);
+    expect(tree).toMatch(/e\.key === "Enter"/);
+    expect(tree).toMatch(/e\.key === "Escape"/);
+  });
+
+  it("does not let the editor's keymap see the typing", () => {
+    // Without stopPropagation the app's global shortcuts would fire while renaming.
+    expect(tree).toContain("e.stopPropagation()");
+  });
+
+  it("App handles the rename callback", () => {
+    expect(app).toMatch(/onRename=\{/);
+  });
+});
