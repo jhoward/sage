@@ -154,14 +154,8 @@ def append_task(vault, text: str, target: str = "week") -> str:
 
 
 def append_to_heading(vault, text: str, path: str, heading: str) -> str:
-    """Append a new task at the end of a section, creating the heading if absent.
-
-    Dated on creation so a backlog can be sorted by age — the single most useful thing to
-    know about something that has been sitting there.
-    """
-    return append_line(
-        vault, path, render_task(text.strip(), added=date.today().isoformat()), heading
-    )
+    """Append a new task at the end of a section, creating the heading if absent."""
+    return append_line(vault, path, render_task(text.strip()), heading)
 
 
 def append_line(vault, path: str, task: str, heading: str) -> str:
@@ -194,7 +188,6 @@ class Task:
     text: str  # without the checkbox or the metadata comment
     section: str
     rolled: int = 0
-    added: str = ""  # ISO date the task first appeared
     raw: str = ""
 
 
@@ -220,7 +213,6 @@ def parse_tasks(content: str) -> list[Task]:
                 text=META_RE.sub("", body).strip(),
                 section=section,
                 rolled=int(meta.get("rolled", 0) or 0),
-                added=meta.get("added", ""),
                 raw=raw,
             )
         )
@@ -240,20 +232,15 @@ def parse_meta(body: str) -> dict[str, str]:
     return out
 
 
-def render_task(
-    text: str,
-    rolled: int = 0,
-    done: bool = False,
-    added: str = "",
-) -> str:
-    """Render a task line, with its metadata in one trailing comment."""
+def render_task(text: str, rolled: int = 0, done: bool = False) -> str:
+    """Render a task line, with its metadata in one trailing comment.
+
+    Only the rollover count is kept. An `added:` date was tried and removed: it put visible
+    noise in every line to record something git will know precisely and retroactively once
+    sync lands, without touching the file at all.
+    """
     mark = "x" if done else " "
-    meta = []
-    if added:
-        meta.append(f"added:{added}")
-    if rolled:
-        meta.append(f"rolled:{rolled}")
-    suffix = f" <!-- {' '.join(meta)} -->" if meta else ""
+    suffix = f" <!-- rolled:{rolled} -->" if rolled else ""
     return f"- [{mark}] {text}{suffix}"
 
 
@@ -325,9 +312,7 @@ def rollover(vault, when: date | None = None) -> RolloverResult:
             continue
         rolled = task.rolled + 1
         heading = task.section or WEEK_CAPTURE
-        append_line(
-            vault, target, render_task(task.text, rolled, added=task.added), heading
-        )
+        append_line(vault, target, render_task(task.text, rolled), heading)
         existing.add(task.text)
         result.moved.append(task.text)
         if rolled >= STALE_AFTER:
@@ -359,12 +344,7 @@ def move_task(vault, source: str, line: int, target: str, heading: str | None = 
 
     del lines[line - 1]
     vault.write_file(source, "\n".join(lines).rstrip() + "\n")
-    append_line(
-        vault,
-        target,
-        render_task(task.text, task.rolled, task.done, task.added),
-        heading,
-    )
+    append_line(vault, target, render_task(task.text, task.rolled, task.done), heading)
     return task
 
 
@@ -407,3 +387,28 @@ def migrate_week_files(vault) -> list[tuple[str, str]]:
         renamed.append((f"{TODO_DIR}/{file.name}", rel))
 
     return renamed
+
+
+ADDED_RE = re.compile(r"\s*added:\S+")
+
+
+def strip_added_dates(vault) -> list[str]:
+    """Remove the retired `added:` metadata. Idempotent."""
+    changed = []
+    for path in sorted(vault.root.rglob("*.md")):
+        if any(part.startswith(".") for part in path.parts[:-1]):
+            continue
+        rel = path.relative_to(vault.root).as_posix()
+        try:
+            body = vault.read_file(rel)
+        except (OSError, UnicodeDecodeError):
+            continue
+        if "added:" not in body:
+            continue
+        # Drop the key, then any comment left holding nothing.
+        cleaned = ADDED_RE.sub("", body)
+        cleaned = re.sub(r"\s*<!--\s*-->", "", cleaned)
+        if cleaned != body:
+            vault.write_file(rel, cleaned)
+            changed.append(rel)
+    return changed

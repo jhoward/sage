@@ -90,9 +90,10 @@ nothing can drift out of sync with it.
 Quick-add is global — it goes to this week's file regardless of which note you are
 looking at, so capture never depends on where you happen to be.
 
-Tasks carry the date they were added, in a trailing comment alongside the rollover count
-(`<!-- added:2026-08-28 rolled:3 -->`), so a backlog can be judged by age — the most useful
-thing to know about something that has been sitting there.
+Enter continues a list — another task after a task, another bullet after a bullet — and
+Enter on an *empty* item removes it and leaves the list. That is why there is no "new task"
+key: the obvious gesture already works. `⌘⏎` on a line that is not yet a task makes it one,
+so the same key both creates and completes.
 
 **Position is priority.** Line order is sort order — no priority field to maintain.
 Sections are ordinary markdown headings, and nothing in the code enforces them: capture
@@ -266,7 +267,8 @@ what you changed afterwards — and it does not rot.
 ## Meetings to follow-ups
 
 The loop this app is for. `⌘⇧V` takes a meeting recap off the clipboard, writes it to
-`notes/meetings/<date>-<title>.md` with a title derived from the text, and immediately asks
+`notes/meetings/<date>-<title>.md` with a title taken from the recap's own name — or written for it when there isn't one — and
+immediately asks
 for the follow-ups **you** committed to — not everyone else's actions. Each proposed task
 links back to the meeting, so the reason it exists stays visible, and they land in this
 week rather than the backlog because a commitment made in a meeting is usually live.

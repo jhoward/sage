@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { EditorState, type TransactionSpec } from "@codemirror/state";
 import {
+  continueList,
   hideCompletedField,
   parseTask,
   promoteToTop,
@@ -117,5 +118,88 @@ describe("promoteToTop", () => {
     const t = target(WEEK, 11);
     promoteToTop(t);
     expect(t.doc().split("\n").sort()).toEqual(WEEK.split("\n").sort());
+  });
+});
+
+describe("continueList", () => {
+  it("opens another task after a task", () => {
+    const t = target("- [ ] First");
+    // Cursor to end of line.
+    t.dispatch({ selection: { anchor: t.state.doc.line(1).to } });
+    expect(continueList(t)).toBe(true);
+    expect(t.doc()).toBe("- [ ] First\n- [ ] ");
+  });
+
+  it("opens another bullet after a plain bullet", () => {
+    const t = target("- First");
+    t.dispatch({ selection: { anchor: t.state.doc.line(1).to } });
+    continueList(t);
+    expect(t.doc()).toBe("- First\n- ");
+  });
+
+  it("exits the list on an empty item rather than adding another", () => {
+    const t = target("- [ ] ");
+    t.dispatch({ selection: { anchor: t.state.doc.line(1).to } });
+    expect(continueList(t)).toBe(true);
+    expect(t.doc()).toBe("");
+  });
+
+  it("preserves indentation", () => {
+    const t = target("  - [ ] Nested");
+    t.dispatch({ selection: { anchor: t.state.doc.line(1).to } });
+    continueList(t);
+    expect(t.doc()).toBe("  - [ ] Nested\n  - [ ] ");
+  });
+
+  it("does nothing on an ordinary line", () => {
+    const t = target("Just prose");
+    t.dispatch({ selection: { anchor: t.state.doc.line(1).to } });
+    expect(continueList(t)).toBe(false);
+  });
+
+  it("does not hijack Enter mid-line", () => {
+    const t = target("- [ ] First");
+    t.dispatch({ selection: { anchor: 8 } });
+    expect(continueList(t)).toBe(false);
+  });
+});
+
+describe("toggleTask on a plain line", () => {
+  it("turns prose into a task", () => {
+    const t = target("Call the dentist");
+    expect(toggleTask(t)).toBe(true);
+    expect(t.doc()).toBe("- [ ] Call the dentist");
+  });
+
+  it("turns a plain bullet into a task, keeping indentation", () => {
+    const t = target("  - Call the dentist");
+    toggleTask(t);
+    expect(t.doc()).toBe("  - [ ] Call the dentist");
+  });
+
+  it("then completes it on a second press", () => {
+    const t = target("Call the dentist");
+    toggleTask(t);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [x] Call the dentist");
+  });
+
+  it("leaves a blank line alone", () => {
+    const t = target("");
+    expect(toggleTask(t)).toBe(false);
+  });
+});
+
+describe("toggleTask leaves structure alone", () => {
+  it.each([
+    ["## Now", "a heading"],
+    ["> a quote", "a blockquote"],
+    ["```", "a fence"],
+    ["---", "a rule"],
+    ["week: 2026-08-23", "frontmatter"],
+  ])("does not turn %s into a task (%s)", (line) => {
+    const t = target(line);
+    expect(toggleTask(t)).toBe(false);
+    expect(t.doc()).toBe(line);
   });
 });
