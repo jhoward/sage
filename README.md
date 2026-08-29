@@ -189,7 +189,12 @@ There is no notebooks-or-sections concept, and there will not be: a folder alrea
 that job, and a second hierarchy on top of the filesystem is the thing the "no" list
 exists to prevent.
 
-Right-clicking a note or folder in the sidebar offers the same operations as the palette —
+**Double-click a name in the sidebar to rename it in place** — a note or a folder. Enter and
+clicking away both commit, Escape cancels. The aim is that nobody has to discover a rename
+command: you edit the name where you can see it, which is the gesture every file tree has
+already taught.
+
+Right-clicking a note or folder offers the same operations as the palette —
 open in split, rename, move, archive, delete, and rename-folder. Every item is also a
 command, so there is one behaviour reachable two ways rather than two behaviours.
 
