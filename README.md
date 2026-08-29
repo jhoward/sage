@@ -189,6 +189,16 @@ There is no notebooks-or-sections concept, and there will not be: a folder alrea
 that job, and a second hierarchy on top of the filesystem is the thing the "no" list
 exists to prevent.
 
+Right-clicking a note or folder in the sidebar offers the same operations as the palette —
+open in split, rename, move, archive, delete, and rename-folder. Every item is also a
+command, so there is one behaviour reachable two ways rather than two behaviours.
+
+**Renaming states the title once.** `⌘K` → rename asks for a title, and both the filename
+and the note's `# heading` follow it. The reverse — watching the heading and renaming the
+file to match — would move files while you typed and churn `[[links]]` mid-keystroke. A
+note with no heading does not get one: adding it would be editing content under cover of a
+rename.
+
 Moving a note between folders is `⌘K` → "Move this note…", and renaming a folder is
 `⌘K` → "Rename this note's folder…", which moves everything under it in one step. Both are
 undoable. A folder rename does not change basenames, so `[[vendor-risk]]` keeps resolving;

@@ -15,11 +15,19 @@ import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
 import { Prompt } from "./components/Prompt";
 import { Confirm } from "./components/Confirm";
+import { ContextMenu, type MenuItem } from "./components/ContextMenu";
 import { MultiPicker } from "./components/MultiPicker";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
 import { BINDINGS, applyOverrides, binding, label, matches } from "./lib/keybindings";
 import { lineLinksTo, linkNameFor, slugify } from "./lib/wikilinks";
+
+/** The note's own title: its first `# heading`, else the filename. */
+function titleOf(content: string, path: string | null): string {
+  const heading = content.match(/^#\s+(.+)$/m);
+  if (heading) return heading[1].trim();
+  return path ? path.split("/").pop()!.replace(/\.md$/, "") : "";
+}
 import type { SearchHit, SkillInfo } from "./backend";
 
 /**
@@ -115,6 +123,11 @@ export default function App() {
   const [moving, setMoving] = useState(false);
   const [startingMeeting, setStartingMeeting] = useState(false);
   const [renamingFolder, setRenamingFolder] = useState(false);
+  const [folderTarget, setFolderTarget] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{
+    at: { x: number; y: number };
+    items: MenuItem[];
+  } | null>(null);
   // A skill with `asks: true` needs a question before it can run.
   const [asking, setAsking] = useState<SkillInfo | null>(null);
   const [pulling, setPulling] = useState(false);
@@ -798,6 +811,42 @@ export default function App() {
             selected={path}
             onOpen={open}
             onOpenAlt={openSplit}
+            onContext={(target, at) => {
+              // Acting on the right-clicked note rather than the open one, which is what
+              // a context menu means; so it is opened first and the command follows.
+              const items: MenuItem[] = target.isDir
+                ? [
+                    {
+                      label: "Rename folder…",
+                      run: () => {
+                        setFolderTarget(target.path);
+                        setRenamingFolder(true);
+                      },
+                    },
+                    { label: "New note here…", run: () => setNewNote(true) },
+                  ]
+                : [
+                    { label: "Open in split", run: () => void openSplit(target.path) },
+                    {
+                      label: "Rename…",
+                      run: () => void open(target.path).then(() => setRenaming(true)),
+                    },
+                    {
+                      label: "Move…",
+                      run: () => void open(target.path).then(() => setMoving(true)),
+                    },
+                    {
+                      label: "Archive",
+                      run: () => void open(target.path).then(() => runCommand("note.archive")),
+                    },
+                    {
+                      label: "Delete…",
+                      danger: true,
+                      run: () => void open(target.path).then(() => setConfirmDelete(true)),
+                    },
+                  ];
+              setMenu({ at, items });
+            }}
           />
         </div>
         <button
@@ -922,6 +971,11 @@ export default function App() {
           if (path) await open(path);
           setStatus("Applied — ⌘K → undo to revert");
         }}
+      />
+      <ContextMenu
+        at={menu?.at ?? null}
+        items={menu?.items ?? []}
+        onClose={() => setMenu(null)}
       />
       <QuickAdd open={quickAdd} onClose={() => setQuickAdd(false)} onSubmit={addTask} />
       <Switcher
@@ -1074,19 +1128,23 @@ export default function App() {
         }}
       />
       <Prompt
-        open={renamingFolder && !!path && path.includes("/")}
-        label={`Rename ${path?.split("/").slice(0, -1).join("/")} — everything in it moves`}
+        open={renamingFolder && !!(folderTarget ?? path?.includes("/"))}
+        label={`Rename ${folderTarget ?? path?.split("/").slice(0, -1).join("/")} — everything in it moves`}
         placeholder="notes/ai-governance"
-        initial={path ? path.split("/").slice(0, -1).join("/") : ""}
-        onClose={() => setRenamingFolder(false)}
+        initial={folderTarget ?? (path ? path.split("/").slice(0, -1).join("/") : "")}
+        onClose={() => {
+          setRenamingFolder(false);
+          setFolderTarget(null);
+        }}
         onSubmit={async (next) => {
           setRenamingFolder(false);
-          if (!path) return;
-          const from = path.split("/").slice(0, -1).join("/");
+          const from = folderTarget ?? path?.split("/").slice(0, -1).join("/");
+          setFolderTarget(null);
+          if (!from) return;
           try {
             const { moved } = await backend.renameFolder(from, next);
             await refresh();
-            const here = moved.find((m) => m.endsWith(path.split("/").pop()!));
+            const here = path && moved.find((m) => m.endsWith(path.split("/").pop()!));
             if (here) await open(here);
             setStatus(`Moved ${moved.length} note${moved.length > 1 ? "s" : ""} to ${next}`);
           } catch (e) {
@@ -1117,15 +1175,22 @@ export default function App() {
       />
       <Prompt
         open={renaming}
-        label="Rename note (inbound links are updated)"
-        placeholder={path ?? ""}
-        initial={path ? path.replace(/\.md$/, "") : ""}
+        label="Rename — the filename and the # heading both follow"
+        placeholder="Cross-cloud networking"
+        initial={titleOf(doc.content, path)}
         onClose={() => setRenaming(false)}
         onSubmit={async (next) => {
           setRenaming(false);
           if (!path) return;
+          const folder = path.split("/").slice(0, -1).join("/");
+          const file = slugify(next);
+          if (!file) return;
           try {
-            const r = await backend.rename(path, next);
+            const r = await backend.rename(
+              path,
+              folder ? `${folder}/${file}` : file,
+              next,
+            );
             await refresh();
             await open(r.newPath);
             setStatus(

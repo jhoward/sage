@@ -198,3 +198,48 @@ def test_rename_folder_refuses_a_file_or_a_missing_folder(vault: Vault):
 def test_renaming_a_folder_to_itself_does_nothing(vault: Vault):
     vault.write_file("notes/a/one.md", "x")
     assert links.rename_folder(vault, "notes/a", "notes/a") == ([], {})
+
+
+# ---- renaming states the title once -----------------------------------
+
+def test_rename_updates_the_heading_too(vault: Vault):
+    """One statement of the title; the filename and the heading both follow."""
+    vault.write_file("notes/old.md", "# Old title\n\nBody stays.\n")
+    links.rename(vault, "notes/old.md", "notes/cross-cloud-networking.md",
+                 title="Cross-cloud networking")
+
+    body = vault.read_file("notes/cross-cloud-networking.md")
+    assert body.startswith("# Cross-cloud networking")
+    assert "Body stays." in body
+
+
+def test_rename_without_a_title_leaves_the_heading_alone(vault: Vault):
+    vault.write_file("notes/old.md", "# Keep me\n\nBody.\n")
+    links.rename(vault, "notes/old.md", "notes/new.md")
+    assert "# Keep me" in vault.read_file("notes/new.md")
+
+
+def test_rename_does_not_invent_a_heading(vault: Vault):
+    """A note with no heading deliberately has none; a rename must not add one."""
+    vault.write_file("notes/old.md", "Just a line.\n")
+    links.rename(vault, "notes/old.md", "notes/new.md", title="A Title")
+    assert vault.read_file("notes/new.md") == "Just a line.\n"
+
+
+def test_only_the_first_heading_is_touched(vault: Vault):
+    vault.write_file("notes/old.md", "# First\n\n## Second\n\n# Another top level\n")
+    links.rename(vault, "notes/old.md", "notes/new.md", title="Renamed")
+
+    body = vault.read_file("notes/new.md")
+    assert body.startswith("# Renamed")
+    assert "## Second" in body
+    assert "# Another top level" in body
+
+
+def test_heading_update_survives_frontmatter(vault: Vault):
+    vault.write_file("notes/old.md", "---\nkind: note\n---\n\n# Old\n\nBody.\n")
+    links.rename(vault, "notes/old.md", "notes/new.md", title="New")
+
+    body = vault.read_file("notes/new.md")
+    assert "kind: note" in body
+    assert "# New" in body and "# Old" not in body
