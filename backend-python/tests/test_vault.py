@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from sage import todo
-from sage.vault import Vault, VaultError
+from occam import todo
+from occam.vault import Vault, VaultError
 
 
 @pytest.fixture
@@ -100,8 +100,8 @@ def test_list_files_is_recursive_and_sorted(vault: Vault):
 
 
 def test_list_files_skips_dotfiles(vault: Vault):
-    vault.write_file(".sage/skills/cleanup.md", "prompt")
-    assert all(n.name != ".sage" for n in vault.list_files())
+    vault.write_file(".occam/skills/cleanup.md", "prompt")
+    assert all(n.name != ".occam" for n in vault.list_files())
 
 
 # ---- search ----------------------------------------------------------

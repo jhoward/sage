@@ -5,11 +5,11 @@ _Last updated: 2026-08-28 — AI connected and working end to end._
 ## Running it in 30 seconds
 
 ```bash
-cd backend-python && uv run sage
+cd backend-python && uv run notes
 ```
 
 Everything is installed. If the frontend changed, `cd frontend && npm run build` first.
-For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run sage`.
+For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
 cd backend-python && uv run pytest   # 93 passed, 1 skipped
@@ -34,19 +34,19 @@ Editor, file tree, autosave, native window, and the core todo loop, all working:
 - `[[wiki-links]]` with `⌘`-click, dotted rendering for unresolved links
 - Backlinks panel, built on `search()` — no index
 - `⌘\` split pane, ⌥-click a file to open it there
-- Skills as vault files (`.sage/skills/*.md`), joining the palette as ordinary commands
+- Skills as vault files (`.occam/skills/*.md`), joining the palette as ordinary commands
 - Streaming generation into a review panel — `⌘↵` accept, `esc` discard, nothing silent
 - Four context strategies: selection, note, note-and-links, week-done
 - `⌘O` file switcher (recently opened first) split out from `⌘K`, `⌘⇧F` vault search
 - `⌘N` new note; `⌘`-click an unresolved `[[link]]` to create it
 - Rename with inbound link rewriting
-- Settings = revealing `.sage/` in the tree; no settings panel
+- Settings = revealing `.occam/` in the tree; no settings panel
 - Live-preview styling (persistent, nothing hidden, so no mode to toggle)
 - Delete a note (`⌘K`), which asks you to type its name — there is no undo yet
 - All global shortcuts in one table; Ctrl is never treated as Cmd on macOS, so the
   readline bindings (`⌃A`, `⌃E`, `⌃K`, `⌃N`…) still work
 
-**The AI works.** Config lives at `~/.config/sage/config.toml` with the key and, because
+**The AI works.** Config lives at `~/.config/occam/config.toml` with the key and, because
 this is an identity-linked key, `anthropic_workspace_id` (workspace `sage`,
 `wrkspc_01JRamYCGCoa4QDfLgeKnAkC`). Verified against the real API: Clean up and Weekly
 summary both produce good output. Expand and Ask have generated but their output has not
@@ -65,7 +65,7 @@ Worth knowing, because each one cost time:
 - A personal key carries full account permissions. A workspace-scoped key would be
   narrower and needs no workspace ID at all — worth switching to at some point.
 
-Vault lives at `~/notes` (config: `~/.config/sage/config.toml`).
+Vault lives at `~/notes` (config: `~/.config/occam/config.toml`).
 
 ## Known rough edges
 
@@ -74,10 +74,10 @@ starting Phase 4, since polish on daily-use friction may be worth more than sync
 
 Already known:
 
-- Expand and Ask prompts are unjudged. They are files in `.sage/skills/`; edit and re-run.
+- Expand and Ask prompts are unjudged. They are files in `.occam/skills/`; edit and re-run.
 - The Weekly summary ends with a caveat about vague tasks. Honest, but you would delete it
   before pasting into a standup — consider whether that skill should suppress it.
-- The bold macOS app-menu title needs a real `.app` bundle to change; menu *items* say Sage.
+- Renamed from Sage to Occam Notes. `.sage/` in a vault and `~/.config/sage/` are migrated on startup; both migrations are idempotent.
 
 ## Next — Phase 4
 
@@ -87,7 +87,7 @@ Already known:
    the undo layer for AI edits.
 2. **Auto-link suggestions** — surface `[[notes]]` that already exist as you type. Where
    the model genuinely beats you, since remembering what is in the vault is the hard part.
-3. **Keybinding overrides** from `<vault>/.sage/keybindings.toml`.
+3. **Keybinding overrides** from `<vault>/.occam/keybindings.toml`.
 
 Then Phase 5: external resolvers (Jira/Docs), per-project backlogs, and semantic search
 only if the escalation ladder in the README actually demands it.

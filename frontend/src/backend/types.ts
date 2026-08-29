@@ -94,7 +94,7 @@ export interface AskAnswer {
 }
 
 export interface VaultBackend {
-  /** `hidden` reveals `.sage/` — what "settings" means here. */
+  /** `hidden` reveals `.occam/` — what "settings" means here. */
   listFiles(hidden?: boolean): Promise<{ files: FileNode[]; sync: SyncStatus }>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;

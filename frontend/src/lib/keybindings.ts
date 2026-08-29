@@ -11,7 +11,7 @@
  * 2. **Do not shadow a text-editing binding people rely on.** A shortcut is not free just
  *    because nothing in *this* app uses it.
  *
- * Phase 4 loads overrides from `<vault>/.sage/keybindings.toml`; having the table here is
+ * Phase 4 loads overrides from `<vault>/.occam/keybindings.toml`; having the table here is
  * what makes that a small change.
  */
 

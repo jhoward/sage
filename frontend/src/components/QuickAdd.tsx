@@ -37,7 +37,7 @@ export function QuickAdd({
     >
       <div
         className="w-[min(560px,90vw)] overflow-hidden rounded-lg border shadow-2xl"
-        style={{ background: "var(--sage-panel)", borderColor: "var(--sage-border)" }}
+        style={{ background: "var(--ink-panel)", borderColor: "var(--ink-border)" }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <input
@@ -53,11 +53,11 @@ export function QuickAdd({
             }
           }}
           className="w-full bg-transparent px-3 py-2.5 text-sm outline-none"
-          style={{ color: "var(--sage-fg)" }}
+          style={{ color: "var(--ink-fg)" }}
         />
         <div
           className="border-t px-3 py-1.5 text-[11px]"
-          style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+          style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
         >
           ↵ this week · ⇧↵ backlog
         </div>

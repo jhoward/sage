@@ -83,12 +83,12 @@ export function MultiPicker({
     >
       <div
         className="w-[min(620px,92vw)] overflow-hidden rounded-lg border shadow-2xl"
-        style={{ background: "var(--sage-panel)", borderColor: "var(--sage-border)" }}
+        style={{ background: "var(--ink-panel)", borderColor: "var(--ink-border)" }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div
           className="border-b px-3.5 py-1.5 text-[11px]"
-          style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+          style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
         >
           {title}
         </div>
@@ -120,12 +120,12 @@ export function MultiPicker({
             }
           }}
           className="w-full border-b bg-transparent px-3.5 py-2.5 text-sm outline-none"
-          style={{ color: "var(--sage-fg)", borderColor: "var(--sage-border)" }}
+          style={{ color: "var(--ink-fg)", borderColor: "var(--ink-border)" }}
         />
 
         <div ref={listRef} className="max-h-[45vh] overflow-auto py-1">
           {visible.length === 0 && (
-            <div className="px-3.5 py-3 text-sm" style={{ color: "var(--sage-muted)" }}>
+            <div className="px-3.5 py-3 text-sm" style={{ color: "var(--ink-muted)" }}>
               {emptyLabel}
             </div>
           )}
@@ -139,19 +139,19 @@ export function MultiPicker({
               style={{
                 background:
                   i === cursor
-                    ? "color-mix(in srgb, var(--sage-accent) 14%, transparent)"
+                    ? "color-mix(in srgb, var(--ink-accent) 14%, transparent)"
                     : undefined,
               }}
             >
               <span
                 className="shrink-0 font-mono text-xs"
-                style={{ color: picked.has(item.id) ? "var(--sage-accent)" : "var(--sage-muted)" }}
+                style={{ color: picked.has(item.id) ? "var(--ink-accent)" : "var(--ink-muted)" }}
               >
                 {picked.has(item.id) ? "[x]" : "[ ]"}
               </span>
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {item.hint && (
-                <span className="shrink-0 text-[11px]" style={{ color: "var(--sage-muted)" }}>
+                <span className="shrink-0 text-[11px]" style={{ color: "var(--ink-muted)" }}>
                   {item.hint}
                 </span>
               )}
@@ -161,13 +161,13 @@ export function MultiPicker({
 
         <div
           className="flex items-center justify-between border-t px-3.5 py-2 text-[11px]"
-          style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+          style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
         >
           <span>space toggles · ↵ confirms · esc cancels</span>
           <button
             onClick={confirm}
             className="rounded px-2.5 py-1 text-xs"
-            style={{ background: "var(--sage-accent)", color: "white" }}
+            style={{ background: "var(--ink-accent)", color: "white" }}
           >
             {confirmLabel(picked.size)}
           </button>

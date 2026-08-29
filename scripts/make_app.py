@@ -1,4 +1,4 @@
-"""Build Sage.app — a minimal macOS bundle around the dev install.
+"""Build Occam Notes.app — a minimal macOS bundle around the dev install.
 
 The unbundled app has two cosmetic problems that cannot be fully fixed from inside a
 Python process: the Dock shows a blank document icon, and the menu bar says "python". Both
@@ -23,13 +23,13 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-APP = REPO / "Sage.app"
+APP = REPO / "Occam Notes.app"
 ICON = REPO / "assets" / "icon.icns"
 
 LAUNCHER = """#!/bin/sh
 # Launch the working copy in place. Not relocatable — see scripts/make_app.py.
 cd "{backend}" || exit 1
-exec "{uv}" run sage
+exec "{uv}" run notes
 """
 
 
@@ -53,17 +53,17 @@ def main() -> int:
 
     shutil.copy(ICON, resources / "icon.icns")
 
-    launcher = macos / "Sage"
+    launcher = macos / "Notes"
     launcher.write_text(LAUNCHER.format(backend=REPO / "backend-python", uv=uv))
     launcher.chmod(launcher.stat().st_mode | stat.S_IEXEC)
 
     (APP / "Contents" / "Info.plist").write_bytes(
         plistlib.dumps(
             {
-                "CFBundleName": "Sage",
-                "CFBundleDisplayName": "Sage",
-                "CFBundleIdentifier": "com.jimhoward.sage",
-                "CFBundleExecutable": "Sage",
+                "CFBundleName": "Occam Notes",
+                "CFBundleDisplayName": "Occam Notes",
+                "CFBundleIdentifier": "com.jimhoward.occam",
+                "CFBundleExecutable": "Notes",
                 "CFBundleIconFile": "icon",
                 "CFBundlePackageType": "APPL",
                 "CFBundleShortVersionString": "0.1.0",

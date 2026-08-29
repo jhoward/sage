@@ -20,14 +20,18 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-CONFIG_DIR = Path.home() / ".config" / "sage"
+CONFIG_DIR = Path.home() / ".config" / "occam"
 CONFIG_PATH = CONFIG_DIR / "config.toml"
+
+# The app was called Sage until the rename. Read once at startup if the new location is
+# absent, then moved — renaming should not cost anyone their API key.
+LEGACY_CONFIG_DIR = Path.home() / ".config" / "sage"
 
 DEFAULT_VAULT = Path.home() / "notes"
 DEFAULT_SYNC = "local"
 
 HEADER = """\
-# Sage configuration.
+# Occam Notes configuration.
 #
 # Machine-specific settings live here. Anything that should follow you between machines
 # belongs in <vault>/.sage/ instead, so it syncs along with your notes.
@@ -145,6 +149,33 @@ def add_missing_settings(path: Path, cfg: Config) -> list[str]:
     return missing
 
 
+def migrate_legacy_config(path: Path | None = None) -> bool:
+    """Move a config left behind by the old name. Returns True if one was moved.
+
+    Only ever acts on the real install location. Migration reads a fixed path in the home
+    directory, so running it for an arbitrary `path` would reach outside that path's world
+    — which is exactly what happened once here: a test pointed at a temp file, and the
+    migration moved the developer's actual config into it and deleted the original.
+    A destructive operation must not be reachable from a caller that named somewhere else.
+    """
+    path = path or CONFIG_PATH
+    if path != CONFIG_PATH:
+        return False
+
+    legacy = LEGACY_CONFIG_DIR / "config.toml"
+    if path.exists() or not legacy.exists():
+        return False
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(legacy.read_text(encoding="utf-8"), encoding="utf-8")
+    legacy.unlink()
+    try:
+        LEGACY_CONFIG_DIR.rmdir()  # only if now empty
+    except OSError:
+        pass
+    return True
+
+
 def load(path: Path | None = None) -> Config:
     """Read config, creating a documented one on first run.
 
@@ -152,6 +183,7 @@ def load(path: Path | None = None) -> Config:
     CONFIG_PATH somewhere harmless instead of reading the developer's real key.
     """
     path = path or CONFIG_PATH
+    migrate_legacy_config(path)
     if not path.exists():
         cfg = Config(vault_path=DEFAULT_VAULT)
         cfg.save(path)

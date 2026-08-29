@@ -173,7 +173,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     return (
       <div
         className="flex h-full items-center justify-center text-sm"
-        style={{ color: "var(--sage-muted)" }}
+        style={{ color: "var(--ink-muted)" }}
       >
         Select a note, or press ⌘⇧T to add a task
       </div>

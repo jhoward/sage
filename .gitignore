@@ -26,9 +26,9 @@ build/
 
 # Built locally by scripts/make_app.py; launches the working copy in place, so it is
 # machine-specific and not worth committing.
-/Sage.app/
+/Occam Notes.app/
 
-# ---- Sage ----
+# ---- Occam Notes ----
 # The vault lives outside this repo (see README) and is its own git repo.
 # This only catches a vault someone parks here by mistake.
 /vault/

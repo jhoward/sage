@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from sage import links
-from sage.vault import Vault
+from occam import links
+from occam.vault import Vault
 
 
 @pytest.fixture
@@ -83,6 +83,6 @@ def test_moving_without_renaming_leaves_links_intact(vault: Vault):
 
 
 def test_list_files_can_reveal_settings(vault: Vault):
-    vault.write_file(".sage/skills/cleanup.md", "prompt")
-    assert all(n.name != ".sage" for n in vault.list_files())
-    assert any(n.name == ".sage" for n in vault.list_files(include_hidden=True))
+    vault.write_file(".occam/skills/cleanup.md", "prompt")
+    assert all(n.name != ".occam" for n in vault.list_files())
+    assert any(n.name == ".occam" for n in vault.list_files(include_hidden=True))

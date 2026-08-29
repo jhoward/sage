@@ -24,7 +24,7 @@ MARKDOWN_SUFFIXES = {".md", ".markdown"}
 SKIP_DIRS = {".git", ".obsidian", "node_modules", "__pycache__"}
 
 # The one hidden directory the app will reveal on request.
-SETTINGS_DIR = ".sage"
+SETTINGS_DIR = ".occam"
 
 # Cap search output so a pathological query cannot flood the UI.
 MAX_SEARCH_HITS = 200

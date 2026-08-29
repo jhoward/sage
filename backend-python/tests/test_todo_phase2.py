@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from sage import todo
-from sage.vault import Vault
+from occam import todo
+from occam.vault import Vault
 
 
 @pytest.fixture

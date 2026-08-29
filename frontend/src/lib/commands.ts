@@ -3,7 +3,7 @@
  *
  * One invocation surface: ⌘K takes intent, and a built-in command and a vault skill are
  * the same kind of thing. That is why commands are *data* rather than a switch statement —
- * in Phase 3, skills loaded from `.sage/skills/*.md` join this same list and appear in the
+ * in Phase 3, skills loaded from `.occam/skills/*.md` join this same list and appear in the
  * palette alongside everything else, with no changes to the palette itself.
  */
 

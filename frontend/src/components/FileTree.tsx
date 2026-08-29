@@ -50,7 +50,7 @@ function Node({
         <button
           onClick={() => setOpen(!open)}
           className="flex w-full items-center gap-1 py-[3px] text-left hover:opacity-70"
-          style={{ ...pad, color: "var(--sage-muted)" }}
+          style={{ ...pad, color: "var(--ink-muted)" }}
         >
           <span className="inline-block w-3 text-[10px]">{open ? "▾" : "▸"}</span>
           {node.name}
@@ -72,8 +72,8 @@ function Node({
       className="block w-full truncate py-[3px] text-left"
       style={{
         ...pad,
-        background: isSelected ? "color-mix(in srgb, var(--sage-accent) 14%, transparent)" : undefined,
-        color: isSelected ? "var(--sage-accent)" : "var(--sage-fg)",
+        background: isSelected ? "color-mix(in srgb, var(--ink-accent) 14%, transparent)" : undefined,
+        color: isSelected ? "var(--ink-accent)" : "var(--ink-fg)",
       }}
     >
       {node.name.replace(/\.md$/, "")}

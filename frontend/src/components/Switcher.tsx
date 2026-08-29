@@ -71,7 +71,7 @@ export function Switcher({
     >
       <div
         className="w-[min(620px,92vw)] overflow-hidden rounded-lg border shadow-2xl"
-        style={{ background: "var(--sage-panel)", borderColor: "var(--sage-border)" }}
+        style={{ background: "var(--ink-panel)", borderColor: "var(--ink-border)" }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <input
@@ -98,12 +98,12 @@ export function Switcher({
             }
           }}
           className="w-full border-b bg-transparent px-3.5 py-3 text-sm outline-none"
-          style={{ color: "var(--sage-fg)", borderColor: "var(--sage-border)" }}
+          style={{ color: "var(--ink-fg)", borderColor: "var(--ink-border)" }}
         />
 
         <div ref={listRef} className="max-h-[50vh] overflow-auto py-1">
           {flat.length === 0 && (
-            <div className="px-3.5 py-3 text-sm" style={{ color: "var(--sage-muted)" }}>
+            <div className="px-3.5 py-3 text-sm" style={{ color: "var(--ink-muted)" }}>
               {emptyLabel}
             </div>
           )}
@@ -112,7 +112,7 @@ export function Switcher({
               {section.group && (
                 <div
                   className="px-3.5 pb-1 pt-2 text-[10px] font-semibold tracking-wider"
-                  style={{ color: "var(--sage-muted)" }}
+                  style={{ color: "var(--ink-muted)" }}
                 >
                   {section.group.toUpperCase()}
                 </div>
@@ -129,16 +129,16 @@ export function Switcher({
                     style={{
                       background:
                         i === cursor
-                          ? "color-mix(in srgb, var(--sage-accent) 14%, transparent)"
+                          ? "color-mix(in srgb, var(--ink-accent) 14%, transparent)"
                           : undefined,
-                      color: i === cursor ? "var(--sage-accent)" : "var(--sage-fg)",
+                      color: i === cursor ? "var(--ink-accent)" : "var(--ink-fg)",
                     }}
                   >
                     <span className="truncate">{c.title}</span>
                     {c.hint && (
                       <span
                         className="shrink-0 text-[11px]"
-                        style={{ color: "var(--sage-muted)" }}
+                        style={{ color: "var(--ink-muted)" }}
                       >
                         {c.hint}
                       </span>
@@ -153,7 +153,7 @@ export function Switcher({
         {footer && (
           <div
             className="border-t px-3.5 py-1.5 text-[11px]"
-            style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+            style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
           >
             {footer}
           </div>

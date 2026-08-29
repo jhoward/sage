@@ -1,6 +1,10 @@
-# Sage
+# Occam Notes
 
-A local-first, AI-native notes and todo app. Plain markdown files on disk, a fast editor,
+A local-first, AI-native notes and todo app.
+
+Named for the razor, because the design argument here is mostly subtraction: a written
+"no" list, features removed when they turned out to make false claims, and extension that
+happens in your vault rather than in the codebase. Plain markdown files on disk, a fast editor,
 and a weekly todo list that generates its own work summaries.
 
 Phase 1 is built: editor, file tree, autosave, and the core todo interactions.
@@ -13,11 +17,11 @@ brew install node                      # once
 cd backend-python && uv sync --extra dev
 cd ../frontend && npm install && npm run build
 
-cd ../backend-python && uv run sage    # opens a native window
+cd ../backend-python && uv run notes    # opens a native window
 ```
 
 For frontend hot-reload, run `npm run dev` in `frontend/` and start the app with
-`SAGE_DEV=1 uv run sage`.
+`SAGE_DEV=1 uv run notes`.
 
 ### A real app icon and name
 
@@ -27,10 +31,10 @@ inside the process only half works.
 
 ```bash
 uv run python scripts/make_icon.py   # assets/icon.png + icon.icns, drawn in code
-uv run python scripts/make_app.py    # Sage.app
+uv run python scripts/make_app.py    # Occam Notes.app
 ```
 
-`Sage.app` launches this working copy in place — it is not distributable and the repo has
+`Occam Notes.app` launches this working copy in place — it is not distributable and the repo has
 to stay where it is. A shippable build is the Tauri phase. Drag it to the Dock.
 
 ```bash
@@ -42,7 +46,7 @@ cd frontend && npm test                # todo commands + editor save safety
 
 Notes live **outside this repo**, at `~/notes` by default, so the vault can be its own git
 repo later without entangling it with the app. Change the location in
-`~/.config/sage/config.toml`.
+`~/.config/occam/config.toml`.
 
 ```
 ~/notes/
@@ -70,7 +74,7 @@ nothing can drift out of sync with it.
 | Rename a note, updating inbound links | `⌘K` → rename |
 | Delete a note (asks you to type its name) | `⌘⌫` |
 | Pull several tasks from the backlog | `⌘⇧P` |
-| Settings (reveal `.sage/`) | `⌘K` → settings |
+| Settings (reveal `.occam/`) | `⌘K` → settings |
 | Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
 | Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
 | Toggle done | `⌘⏎` |
@@ -123,7 +127,7 @@ instead. On macOS Mod means Cmd and nothing else; on Linux and Windows it means 
 
 That rule lives in `frontend/src/lib/keybindings.ts`, which is also where every global
 shortcut is declared, and there are tests asserting that no `⌃`-anything matches a binding
-on macOS. Phase 4 loads overrides from `<vault>/.sage/keybindings.toml` from that same table.
+on macOS. Phase 4 loads overrides from `<vault>/.occam/keybindings.toml` from that same table.
 
 The second rule: **do not shadow a text-editing shortcut people rely on.** `⌥⇧↑` promotes a
 task to the top of its section rather than `⌘⇧↑`, because on macOS that extends the
@@ -145,13 +149,13 @@ the same component with different lists, so the split costs nothing.
 
 ## Settings is a folder
 
-There is no settings panel. `⌘K` → Settings reveals the hidden `.sage/` directory in the
+There is no settings panel. `⌘K` → Settings reveals the hidden `.occam/` directory in the
 file tree, and you edit skills and config as ordinary files in the editor you already have.
 
 ```
-<vault>/.sage/skills/*.md        prompts
-<vault>/.sage/keybindings.toml   (Phase 4)
-~/.config/sage/config.toml       machine-specific
+<vault>/.occam/skills/*.md        prompts
+<vault>/.occam/keybindings.toml   (Phase 4)
+~/.config/occam/config.toml       machine-specific
 ```
 
 ## Live preview
@@ -183,13 +187,13 @@ backend contract stayed the same size.
 
 Nothing runs without an API key, and the app is a perfectly good plain editor without one.
 The key lives in the backend — `ANTHROPIC_API_KEY`, or `anthropic_api_key` in
-`~/.config/sage/config.toml` — and never reaches the frontend bundle.
+`~/.config/occam/config.toml` — and never reaches the frontend bundle.
 
 The config file is created with every setting present and documented, including the empty
 ones, so you never have to guess what a key is called:
 
 ```toml
-# ~/.config/sage/config.toml
+# ~/.config/occam/config.toml
 vault_path = "/Users/you/notes"
 sync = "local"
 anthropic_api_key = ""       # ANTHROPIC_API_KEY in the environment wins over this
@@ -201,17 +205,17 @@ organisation) the API also needs a workspace ID, and returns a 400 without one. 
 the Anthropic Console under Settings → Workspaces; it looks like `wrkspc_…`. A standard
 organisation key ignores this setting.
 
-`⌘K` → "Set the Anthropic API key…" opens that file in your editor; restart Sage after
+`⌘K` → "Set the Anthropic API key…" opens that file in your editor; restart Occam Notes after
 saving, since config is read at startup. Until a key is set the palette shows skills marked
 `needs API key` rather than letting you discover it by running one.
 
-Prefer the file over the environment variable if you ever launch Sage as an app — a shell
+Prefer the file over the environment variable if you ever launch Occam Notes as an app — a shell
 profile does not reach a GUI launch. And keep the key there rather than anywhere inside the
 vault, because the vault becomes a git repo.
 
 ### Skills are files
 
-A skill is a markdown file in `<vault>/.sage/skills/`. Four ship on first run — Clean up,
+A skill is a markdown file in `<vault>/.occam/skills/`. Four ship on first run — Clean up,
 Expand, Ask, Weekly summary — and they are a starting point to edit, not a library.
 
 ```markdown
