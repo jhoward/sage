@@ -32,17 +32,29 @@ HEADER = """\
 # line to go back to its default, or delete the file to reset everything.
 #
 # The convention worth keeping: ⌘ alone means you do it many times a day, everything else
-# takes shift. Every line below is currently set to its default.
+# takes shift.
+#
+# Commented-out lines are commands with no key at all. Uncomment one and give it a
+# combination to bind it — they are listed so this file shows everything you *could* bind,
+# not only what already is.
 """
 
 
 @dataclass
 class Bindings:
     overrides: dict[str, dict] = field(default_factory=dict)
+    # Genuine mistakes: unreadable combinations and collisions, which are worth saying.
     problems: list[str] = field(default_factory=list)
+    # Names this version does not know. Recorded for a future "what is in my file that I
+    # cannot use" view, but not surfaced — see load().
+    unknown: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {"overrides": self.overrides, "problems": self.problems}
+        return {
+            "overrides": self.overrides,
+            "problems": self.problems,
+            "unknown": self.unknown,
+        }
 
 
 def parse_spec(value: str) -> dict | None:
@@ -77,7 +89,10 @@ def load(vault, known: set[str] | None = None) -> Bindings:
     seen: dict[str, str] = {}
     for name, value in raw.items():
         if known is not None and name not in known:
-            result.problems.append(f"{name}: not a command")
+            # Ignored rather than flagged. A line naming something this version does not
+            # have is most likely from a newer one, or a command since renamed — neither
+            # is worth an error every time the app starts. It simply does nothing.
+            result.unknown.append(name)
             continue
 
         spec = parse_spec(value)
@@ -99,14 +114,25 @@ def load(vault, known: set[str] | None = None) -> Bindings:
 
 
 def render(defaults: dict[str, dict]) -> str:
-    """A template listing every command at its current default."""
-    lines = [HEADER]
+    """A template listing every command — bound ones live, unbound ones commented.
+
+    Listing the unbound ones is the whole point: a settings file that shows only what is
+    already set tells you nothing about what else is available, which is the usual reason
+    nobody discovers half an app's shortcuts.
+    """
+    bound, unbound = [], []
     for name, spec in sorted(defaults.items()):
-        combo = "+".join(
-            [m for m in ("mod", "shift", "alt") if spec.get(m)] + [str(spec.get("key", ""))]
-        )
-        lines.append(f'{name} = "{combo}"')
-    return "\n".join(lines) + "\n"
+        key = str(spec.get("key", ""))
+        if not key:
+            unbound.append(f'# {name} = ""')
+            continue
+        mods = [m for m in ("mod", "shift", "alt") if spec.get(m)]
+        bound.append(f'{name} = "{"+".join([*mods, key])}"')
+
+    out = [HEADER, *bound]
+    if unbound:
+        out += ["", "# Not bound to anything yet:", *unbound]
+    return "\n".join(out) + "\n"
 
 
 def ensure_template(vault, defaults: dict[str, dict]) -> str:

@@ -38,6 +38,9 @@ export interface KeySpec {
  * The Ctrl/Cmd asymmetry is the whole point: on macOS a bare ⌃K must NOT match `Mod-k`.
  */
 export function matches(e: KeyboardEvent, spec: KeySpec): boolean {
+  // An unbound command matches nothing until someone gives it a key.
+  if (!spec.key) return false;
+
   const mac = isMac();
   const modDown = mac ? e.metaKey : e.ctrlKey;
   // On macOS, Ctrl belongs to the text layer; a shortcut asking for Mod must not fire
@@ -68,7 +71,7 @@ export const BINDINGS = {
   search: { key: "f", mod: true, shift: true },
   quickAdd: { key: "t", mod: true },
   split: { key: "\\", mod: true },
-  // ⌘⌫ is the macOS idiom for "move to trash"; the confirmation still asks for the name.
+  // ⌘⌫ is the macOS idiom for "move to trash".
   deleteNote: { key: "Backspace", mod: true },
   pull: { key: "p", mod: true, shift: true },
   ask: { key: "j", mod: true },
@@ -76,6 +79,19 @@ export const BINDINGS = {
   // ⌘M is Minimize on macOS. Taken deliberately: a single-window app is rarely minimised,
   // and keeping the three "new" verbs together is worth more than the system default.
   startMeeting: { key: "m", mod: true },
+
+  // Bindable but unbound by default. Listed so the keybindings file can show everything
+  // you *could* bind rather than only what is already bound — the discoverability problem
+  // with a sparse settings file. An empty key never matches.
+  rollover: { key: "", mod: true },
+  archiveNote: { key: "", mod: true },
+  moveNote: { key: "", mod: true },
+  renameNote: { key: "", mod: true },
+  undo: { key: "", mod: true },
+  cheatsheet: { key: "", mod: true },
+  settings: { key: "", mod: true },
+  backlog: { key: "", mod: true },
+  week: { key: "", mod: true },
 } satisfies Record<string, KeySpec>;
 
 export type BindingName = keyof typeof BINDINGS;

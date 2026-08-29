@@ -139,9 +139,20 @@ on macOS and Ctrl elsewhere. Delete a line to return it to its default, or the f
 reset everything. It lives in the vault so bindings follow your notes between machines, and
 restarting picks up changes.
 
-A typo is reported rather than swallowed: an unknown command name, an unreadable
-combination, or two commands on the same keys all surface as a message. A shortcut that
-silently does nothing is the worst way to learn you mistyped it.
+The file lists **every** bindable command, not only the ones with keys — commands with no
+default appear commented out at the bottom, so it shows what you *could* bind rather than
+what already is. Uncomment one, give it a combination, restart.
+
+```toml
+# Not bound to anything yet:
+# archiveNote = ""
+# rollover = ""
+# undo = ""
+```
+
+A binding that cannot work is reported: an unreadable combination, or two commands on the
+same keys. A command name this version does not have is **ignored** — it is most likely
+from a newer version or one since renamed, and neither deserves an error every startup.
 
 `⌘M` is Minimize on macOS. Taken deliberately: a single-window app is rarely minimised, and
 keeping the three "new" verbs together is worth more than the system default.
