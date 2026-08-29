@@ -80,6 +80,24 @@ export const BINDINGS = {
 
 export type BindingName = keyof typeof BINDINGS;
 
+/**
+ * Overrides read from `<vault>/.occam/keybindings.toml`, merged over the defaults.
+ *
+ * Module-level rather than React state because `matches()` is called from event handlers
+ * all over the app; threading a context through every one of them to change a value that
+ * loads once at startup would be ceremony for nothing.
+ */
+let overrides: Partial<Record<string, KeySpec>> = {};
+
+export function applyOverrides(next: Partial<Record<string, KeySpec>>): void {
+  overrides = next ?? {};
+}
+
+/** The binding in force for a command: an override if there is one, else the default. */
+export function binding(name: BindingName): KeySpec {
+  return (overrides[name] as KeySpec | undefined) ?? BINDINGS[name];
+}
+
 /** Human label for the footer, e.g. "⌘⇧F" or "Ctrl+Shift+F". */
 export function label(spec: KeySpec): string {
   const key = spec.key === "\\" ? "\\" : spec.key.toUpperCase();
