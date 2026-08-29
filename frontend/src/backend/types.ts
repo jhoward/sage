@@ -116,6 +116,8 @@ export interface VaultBackend {
   deleteFile(path: string): Promise<void>;
   /** Move a note into archive/, keeping which folder it came from. Undoable. */
   archiveNote(path: string): Promise<{ path: string }>;
+  /** Rename a folder, moving everything under it. Path-style links are repointed. */
+  renameFolder(path: string, newPath: string): Promise<{ moved: string[] }>;
   /** Move a note and repoint every [[link]] that referenced it. */
   rename(path: string, newPath: string): Promise<{ newPath: string; updated: string[] }>;
 

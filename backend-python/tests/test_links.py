@@ -134,3 +134,67 @@ def test_archived_notes_are_still_searchable(vault: Vault):
     """Archiving tidies the tree; it must not hide anything from search."""
     links.archive(vault, "notes/vpc.md")
     assert any("archive/" in h.path for h in vault.search("VPC"))
+
+
+# ---- renaming a folder ------------------------------------------------
+
+def test_rename_folder_moves_everything_under_it(vault: Vault):
+    vault.write_file("notes/governance/one.md", "# One\n")
+    vault.write_file("notes/governance/deep/two.md", "# Two\n")
+
+    moved, _ = links.rename_folder(vault, "notes/governance", "notes/ai-governance")
+
+    assert moved == ["notes/ai-governance/deep/two.md", "notes/ai-governance/one.md"]
+    assert "# Two" in vault.read_file("notes/ai-governance/deep/two.md")
+    assert not (vault.root / "notes/governance").exists()
+
+
+def test_basename_links_keep_working(vault: Vault):
+    """A folder rename does not change basenames, so [[one]] still resolves."""
+    vault.write_file("notes/governance/one.md", "# One\n")
+    vault.write_file("notes/other.md", "See [[one]].\n")
+
+    links.rename_folder(vault, "notes/governance", "notes/ai-governance")
+    assert "[[one]]" in vault.read_file("notes/other.md")
+
+
+def test_path_style_links_are_repointed(vault: Vault):
+    """[[governance/one]] would break; the same reasoning as renaming a note."""
+    vault.write_file("notes/governance/one.md", "# One\n")
+    vault.write_file("notes/other.md", "See [[notes/governance/one]].\n")
+
+    links.rename_folder(vault, "notes/governance", "notes/ai-governance")
+    assert "[[notes/ai-governance/one]]" in vault.read_file("notes/other.md")
+
+
+def test_rename_folder_is_undoable(vault: Vault):
+    from occam import chat
+
+    vault.write_file("notes/governance/one.md", "# One\n")
+    vault.write_file("notes/other.md", "See [[notes/governance/one]].\n")
+    _, snapshot = links.rename_folder(vault, "notes/governance", "notes/ai-governance")
+
+    chat.undo(vault, snapshot)
+    assert vault.read_file("notes/governance/one.md") == "# One\n"
+    assert "[[notes/governance/one]]" in vault.read_file("notes/other.md")
+    assert not (vault.root / "notes/ai-governance/one.md").exists()
+
+
+def test_rename_folder_refuses_an_existing_target(vault: Vault):
+    vault.write_file("notes/a/one.md", "x")
+    vault.write_file("notes/b/two.md", "x")
+    with pytest.raises(ValueError, match="already exists"):
+        links.rename_folder(vault, "notes/a", "notes/b")
+
+
+def test_rename_folder_refuses_a_file_or_a_missing_folder(vault: Vault):
+    vault.write_file("notes/a/one.md", "x")
+    with pytest.raises(ValueError, match="not a folder"):
+        links.rename_folder(vault, "notes/a/one.md", "notes/b")
+    with pytest.raises(ValueError, match="not a folder"):
+        links.rename_folder(vault, "notes/nope", "notes/b")
+
+
+def test_renaming_a_folder_to_itself_does_nothing(vault: Vault):
+    vault.write_file("notes/a/one.md", "x")
+    assert links.rename_folder(vault, "notes/a", "notes/a") == ([], {})

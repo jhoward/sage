@@ -53,6 +53,13 @@ export const httpBackend: VaultBackend = {
     });
   },
 
+  async renameFolder(path, newPath) {
+    return request<{ moved: string[] }>("/api/rename-folder", {
+      method: "POST",
+      body: JSON.stringify({ path, newPath }),
+    });
+  },
+
   async rename(path, newPath) {
     return request<{ newPath: string; updated: string[] }>("/api/rename", {
       method: "POST",

@@ -189,8 +189,10 @@ There is no notebooks-or-sections concept, and there will not be: a folder alrea
 that job, and a second hierarchy on top of the filesystem is the thing the "no" list
 exists to prevent.
 
-Moving a note between folders is `⌘K` → "Move this note…", which is a rename underneath, so
-inbound links follow it. There is no drag-and-drop: in a keyboard-first app a command that
+Moving a note between folders is `⌘K` → "Move this note…", and renaming a folder is
+`⌘K` → "Rename this note's folder…", which moves everything under it in one step. Both are
+undoable. A folder rename does not change basenames, so `[[vendor-risk]]` keeps resolving;
+path-style links like `[[notes/governance/vendor-risk]]` are repointed. There is no drag-and-drop: in a keyboard-first app a command that
 also works from the palette beats a gesture that only works with a mouse, and dropping onto
 the wrong folder in a nested tree is easier than it looks.
 

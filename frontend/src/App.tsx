@@ -114,6 +114,7 @@ export default function App() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [moving, setMoving] = useState(false);
   const [startingMeeting, setStartingMeeting] = useState(false);
+  const [renamingFolder, setRenamingFolder] = useState(false);
   // A skill with `asks: true` needs a question before it can run.
   const [asking, setAsking] = useState<SkillInfo | null>(null);
   const [pulling, setPulling] = useState(false);
@@ -423,6 +424,13 @@ export default function App() {
         keywords: "new meeting live notes during",
         hint: label(binding("startMeeting")),
         run: () => setStartingMeeting(true),
+      },
+      {
+        id: "folder.rename",
+        group: "Notes",
+        title: "Rename this note's folder…",
+        keywords: "directory section reorganise move all",
+        run: () => setRenamingFolder(true),
       },
       {
         id: "note.move",
@@ -976,8 +984,8 @@ export default function App() {
       />
       <Prompt
         open={newNote}
-        label="New note"
-        placeholder="Note name…"
+        label="New note — a slash makes a folder"
+        placeholder="vendor-risk, or governance/vendor-risk"
         onClose={() => setNewNote(false)}
         onSubmit={(name) => {
           setNewNote(false);
@@ -1060,6 +1068,27 @@ export default function App() {
             await refresh();
             await open(p);
             setStatus(`${label(binding("meeting"))} to add the recap afterwards`);
+          } catch (e) {
+            setError(String(e));
+          }
+        }}
+      />
+      <Prompt
+        open={renamingFolder && !!path && path.includes("/")}
+        label={`Rename ${path?.split("/").slice(0, -1).join("/")} — everything in it moves`}
+        placeholder="notes/ai-governance"
+        initial={path ? path.split("/").slice(0, -1).join("/") : ""}
+        onClose={() => setRenamingFolder(false)}
+        onSubmit={async (next) => {
+          setRenamingFolder(false);
+          if (!path) return;
+          const from = path.split("/").slice(0, -1).join("/");
+          try {
+            const { moved } = await backend.renameFolder(from, next);
+            await refresh();
+            const here = moved.find((m) => m.endsWith(path.split("/").pop()!));
+            if (here) await open(here);
+            setStatus(`Moved ${moved.length} note${moved.length > 1 ? "s" : ""} to ${next}`);
           } catch (e) {
             setError(String(e));
           }
