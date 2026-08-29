@@ -1,6 +1,6 @@
 # Where this is
 
-_Last updated: 2026-08-28 — AI connected and working end to end._
+_Last updated: 2026-08-29 — standard-UI pass and live preview rebuilt._
 
 ## Running it in 30 seconds
 
@@ -12,8 +12,8 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
-cd backend-python && uv run pytest   # 93 passed, 1 skipped
-cd frontend && npm test              # 79 passed
+cd backend-python && uv run pytest   # 218 passed, 1 skipped
+cd frontend && npm test              # 159 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -68,6 +68,21 @@ Worth knowing, because each one cost time:
 
 Vault lives at `~/notes` (config: `~/.config/occam/config.toml`).
 
+## Done — the standard-UI pass (2026-08-29)
+
+Table stakes that were missing, all keyboard- and mouse-reachable:
+
+- Back / forward `⌘[` `⌘]`, sidebar toggle `⌘⇧B`, resizable sidebar (drag, double-click
+  resets), per-note scroll memory, live window title
+- `⌘B` / `⌘I`, `⇥` / `⇧⇥` to indent and outdent list items
+- Right-click menu and double-click-to-rename in the tree
+
+Live preview was rebuilt on the markdown syntax tree. Formatting renders and its markers
+hide unless the cursor is inside the span — the Obsidian Live Preview model, and still not
+a mode. **Coverage is narrower than Obsidian's**: bold, italic, inline code, strikethrough,
+headings and blockquotes render; links, images, tables, code blocks and horizontal rules
+keep their syntax. Links are the obvious next one and the same mechanism.
+
 ## Known rough edges
 
 The user's words: "there are a ton of other things." Not yet enumerated — ask before
@@ -88,7 +103,8 @@ Already known:
    the undo layer for AI edits.
 2. **Auto-link suggestions** — surface `[[notes]]` that already exist as you type. Where
    the model genuinely beats you, since remembering what is in the vault is the hard part.
-3. **Keybinding overrides** from `<vault>/.occam/keybindings.toml`.
+3. ~~Keybinding overrides~~ — done; `<vault>/.occam/keybindings.toml` is seeded with every
+   command, unknown names ignored, collisions reported.
 
 Then Phase 5: external resolvers (Jira/Docs), per-project backlogs, and semantic search
 only if the escalation ladder in the README actually demands it.
@@ -98,6 +114,11 @@ only if the escalation ladder in the README actually demands it.
 - **Try the skills on real notes.** The four defaults are a first guess at prompts. They
   are files — edit them until the output is what you want, which is the whole point.
 - **A "tighten" skill.** Named in the design as high-frequency, never written.
+- **Render links in live preview.** `[text](url)` shows its full URL mid-sentence, which is
+  the same readability problem the `**` were. Images and tables are widget work and a
+  bigger step; links are not.
+- **Drag-and-drop in the file tree.** The argument for it weakened once right-click and
+  double-click landed — move is already reachable two ways.
 
 ## Open questions
 
