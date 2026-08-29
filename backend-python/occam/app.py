@@ -53,6 +53,10 @@ class ApplyRequest(BaseModel):
     proposals: list[dict]
 
 
+class ArchiveRequest(BaseModel):
+    path: str
+
+
 class RenameRequest(BaseModel):
     path: str
     newPath: str
@@ -151,6 +155,15 @@ def create_app(
         guard(vault.delete_file, path)
         app.state.last_change = {path: body}
         return {"ok": True, "canUndo": True}
+
+    @app.post("/api/archive")
+    def archive_note(req: ArchiveRequest):
+        try:
+            target, snapshot = links_mod.archive(vault, req.path)
+        except (ValueError, VaultError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        app.state.last_change = snapshot
+        return {"path": target, "canUndo": True}
 
     @app.get("/api/search")
     def search(q: str = ""):

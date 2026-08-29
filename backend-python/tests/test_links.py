@@ -86,3 +86,51 @@ def test_list_files_can_reveal_settings(vault: Vault):
     vault.write_file(".occam/skills/cleanup.md", "prompt")
     assert all(n.name != ".occam" for n in vault.list_files())
     assert any(n.name == ".occam" for n in vault.list_files(include_hidden=True))
+
+
+# ---- archiving --------------------------------------------------------
+
+def test_archive_keeps_the_source_folder(vault: Vault):
+    target, _ = links.archive(vault, "notes/vpc.md")
+
+    assert target == "archive/notes/vpc.md"
+    assert "# VPC" in vault.read_file(target)
+    assert not (vault.root / "notes/vpc.md").exists()
+
+
+def test_archive_snapshot_undoes_the_move(vault: Vault):
+    from occam import chat
+
+    before = vault.read_file("notes/vpc.md")
+    target, snapshot = links.archive(vault, "notes/vpc.md")
+
+    chat.undo(vault, snapshot)
+    assert vault.read_file("notes/vpc.md") == before
+    assert not (vault.root / target).exists()  # the archived copy goes too
+
+
+def test_archive_refuses_to_archive_twice(vault: Vault):
+    links.archive(vault, "notes/vpc.md")
+    with pytest.raises(ValueError, match="not a file"):
+        links.archive(vault, "notes/vpc.md")
+
+
+def test_archive_refuses_a_note_already_in_the_archive(vault: Vault):
+    links.archive(vault, "notes/vpc.md")
+    with pytest.raises(ValueError, match="already archived"):
+        links.archive(vault, "archive/notes/vpc.md")
+
+
+def test_same_name_from_two_folders_does_not_collide(vault: Vault):
+    vault.write_file("meetings/vpc.md", "# A meeting about VPCs\n")
+    links.archive(vault, "notes/vpc.md")
+    links.archive(vault, "meetings/vpc.md")
+
+    assert "# VPC" in vault.read_file("archive/notes/vpc.md")
+    assert "a meeting" in vault.read_file("archive/meetings/vpc.md").lower()
+
+
+def test_archived_notes_are_still_searchable(vault: Vault):
+    """Archiving tidies the tree; it must not hide anything from search."""
+    links.archive(vault, "notes/vpc.md")
+    assert any("archive/" in h.path for h in vault.search("VPC"))

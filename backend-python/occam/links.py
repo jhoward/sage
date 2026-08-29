@@ -99,3 +99,37 @@ def _markdown_files(vault) -> list[str]:
         for p in sorted(vault.root.rglob("*.md"))
         if not any(part.startswith(".") for part in p.parts)
     ]
+
+
+ARCHIVE_DIR = "archive"
+
+
+def archive(vault, path: str) -> tuple[str, dict[str, str]]:
+    """Move a note into archive/, keeping which folder it came from.
+
+    Returns the new path and a snapshot for undo: the original path with its contents, and
+    the new path empty, so undoing restores the file where it was *and* removes the copy.
+
+    Archiving is a move, not a delete — search, links and the ask panel still reach it. The
+    point is only to keep the folders you look at daily worth looking at, which matters
+    most for todo/, where a week file lands every week.
+    """
+    source = vault.resolve(path)
+    if not source.is_file():
+        raise ValueError(f"not a file: {path}")
+
+    parts = path.split("/")
+    if parts[0] == ARCHIVE_DIR:
+        raise ValueError(f"already archived: {path}")
+
+    # Keep the source folder inside the archive, so provenance survives and two notes with
+    # the same name from different folders cannot collide.
+    target = f"{ARCHIVE_DIR}/{path}"
+    if (vault.root / target).exists():
+        raise ValueError(f"already exists: {target}")
+
+    body = vault.read_file(path)
+    vault.write_file(target, body)
+    source.unlink()
+
+    return target, {path: body, target: ""}
