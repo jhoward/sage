@@ -65,6 +65,11 @@ class DefaultsRequest(BaseModel):
     defaults: dict[str, dict]
 
 
+class FolderRenameRequest(BaseModel):
+    path: str
+    newPath: str
+
+
 class ArchiveRequest(BaseModel):
     path: str
 
@@ -176,6 +181,15 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         app.state.last_change = snapshot
         return {"path": target, "canUndo": True}
+
+    @app.post("/api/rename-folder")
+    def rename_folder(req: FolderRenameRequest):
+        try:
+            moved, snapshot = links_mod.rename_folder(vault, req.path, req.newPath)
+        except (ValueError, VaultError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        app.state.last_change = snapshot
+        return {"moved": moved, "canUndo": bool(snapshot)}
 
     @app.get("/api/search")
     def search(q: str = ""):

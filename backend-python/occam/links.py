@@ -11,6 +11,8 @@ which is a file-system operation, not a rendering one.
 
 from __future__ import annotations
 
+import pathlib
+
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -135,3 +137,59 @@ def archive(vault, path: str) -> tuple[str, dict[str, str]]:
     vault.prune_empty_dirs(source.parent)
 
     return target, {path: body, target: ""}
+
+
+def rename_folder(vault, old: str, new: str) -> tuple[list[str], dict[str, str]]:
+    """Rename a folder, moving everything under it. Returns moved paths and an undo snapshot.
+
+    Basenames do not change, so `[[vendor-risk]]` keeps resolving. Path-style links
+    (`[[governance/vendor-risk]]`) would not, so those are rewritten too — the same
+    reasoning as renaming a note, applied one level up.
+    """
+    old = old.strip("/")
+    new = new.strip("/")
+    if not old or not new:
+        raise ValueError("a folder name is required")
+    if old == new:
+        return [], {}
+
+    source = vault.resolve(old)
+    if not source.is_dir():
+        raise ValueError(f"not a folder: {old}")
+    if (vault.root / new).exists():
+        raise ValueError(f"already exists: {new}")
+
+    files = sorted(
+        p.relative_to(vault.root).as_posix() for p in source.rglob("*.md")
+    )
+    if not files:
+        raise ValueError(f"no notes in {old}")
+
+    snapshot: dict[str, str] = {}
+    moved: list[str] = []
+    # Deepest first: pruning walks *up* from a directory, so an empty nested folder left
+    # behind would stop its parent being removed.
+    emptied: list[pathlib.Path] = []
+
+    for rel in files:
+        target = f"{new}/{rel[len(old) + 1:]}"
+        body = vault.read_file(rel)
+        snapshot[rel] = body
+        snapshot.setdefault(target, "")
+        vault.write_file(target, body)
+        original = vault.root / rel
+        original.unlink()
+        emptied.append(original.parent)
+        moved.append(target)
+
+    for directory in sorted(set(emptied), key=lambda d: len(d.parts), reverse=True):
+        vault.prune_empty_dirs(directory)
+
+    for rel in _markdown_files(vault):
+        text = vault.read_file(rel)
+        rewritten = re.sub(rf"\[\[{re.escape(old)}/", f"[[{new}/", text)
+        if rewritten != text:
+            snapshot.setdefault(rel, text)
+            vault.write_file(rel, rewritten)
+
+    return moved, snapshot
