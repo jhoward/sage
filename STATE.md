@@ -119,6 +119,11 @@ only if the escalation ladder in the README actually demands it.
   this and was verified to fail against the old implementation — keep those tests passing.
 - **Headings are not a schema.** Capture creates whatever section it targets. Renaming or
   deleting one must never break anything; there is a test for it.
+- **Live preview hides a marker only when its construct is rendered.** A blanket list of
+  marker node names hid the ``` fences of code blocks, because FencedCode uses the same
+  `CodeMark` node as inline code and nothing styled the block. Keep the rule: no rendering,
+  no hiding. It is narrower than Obsidian's — links, images, tables and code blocks show
+  their syntax — and that is a coverage gap, not a different design.
 - **Emphasis cannot cross a block boundary.** A single `**…**` wrapped around several list
   items parses as a paragraph plus an unrelated list, and shows literal asterisks in every
   renderer. `⌘B` on a multi-line selection therefore wraps each line inside its list marker.
