@@ -4,7 +4,11 @@ import { EditorView, keymap, highlightActiveLine, drawSelection } from "@codemir
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
+import {
+  defaultHighlightStyle,
+  indentUnit,
+  syntaxHighlighting,
+} from "@codemirror/language";
 import { todoExtension } from "../lib/todo";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
 import { livePreviewExtension } from "../lib/livePreview";
@@ -86,6 +90,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         markdown(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorView.lineWrapping,
+        // Two spaces per level, which is what the cheat sheet documents and what markdown
+        // list nesting conventionally uses.
+        indentUnit.of("  "),
         // ⌘F, ⌘G, ⇧⌘G — find within the open note. Keeping the platform's own bindings
         // where they exist means less to learn: ⌘⇧F searches the vault, ⌘F searches here,
         // which is what both keys already mean everywhere else on the system.
