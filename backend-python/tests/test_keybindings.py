@@ -52,13 +52,51 @@ def test_overrides_are_read(vault: Vault):
     assert result.problems == []
 
 
-def test_an_unknown_command_is_reported_not_ignored(vault: Vault):
-    """A typo should tell you, rather than silently dropping a shortcut."""
+def test_an_unknown_command_is_ignored_not_flagged(vault: Vault):
+    """A name this version lacks is probably from a newer one, or since renamed.
+
+    Neither deserves an error on every startup — it simply does nothing, and is recorded
+    for a future "what is in my file that I cannot use" view.
+    """
     vault.write_file(keys.PATH, 'palete = "mod+k"\n')
     result = keys.load(vault, KNOWN)
 
     assert result.overrides == {}
-    assert "palete: not a command" in result.problems
+    assert result.problems == []
+    assert result.unknown == ["palete"]
+
+
+def test_real_mistakes_are_still_reported(vault: Vault):
+    """Ignoring unknown names must not mean ignoring a binding that cannot work."""
+    vault.write_file(keys.PATH, 'palette = "ctrl+k"\nsearch = "mod+f"\nnewNote = "mod+f"\n')
+    result = keys.load(vault, KNOWN)
+
+    assert any("cannot read" in p for p in result.problems)
+    assert any("same keys" in p for p in result.problems)
+
+
+def test_unbound_commands_are_listed_commented_out(vault: Vault):
+    """A file showing only what is set tells you nothing about what else you could set."""
+    keys.ensure_template(
+        vault,
+        {"palette": {"key": "k", "mod": True}, "rollover": {"key": "", "mod": True}},
+    )
+    body = vault.read_file(keys.PATH)
+
+    assert 'palette = "mod+k"' in body
+    assert '# rollover = ""' in body
+    assert "Not bound to anything yet" in body
+
+
+def test_an_unbound_command_can_be_bound_by_uncommenting(vault: Vault):
+    keys.ensure_template(vault, {"rollover": {"key": "", "mod": True}})
+    body = vault.read_file(keys.PATH).replace('# rollover = ""', 'rollover = "mod+shift+r"')
+    vault.write_file(keys.PATH, body)
+
+    result = keys.load(vault, {"rollover"})
+    assert result.overrides["rollover"] == {
+        "key": "r", "mod": True, "shift": True, "alt": False
+    }
 
 
 def test_an_unreadable_binding_is_reported(vault: Vault):

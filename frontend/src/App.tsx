@@ -283,7 +283,7 @@ export default function App() {
       .then(({ overrides, problems }) => {
         applyOverrides(overrides);
         setKeysLoaded((n) => n + 1);
-        if (problems.length) setError(`Keybindings: ${problems.join("; ")}`);
+        if (problems.length) setStatus(`Keybindings: ${problems.join("; ")}`);
       })
       .catch(() => {});
   }, []);
@@ -337,6 +337,12 @@ export default function App() {
 
   // Rebuilt whenever the vault changes so "Open …" always reflects what is on disk.
   // In Phase 3, skills from .occam/skills/ append to this same list.
+  /** Run a palette command by id, so the key table need not duplicate its body. */
+  const commandsRef = useRef<Command[]>([]);
+  const runCommand = useCallback((id: string) => {
+    void commandsRef.current.find((c) => c.id === id)?.run();
+  }, []);
+
   const commands = useMemo<Command[]>(() => {
     const list: Command[] = [
       {
@@ -611,6 +617,7 @@ export default function App() {
     }
 
     // Files live in ⌘O, not here — see the note on the overlay state above.
+    commandsRef.current = list;
     return list;
   }, [path, backlog, split, skills, aiReady, showSettings, keysLoaded, open, openSplit, refresh, runSkill, meetingFromClipboard]);
 
@@ -643,26 +650,14 @@ export default function App() {
     [hits, open],
   );
 
-  // ⌘K is the single invocation surface; ⌘⇧T is the one capture shortcut worth its own key.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Every branch goes through matches(), which refuses to treat Ctrl as Cmd on
-      // macOS — otherwise ⌃K would open this palette instead of killing to end of line.
-      if (matches(e, binding("switcher"))) {
-        e.preventDefault();
-        setSwitcher(true);
-      } else if (matches(e, binding("newNote"))) {
-        e.preventDefault();
-        setNewNote(true);
-      } else if (matches(e, binding("search"))) {
-        e.preventDefault();
-        setSearching(true);
-      } else if (matches(e, binding("palette"))) {
-        e.preventDefault();
-        // Refresh backlog entries so "Pull: …" reflects the file, not a stale snapshot.
+  // Every bindable action in one table, keyed by binding name. The handler walks it
+  // rather than an if-chain, so a command listed in keybindings.ts is automatically
+  // reachable from a key the moment someone gives it one.
+  const actions = useMemo<Record<string, () => void>>(
+    () => ({
+      palette: () => {
+        // Refresh both so "Pull: …" and the skill list reflect the files, not a snapshot.
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
-        // Skills are vault files, so re-read them rather than trusting a snapshot —
-        // editing a prompt takes effect on the next palette open.
         backend
           .skills()
           .then((r) => {
@@ -671,38 +666,57 @@ export default function App() {
           })
           .catch(() => setSkills([]));
         setPalette(true);
-      } else if (matches(e, binding("quickAdd"))) {
-        e.preventDefault();
-        setQuickAdd(true);
-      } else if (matches(e, binding("startMeeting"))) {
-        e.preventDefault();
-        setStartingMeeting(true);
-      } else if (matches(e, binding("meeting"))) {
-        e.preventDefault();
-        void meetingFromClipboard();
-      } else if (matches(e, binding("ask"))) {
-        e.preventDefault();
-        setAsking2((v) => !v);
-      } else if (matches(e, binding("pull"))) {
-        e.preventDefault();
+      },
+      switcher: () => setSwitcher(true),
+      newNote: () => setNewNote(true),
+      search: () => setSearching(true),
+      quickAdd: () => setQuickAdd(true),
+      ask: () => setAsking2((v) => !v),
+      startMeeting: () => setStartingMeeting(true),
+      meeting: () => void meetingFromClipboard(),
+      deleteNote: () => setConfirmDelete(true),
+      moveNote: () => setMoving(true),
+      renameNote: () => setRenaming(true),
+      settings: () => setShowSettings((v) => !v),
+      pull: () => {
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
         setPulling(true);
-      } else if (matches(e, binding("deleteNote"))) {
-        e.preventDefault();
-        setConfirmDelete(true);
-      } else if (matches(e, binding("split"))) {
-        e.preventDefault();
+      },
+      split: () => {
         if (split) setSplit(null);
         else {
           backend.week().then((w) => {
             if (w.backlogs[0]) void openSplit(w.backlogs[0]);
           });
         }
+      },
+      cheatsheet: () => void openSplit(".occam/markdown.md"),
+      week: () => void backend.week().then((w) => open(w.path)),
+      backlog: () => {
+        void backend.week().then((w) => {
+          if (w.backlogs[0]) void open(w.backlogs[0]);
+        });
+      },
+      rollover: () => void runCommand("todo.rollover"),
+      archiveNote: () => void runCommand("note.archive"),
+      undo: () => void runCommand("ai.undo"),
+    }),
+    [split, meetingFromClipboard, openSplit, open, runCommand],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      for (const [name, run] of Object.entries(actions)) {
+        if (matches(e, binding(name as never))) {
+          e.preventDefault();
+          run();
+          return;
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [split, openSplit, meetingFromClipboard]);
+  }, [actions]);
 
   // Status messages are transient; errors stay until the next action.
   useEffect(() => {

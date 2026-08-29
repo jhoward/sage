@@ -112,9 +112,18 @@ describe("the tiering rule", () => {
 
   it("everything else takes shift", () => {
     for (const [name, spec] of Object.entries<KeySpec>(BINDINGS)) {
-      if (CORE.includes(name) || name === "deleteNote") continue;
+      // Unbound commands have no key to shift; they are listed so the settings file can
+      // offer them, not because they have a default.
+      if (CORE.includes(name) || name === "deleteNote" || !spec.key) continue;
       expect(spec.shift, name).toBe(true);
     }
+  });
+
+  it("unbound commands match nothing until given a key", () => {
+    expect(BINDINGS.rollover.key).toBe("");
+    expect(matches(ev("r", { metaKey: true }), BINDINGS.rollover)).toBe(false);
+    // Not even a bare modifier press.
+    expect(matches(ev("", { metaKey: true }), BINDINGS.rollover)).toBe(false);
   });
 
   it("the three new-verbs are siblings", () => {
@@ -127,6 +136,7 @@ describe("the tiering rule", () => {
   it("no two bindings collide", () => {
     const seen = new Map<string, string>();
     for (const [name, spec] of Object.entries<KeySpec>(BINDINGS)) {
+      if (!spec.key) continue; // unbound commands all share "no key"
       const key = label(spec);
       expect(seen.get(key), `${name} collides with ${seen.get(key)}`).toBeUndefined();
       seen.set(key, name);

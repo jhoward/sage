@@ -42,12 +42,15 @@ describe("App wires every global binding it defines", () => {
     "utf8",
   );
 
-  it("handles each name in BINDINGS", () => {
+  it("has an action for every name in BINDINGS", () => {
+    // The key handler walks this table, so a command listed in keybindings.ts but missing
+    // here can be bound in the settings file and then silently do nothing.
     const names = [...bindings.matchAll(/^\s{2}(\w+): \{ key:/gm)].map((m) => m[1]);
-    expect(names.length).toBeGreaterThan(3);
+    const table = app.slice(app.indexOf("const actions = useMemo"), app.indexOf("useEffect(() => {\n    const onKey"));
+
+    expect(names.length).toBeGreaterThan(10);
     for (const name of names) {
-      // Read through binding(), not BINDINGS, so a vault override actually applies.
-      expect(app, name).toContain(`binding("${name}")`);
+      expect(table, name).toMatch(new RegExp(`\\b${name}:`));
     }
   });
 
