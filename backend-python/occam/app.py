@@ -77,6 +77,8 @@ class ArchiveRequest(BaseModel):
 class RenameRequest(BaseModel):
     path: str
     newPath: str
+    # When given, the note's `# heading` is set to match, so the two cannot drift.
+    title: str | None = None
 
 
 class SkillRunRequest(BaseModel):
@@ -151,7 +153,9 @@ def create_app(
     def rename(req: RenameRequest):
         """Move a note and repoint every link that referenced it."""
         try:
-            return links_mod.rename(vault, req.path, req.newPath).to_dict()
+            return links_mod.rename(
+                vault, req.path, req.newPath, req.title or ""
+            ).to_dict()
         except (ValueError, VaultError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

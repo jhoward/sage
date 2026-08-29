@@ -57,8 +57,29 @@ def rewrite_links(text: str, old: str, new: str) -> tuple[str, int]:
     return LINK_RE.sub(replace, text), count
 
 
-def rename(vault, old_path: str, new_path: str) -> RenameResult:
-    """Move a note and repoint every link that referenced it."""
+H1_RE = re.compile(r"^#\s+.*$", re.M)
+
+
+def set_heading(body: str, title: str) -> str:
+    """Update the note's first `# heading`, if it has one.
+
+    Only when one exists: adding a heading to a note that deliberately has none would be
+    editing content under cover of a rename.
+    """
+    m = H1_RE.search(body)
+    if not m:
+        return body
+    return body[: m.start()] + f"# {title}" + body[m.end():]
+
+
+def rename(vault, old_path: str, new_path: str, title: str = "") -> RenameResult:
+    """Move a note and repoint every link that referenced it.
+
+    With `title`, the note's `# heading` is set to match — so renaming states the title
+    once and the filename and the heading cannot drift apart. Doing it the other way round
+    — watching the heading and renaming the file to follow — would move files while you
+    typed and churn links mid-keystroke.
+    """
     source = vault.resolve(old_path)
     if not source.is_file():
         raise ValueError(f"not a file: {old_path}")
@@ -75,6 +96,8 @@ def rename(vault, old_path: str, new_path: str) -> RenameResult:
     # recoverable by hand, whereas rewritten links pointing at a file that never moved
     # would be actively wrong.
     body = vault.read_file(old_path)
+    if title:
+        body = set_heading(body, title)
     vault.write_file(new_path, body)
     source.unlink()
     vault.prune_empty_dirs(source.parent)

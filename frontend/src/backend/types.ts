@@ -118,8 +118,15 @@ export interface VaultBackend {
   archiveNote(path: string): Promise<{ path: string }>;
   /** Rename a folder, moving everything under it. Path-style links are repointed. */
   renameFolder(path: string, newPath: string): Promise<{ moved: string[] }>;
-  /** Move a note and repoint every [[link]] that referenced it. */
-  rename(path: string, newPath: string): Promise<{ newPath: string; updated: string[] }>;
+  /**
+   * Move a note and repoint every [[link]] that referenced it. With `title`, the note's
+   * `# heading` is set to match, so the filename and the heading cannot drift.
+   */
+  rename(
+    path: string,
+    newPath: string,
+    title?: string,
+  ): Promise<{ newPath: string; updated: string[] }>;
 
   /** Where machine-local config lives, and whether a key is set. */
   config(): Promise<{ path: string; hasKey: boolean; keyFromEnv: boolean }>;

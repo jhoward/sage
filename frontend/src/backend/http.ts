@@ -60,10 +60,10 @@ export const httpBackend: VaultBackend = {
     });
   },
 
-  async rename(path, newPath) {
+  async rename(path, newPath, title) {
     return request<{ newPath: string; updated: string[] }>("/api/rename", {
       method: "POST",
-      body: JSON.stringify({ path, newPath }),
+      body: JSON.stringify({ path, newPath, title: title ?? null }),
     });
   },
 
