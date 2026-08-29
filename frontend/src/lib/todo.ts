@@ -111,6 +111,52 @@ export interface CommandTarget {
 }
 
 /** Flip `- [ ]` to `- [x]` and back. The single most frequent action, so: one key. */
+const BULLET = /^(\s*)([-*])\s+(\[[ xX]\]\s?)?(.*)$/;
+// Lines that are structure, not content. Turning a heading into "- [ ] ## Now" is the
+// kind of helpfulness that destroys a file.
+const STRUCTURAL = /^\s*(#{1,6}\s|>|```|~~~|---\s*$|\w+:\s)/;
+
+/**
+ * Enter continues a list, the way every markdown editor does.
+ *
+ * On a task line it opens another task; on a plain bullet, another bullet. On an *empty*
+ * item it removes the marker and exits the list instead, which is what stops a stray
+ * bullet being left behind every time you finish a list.
+ *
+ * This is why there is no separate "new task" key — the obvious gesture already works.
+ */
+export function continueList(view: CommandTarget): boolean {
+  const { state } = view;
+  const range = state.selection.main;
+  if (!range.empty) return false;
+
+  const line = state.doc.lineAt(range.head);
+  // Only from the end of the line; mid-line Enter must split normally.
+  if (range.head !== line.to) return false;
+
+  const m = BULLET.exec(line.text);
+  if (!m) return false;
+
+  const [, indent, bullet, box, rest] = m;
+
+  if (!rest.trim()) {
+    view.dispatch({
+      changes: { from: line.from, to: line.to, insert: "" },
+      userEvent: "input.exitList",
+    });
+    return true;
+  }
+
+  const prefix = `${indent}${bullet} ${box ? "[ ] " : ""}`;
+  view.dispatch({
+    changes: { from: range.head, insert: `\n${prefix}` },
+    selection: { anchor: range.head + 1 + prefix.length },
+    userEvent: "input.continueList",
+    scrollIntoView: true,
+  });
+  return true;
+}
+
 export function toggleTask(view: CommandTarget): boolean {
   const changes = [];
   const seen = new Set<number>();
@@ -132,8 +178,23 @@ export function toggleTask(view: CommandTarget): boolean {
     }
   }
 
-  if (!changes.length) return false;
-  view.dispatch({ changes, userEvent: "input.toggleTask" });
+  if (changes.length) {
+    view.dispatch({ changes, userEvent: "input.toggleTask" });
+    return true;
+  }
+
+  // Nothing on this line is a task yet — make it one.
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  const text = line.text.trim();
+  if (!text || STRUCTURAL.test(line.text)) return false;
+
+  const m = BULLET.exec(line.text);
+  const indent = m ? m[1] : line.text.match(/^\s*/)![0];
+  const body = m ? m[4] : text;
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert: `${indent}- [ ] ${body}` },
+    userEvent: "input.makeTask",
+  });
   return true;
 }
 
@@ -210,6 +271,7 @@ export function todoExtension() {
     // High precedence so these beat the default markdown/editor bindings.
     Prec.high(
       keymap.of([
+        { key: "Enter", run: continueList },
         { key: "Mod-Enter", run: toggleTask },
         // Alt-Shift-Up rather than Mod-Shift-Up: the latter is "extend selection to the
         // start of the document" on macOS, which is worth more than a task shortcut.

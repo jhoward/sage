@@ -253,3 +253,24 @@ def test_migration_updates_the_frontmatter(vault: Vault):
     assert "week: 2026-08-23" in body
     assert "dates: Aug 23 – 29" in body
     assert "2026-W35" not in body
+
+
+def test_added_dates_are_stripped(vault: Vault):
+    """The retired `added:` key: git will know this precisely once sync lands."""
+    vault.write_file(
+        "todo/x.md",
+        "- [ ] One <!-- added:2026-08-28 rolled:2 -->\n- [ ] Two <!-- added:2026-08-01 -->\n",
+    )
+    changed = todo.strip_added_dates(vault)
+    body = vault.read_file("todo/x.md")
+
+    assert changed == ["todo/x.md"]
+    assert "added:" not in body
+    assert "rolled:2" in body          # the surviving key is kept
+    assert "<!--  -->" not in body     # an emptied comment is removed entirely
+    assert todo.parse_tasks(body)[1].text == "Two"
+
+
+def test_stripping_added_is_idempotent(vault: Vault):
+    vault.write_file("todo/x.md", "- [ ] Clean\n")
+    assert todo.strip_added_dates(vault) == []

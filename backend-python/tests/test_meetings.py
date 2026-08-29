@@ -98,3 +98,114 @@ def test_a_real_title_containing_a_noise_word_survives():
     """"Meeting cadence review" is about meetings — it is not boilerplate."""
     assert meetings.derive_title("Meeting cadence review\n") == "Meeting cadence review"
     assert meetings.derive_title("AI governance sync\n") == "AI governance sync"
+
+
+# A recap with no name of its own, so the model is the only source of a title.
+UNNAMED = (
+    "Meeting summary\n\n"
+    "We went back and forth on whether the audit trail retention of 18 months is "
+    "defensible. Jim to derive it from investigation need rather than asserting it.\n"
+)
+
+
+class FakeTitleClient:
+    def __init__(self, title="Q4 governance planning"):
+        outer = self
+
+        class Block:
+            type = "text"
+            text = title
+
+        class Messages:
+            def create(self, **kwargs):
+                outer.kwargs = kwargs
+                return type("R", (), {"content": [Block()]})()
+
+        self.messages = Messages()
+
+
+class BrokenClient:
+    class messages:
+        @staticmethod
+        def create(**kwargs):
+            raise RuntimeError("network down")
+
+
+def test_model_title_is_used_when_the_recap_has_no_name(vault: Vault):
+    _, title = meetings.create(
+        vault, UNNAMED, date(2026, 8, 28), client=FakeTitleClient()
+    )
+    assert title == "Q4 governance planning"
+
+
+def test_falls_back_to_the_heuristic_when_the_call_fails(vault: Vault):
+    """A title is never worth failing the paste over."""
+    _, title = meetings.create(vault, UNNAMED, date(2026, 8, 28), client=BrokenClient())
+    assert title.startswith("We went back")  # falls back to the first real line
+
+
+def test_falls_back_when_there_is_no_key(vault: Vault):
+    from occam.config import Config
+
+    _, title = meetings.create(vault, UNNAMED, date(2026, 8, 28), cfg=Config(vault.root))
+    assert title.startswith("We went back")
+
+
+def test_model_title_is_asked_cheaply(vault: Vault):
+    client = FakeTitleClient()
+    meetings.create(vault, UNNAMED, date(2026, 8, 28), client=client)
+    assert client.kwargs["output_config"] == {"effort": "low"}
+    assert client.kwargs["max_tokens"] <= 64
+
+
+def test_model_title_quotes_are_stripped(vault: Vault):
+    _, title = meetings.create(
+        vault, UNNAMED, date(2026, 8, 28), client=FakeTitleClient('"Budget review"')
+    )
+    assert title == "Budget review"
+
+
+def test_a_named_meeting_keeps_its_name_without_asking(vault: Vault):
+    """The model reliably rewrites a name it was told to reuse, so it is not asked."""
+    client = FakeTitleClient("Something The Model Invented")
+    _, title = meetings.create(vault, RECAP, date(2026, 8, 28), client=client)
+
+    assert title == "Q4 planning sync"
+    assert not hasattr(client, "kwargs")  # never called
+
+
+def test_an_unnamed_recap_asks_the_model(vault: Vault):
+    prose = (
+        "Meeting summary\n\n"
+        "We went back and forth on whether the audit trail retention of 18 months is "
+        "defensible, and Jim agreed to derive it properly.\n"
+    )
+    client = FakeTitleClient("Audit trail retention")
+    _, title = meetings.create(vault, prose, date(2026, 8, 28), client=client)
+
+    assert title == "Audit trail retention"
+    assert hasattr(client, "kwargs")
+
+
+def test_looks_like_a_name():
+    assert meetings.looks_like_a_name("Q4 planning sync")
+    assert not meetings.looks_like_a_name("We discussed the retention period at length.")
+    assert not meetings.looks_like_a_name("Attendees:")
+    assert not meetings.looks_like_a_name(
+        "A rambling first line that goes on well past the length of any real title"
+    )
+
+
+def test_label_lines_are_not_titles():
+    """"Attendees: Jim, Priya" survived a check that every word be boilerplate."""
+    recap = "Meeting notes\n\nAttendees: Jim, Priya\n\nBudget review\n"
+    assert meetings.derive_title(recap) == "Budget review"
+
+    for label in ["Participants: Sam", "Agenda: three items", "Date: 28 Aug"]:
+        assert meetings.derive_title(f"{label}\n\nReal title\n") == "Real title"
+
+
+def test_a_colon_inside_a_real_title_is_kept():
+    assert meetings.derive_title("Q4 planning: scope and budget\n") == (
+        "Q4 planning: scope and budget"
+    )

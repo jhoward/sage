@@ -91,6 +91,7 @@ def create_app(
     skills_mod.migrate_legacy_settings(vault)
     skills_mod.ensure_default_skills(vault)
     todo.migrate_week_files(vault)
+    todo.strip_added_dates(vault)
     ai.strip_ai_markers(vault)
     skills_mod.ensure_reference_notes(vault)
 
@@ -267,7 +268,7 @@ def create_app(
         """
         text = meetings_mod.read_clipboard()
         try:
-            path, title = meetings_mod.create(vault, text)
+            path, title = meetings_mod.create(vault, text, cfg=cfg, client=ai_client)
         except (ValueError, VaultError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
