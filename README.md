@@ -67,6 +67,7 @@ nothing can drift out of sync with it.
 
 | Action | Key |
 |---|---|
+| Bold / italic | `⌘B` / `⌘I` |
 | Indent / outdent a list item | `⇥` / `⇧⇥` |
 | Back / forward through notes | `⌘[` / `⌘]` |
 | Show or hide the sidebar | `⌘⇧B` |
