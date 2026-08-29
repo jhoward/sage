@@ -145,6 +145,20 @@ paragraph, which is what VS Code, Sublime, and JetBrains all do. And inside the 
 `⌃N`/`⌃P` move the selection — that *honours* the emacs convention rather than breaking it,
 and in a one-line input there is no line to move to anyway.
 
+## Folders are the only structure
+
+There is no notebooks-or-sections concept, and there will not be: a folder already does
+that job, and a second hierarchy on top of the filesystem is the thing the "no" list
+exists to prevent. Make a folder and it appears in the sidebar.
+
+Four are seeded because they earn it — `todo/`, `meetings/`, `notes/`, and `archive/` —
+and the sidebar orders those by how often you want them rather than alphabetically, which
+otherwise puts the archive at the top. Any folder you invent sorts in between.
+
+Meetings sit at the top level rather than under `notes/` because they are *records* and
+notes are *thinking*: dated, high-volume and archival versus slow and curated. Nested, a
+year of meetings buries forty real notes.
+
 ## Two palettes, not one
 
 `⌘K` lists commands and skills. `⌘O` lists notes, most recently opened first.
@@ -267,7 +281,7 @@ what you changed afterwards — and it does not rot.
 ## Meetings to follow-ups
 
 The loop this app is for. `⌘⇧V` takes a meeting recap off the clipboard, writes it to
-`notes/meetings/<date>-<short-title>.md` with a title taken from the recap's own name — or written for it when there isn't one — and
+`meetings/<date>-<short-title>.md` with a title taken from the recap's own name — or written for it when there isn't one — and
 immediately asks
 for the follow-ups **you** committed to — not everyone else's actions. Each proposed task
 links back to the meeting, so the reason it exists stays visible, and they land in this
