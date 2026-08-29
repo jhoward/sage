@@ -400,6 +400,25 @@ export default function App() {
         run: () => setSearching(true),
       },
       {
+        id: "note.archive",
+        group: "Notes",
+        title: "Archive this note",
+        keywords: "move away done finished old week",
+        run: async () => {
+          if (!path) return;
+          try {
+            const { path: target } = await backend.archiveNote(path);
+            setDoc({ path: null, content: "" });
+            await refresh();
+            const week = await backend.week();
+            await open(week.path);
+            setStatus(`Archived to ${target} — ⌘K → undo to restore`);
+          } catch (e) {
+            setError(String(e));
+          }
+        },
+      },
+      {
         id: "note.delete",
         group: "Notes",
         title: "Delete this note…",

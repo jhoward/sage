@@ -114,6 +114,8 @@ export interface VaultBackend {
 
   /** Delete a note. Confirmation is the caller's job. */
   deleteFile(path: string): Promise<void>;
+  /** Move a note into archive/, keeping which folder it came from. Undoable. */
+  archiveNote(path: string): Promise<{ path: string }>;
   /** Move a note and repoint every [[link]] that referenced it. */
   rename(path: string, newPath: string): Promise<{ newPath: string; updated: string[] }>;
 

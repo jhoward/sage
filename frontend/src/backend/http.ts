@@ -46,6 +46,13 @@ export const httpBackend: VaultBackend = {
     });
   },
 
+  async archiveNote(path) {
+    return request<{ path: string }>("/api/archive", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    });
+  },
+
   async rename(path, newPath) {
     return request<{ newPath: string; updated: string[] }>("/api/rename", {
       method: "POST",

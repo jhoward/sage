@@ -151,6 +151,12 @@ There is no notebooks-or-sections concept, and there will not be: a folder alrea
 that job, and a second hierarchy on top of the filesystem is the thing the "no" list
 exists to prevent. Make a folder and it appears in the sidebar.
 
+`⌘K` → "Archive this note" moves a note to `archive/`, keeping the folder it came from so
+provenance survives and two notes with the same name cannot collide. It is a move, not a
+delete: search, links and the ask panel still reach it, and undo restores it. The point is
+only to keep the folders you look at daily worth looking at — most obviously `todo/`, which
+gains a week file every week.
+
 Four are seeded because they earn it — `todo/`, `meetings/`, `notes/`, and `archive/` —
 and the sidebar orders those by how often you want them rather than alphabetically, which
 otherwise puts the archive at the top. Any folder you invent sorts in between.
