@@ -18,7 +18,7 @@ import { Confirm } from "./components/Confirm";
 import { MultiPicker } from "./components/MultiPicker";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
-import { BINDINGS, label, matches } from "./lib/keybindings";
+import { BINDINGS, applyOverrides, binding, label, matches } from "./lib/keybindings";
 import { lineLinksTo, linkNameFor, slugify } from "./lib/wikilinks";
 import type { SearchHit, SkillInfo } from "./backend";
 
@@ -274,6 +274,20 @@ export default function App() {
     void refresh();
   }, [showSettings, refresh]);
 
+  // Overrides load once at startup. A problem in the file is surfaced rather than
+  // swallowed: a shortcut that silently does nothing is the worst way to learn about a typo.
+  const [keysLoaded, setKeysLoaded] = useState(0);
+  useEffect(() => {
+    backend
+      .keybindings(BINDINGS)
+      .then(({ overrides, problems }) => {
+        applyOverrides(overrides);
+        setKeysLoaded((n) => n + 1);
+        if (problems.length) setError(`Keybindings: ${problems.join("; ")}`);
+      })
+      .catch(() => {});
+  }, []);
+
   const save = useCallback(async (p: string, body: string) => {
     try {
       await backend.writeFile(p, body);
@@ -330,7 +344,7 @@ export default function App() {
         group: "Todo",
         title: "Open this week",
         keywords: "todo current",
-        hint: `${label(BINDINGS.quickAdd)} adds`,
+        hint: `${label(binding("quickAdd"))} adds`,
         run: async () => open((await backend.week()).path),
       },
       {
@@ -364,7 +378,7 @@ export default function App() {
         group: "AI",
         title: "Ask the vault…",
         keywords: "question chat search across notes",
-        hint: label(BINDINGS.ask),
+        hint: label(binding("ask")),
         run: () => setAsking2(true),
       },
       {
@@ -388,7 +402,7 @@ export default function App() {
         group: "Notes",
         title: "Start a meeting note",
         keywords: "new meeting live notes during",
-        hint: label(BINDINGS.startMeeting),
+        hint: label(binding("startMeeting")),
         run: () => setStartingMeeting(true),
       },
       {
@@ -403,7 +417,7 @@ export default function App() {
         group: "Notes",
         title: "Paste recap (into this meeting, or a new one)",
         keywords: "paste recap teams loop minutes actions commitments",
-        hint: label(BINDINGS.meeting),
+        hint: label(binding("meeting")),
         run: meetingFromClipboard,
       },
       {
@@ -411,7 +425,7 @@ export default function App() {
         group: "Notes",
         title: "New note",
         keywords: "create add page",
-        hint: label(BINDINGS.newNote),
+        hint: label(binding("newNote")),
         run: () => setNewNote(true),
       },
       {
@@ -419,7 +433,7 @@ export default function App() {
         group: "Notes",
         title: "Search the vault",
         keywords: "find grep text",
-        hint: label(BINDINGS.search),
+        hint: label(binding("search")),
         run: () => setSearching(true),
       },
       {
@@ -446,7 +460,7 @@ export default function App() {
         group: "Notes",
         title: "Delete this note…",
         keywords: "remove trash",
-        hint: label(BINDINGS.deleteNote),
+        hint: label(binding("deleteNote")),
         run: () => setConfirmDelete(true),
       },
       {
@@ -471,6 +485,23 @@ export default function App() {
           } catch {
             const { path } = await backend.config();
             setStatus(`Edit ${path}, then restart Occam Notes`);
+          }
+        },
+      },
+      {
+        id: "keys.edit",
+        group: "Settings",
+        title: "Edit keybindings",
+        keywords: "shortcuts keys remap rebind",
+        run: async () => {
+          try {
+            const { path: p } = await backend.editKeybindings(BINDINGS);
+            setShowSettings(true);
+            await refresh();
+            await open(p);
+            setStatus("Edit and restart for the new bindings to take effect");
+          } catch (e) {
+            setError(String(e));
           }
         },
       },
@@ -581,7 +612,7 @@ export default function App() {
 
     // Files live in ⌘O, not here — see the note on the overlay state above.
     return list;
-  }, [path, backlog, split, skills, aiReady, showSettings, open, openSplit, refresh, runSkill, meetingFromClipboard]);
+  }, [path, backlog, split, skills, aiReady, showSettings, keysLoaded, open, openSplit, refresh, runSkill, meetingFromClipboard]);
 
   const fileCommands = useMemo<Command[]>(
     () =>
@@ -617,16 +648,16 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       // Every branch goes through matches(), which refuses to treat Ctrl as Cmd on
       // macOS — otherwise ⌃K would open this palette instead of killing to end of line.
-      if (matches(e, BINDINGS.switcher)) {
+      if (matches(e, binding("switcher"))) {
         e.preventDefault();
         setSwitcher(true);
-      } else if (matches(e, BINDINGS.newNote)) {
+      } else if (matches(e, binding("newNote"))) {
         e.preventDefault();
         setNewNote(true);
-      } else if (matches(e, BINDINGS.search)) {
+      } else if (matches(e, binding("search"))) {
         e.preventDefault();
         setSearching(true);
-      } else if (matches(e, BINDINGS.palette)) {
+      } else if (matches(e, binding("palette"))) {
         e.preventDefault();
         // Refresh backlog entries so "Pull: …" reflects the file, not a stale snapshot.
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
@@ -640,26 +671,26 @@ export default function App() {
           })
           .catch(() => setSkills([]));
         setPalette(true);
-      } else if (matches(e, BINDINGS.quickAdd)) {
+      } else if (matches(e, binding("quickAdd"))) {
         e.preventDefault();
         setQuickAdd(true);
-      } else if (matches(e, BINDINGS.startMeeting)) {
+      } else if (matches(e, binding("startMeeting"))) {
         e.preventDefault();
         setStartingMeeting(true);
-      } else if (matches(e, BINDINGS.meeting)) {
+      } else if (matches(e, binding("meeting"))) {
         e.preventDefault();
         void meetingFromClipboard();
-      } else if (matches(e, BINDINGS.ask)) {
+      } else if (matches(e, binding("ask"))) {
         e.preventDefault();
         setAsking2((v) => !v);
-      } else if (matches(e, BINDINGS.pull)) {
+      } else if (matches(e, binding("pull"))) {
         e.preventDefault();
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
         setPulling(true);
-      } else if (matches(e, BINDINGS.deleteNote)) {
+      } else if (matches(e, binding("deleteNote"))) {
         e.preventDefault();
         setConfirmDelete(true);
-      } else if (matches(e, BINDINGS.split)) {
+      } else if (matches(e, binding("split"))) {
         e.preventDefault();
         if (split) setSplit(null);
         else {
@@ -738,9 +769,9 @@ export default function App() {
           className="border-t px-3 py-2 text-[11px]"
           style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
         >
-          {label(BINDINGS.palette)} commands · {label(BINDINGS.switcher)} files ·{" "}
-          {label(BINDINGS.ask)} ask · {label(BINDINGS.newNote)}/{label(BINDINGS.quickAdd)}/
-          {label(BINDINGS.startMeeting)} new note/task/meeting
+          {label(binding("palette"))} commands · {label(binding("switcher"))} files ·{" "}
+          {label(binding("ask"))} ask · {label(binding("newNote"))}/{label(binding("quickAdd"))}/
+          {label(binding("startMeeting"))} new note/task/meeting
         </div>
       </aside>
 
@@ -840,7 +871,7 @@ export default function App() {
         open={palette}
         items={commands}
         placeholder="Type a command…"
-        footer={`${label(BINDINGS.switcher)} files · ${label(BINDINGS.search)} search`}
+        footer={`${label(binding("switcher"))} files · ${label(binding("search"))} search`}
         onClose={() => setPalette(false)}
         emptyLabel="No matching command"
       />
@@ -861,7 +892,7 @@ export default function App() {
         open={switcher}
         items={fileCommands}
         placeholder="Open a note…"
-        footer={`recently opened first · ${label(BINDINGS.palette)} for commands`}
+        footer={`recently opened first · ${label(binding("palette"))} for commands`}
         onClose={() => setSwitcher(false)}
         emptyLabel="No matching note"
       />
@@ -979,7 +1010,7 @@ export default function App() {
             const { path: p } = await backend.startMeeting(title);
             await refresh();
             await open(p);
-            setStatus(`${label(BINDINGS.meeting)} to add the recap afterwards`);
+            setStatus(`${label(binding("meeting"))} to add the recap afterwards`);
           } catch (e) {
             setError(String(e));
           }

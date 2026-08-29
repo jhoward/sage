@@ -137,6 +137,13 @@ export interface VaultBackend {
     title: string;
     followUpPrompt: string;
   }>;
+  /** Overrides from the vault, to merge over the built-in defaults. */
+  keybindings(defaults: Record<string, unknown>): Promise<{
+    overrides: Record<string, { key: string; mod?: boolean; shift?: boolean; alt?: boolean }>;
+    problems: string[];
+  }>;
+  /** Create the keybindings file from the current defaults, and return its path. */
+  editKeybindings(defaults: Record<string, unknown>): Promise<{ path: string }>;
   /** Ask a question across the whole vault. Reads run; writes come back as proposals. */
   ask(messages: Array<{ role: string; content: string }>): Promise<AskAnswer>;
   /** Apply accepted proposals. Snapshots the touched files so they can be undone. */

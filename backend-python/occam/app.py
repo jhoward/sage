@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 
 from . import ai, chat as chat_mod, config as config_mod
+from . import keybindings as keys_mod
 from . import meetings as meetings_mod
 from . import links as links_mod
 from . import skills as skills_mod
@@ -57,6 +58,11 @@ class MeetingRequest(BaseModel):
     # When given, the recap is appended to this note instead of starting a new one.
     path: str | None = None
     title: str | None = None
+
+
+class DefaultsRequest(BaseModel):
+    # The frontend owns the defaults; it sends them so the template cannot drift.
+    defaults: dict[str, dict]
 
 
 class ArchiveRequest(BaseModel):
@@ -325,6 +331,16 @@ def create_app(
                 path, getattr(cfg, "me", []) or []
             ),
         }
+
+    @app.post("/api/keybindings")
+    def keybindings(req: DefaultsRequest):
+        """Overrides for the frontend to merge over its own defaults."""
+        return keys_mod.load(vault, known=set(req.defaults)).to_dict()
+
+    @app.post("/api/keybindings/edit")
+    def edit_keybindings(req: DefaultsRequest):
+        """Create the file from the current defaults, if absent, and return its path."""
+        return {"path": keys_mod.ensure_template(vault, req.defaults)}
 
     @app.get("/api/skills")
     def list_skills():

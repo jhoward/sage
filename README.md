@@ -133,6 +133,16 @@ signal that a command is core, which keeps the unshifted set small enough to be 
 memorising — and peers share a tier, so "new note", "new task" and "new meeting" are
 `⌘N`/`⌘T`/`⌘M` rather than one being promoted while its siblings are not.
 
+`⌘K` → "Edit keybindings" writes `<vault>/.occam/keybindings.toml` from the current
+defaults and opens it. One line per command — `newNote = "mod+shift+n"`, where `mod` is ⌘
+on macOS and Ctrl elsewhere. Delete a line to return it to its default, or the file to
+reset everything. It lives in the vault so bindings follow your notes between machines, and
+restarting picks up changes.
+
+A typo is reported rather than swallowed: an unknown command name, an unreadable
+combination, or two commands on the same keys all surface as a message. A shortcut that
+silently does nothing is the worst way to learn you mistyped it.
+
 `⌘M` is Minimize on macOS. Taken deliberately: a single-window app is rarely minimised, and
 keeping the three "new" verbs together is worth more than the system default.
 

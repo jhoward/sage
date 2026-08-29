@@ -140,6 +140,20 @@ export const httpBackend: VaultBackend = {
     );
   },
 
+  async keybindings(defaults) {
+    return request<{
+      overrides: Record<string, { key: string; mod?: boolean; shift?: boolean; alt?: boolean }>;
+      problems: string[];
+    }>("/api/keybindings", { method: "POST", body: JSON.stringify({ defaults }) });
+  },
+
+  async editKeybindings(defaults) {
+    return request<{ path: string }>("/api/keybindings/edit", {
+      method: "POST",
+      body: JSON.stringify({ defaults }),
+    });
+  },
+
   async ask(messages) {
     return request<AskAnswer>("/api/chat", {
       method: "POST",

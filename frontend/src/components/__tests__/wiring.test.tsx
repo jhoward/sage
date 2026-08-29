@@ -46,8 +46,13 @@ describe("App wires every global binding it defines", () => {
     const names = [...bindings.matchAll(/^\s{2}(\w+): \{ key:/gm)].map((m) => m[1]);
     expect(names.length).toBeGreaterThan(3);
     for (const name of names) {
-      expect(app).toContain(`BINDINGS.${name}`);
+      // Read through binding(), not BINDINGS, so a vault override actually applies.
+      expect(app, name).toContain(`binding("${name}")`);
     }
+  });
+
+  it("never reads a binding directly, which would bypass overrides", () => {
+    expect(app).not.toMatch(/BINDINGS\.\w+/);
   });
 });
 
