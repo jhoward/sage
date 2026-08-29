@@ -83,3 +83,48 @@ describe("AIReview accept", () => {
     expect(document.activeElement).toBe(document.body);
   });
 });
+
+describe("AIReview does not capture keys when idle", () => {
+  it("leaves Cmd-Enter alone with no skill in flight", () => {
+    // Hooks run before the component's early return, so an unguarded listener stayed
+    // installed and swallowed ⌘Enter — completing a task stopped working everywhere.
+    render(
+      <AIReview
+        skill={null}
+        text=""
+        streaming={false}
+        error={null}
+        onAccept={() => {}}
+        onReject={() => {}}
+      />,
+    );
+
+    const event = new KeyboardEvent("keydown", {
+      key: "Enter",
+      metaKey: true,
+      cancelable: true,
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("leaves Escape alone with no skill in flight", () => {
+    const onReject = vi.fn();
+    render(
+      <AIReview
+        skill={null}
+        text=""
+        streaming={false}
+        error={null}
+        onAccept={() => {}}
+        onReject={onReject}
+      />,
+    );
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", cancelable: true, bubbles: true }),
+    );
+    expect(onReject).not.toHaveBeenCalled();
+  });
+});

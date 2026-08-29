@@ -72,7 +72,14 @@ export function AIReview({
   }, [streaming, error, text]);
 
   // Escape rejects; Cmd-Enter accepts. Both only once the stream has finished.
+  //
+  // Guarded on `skill`, because hooks run before this component's early return: with no
+  // skill in flight the listener was still installed, still matched ⌘Enter, and still
+  // called preventDefault — so the editor never saw ⌘Enter and completing a task silently
+  // stopped working. A global capture listener has to be scoped to when it is wanted.
   useEffect(() => {
+    if (!skill) return;
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -85,7 +92,7 @@ export function AIReview({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [streaming, error, onAccept, onReject]);
+  }, [skill, streaming, error, onAccept, onReject]);
 
   if (!skill) return null;
 
