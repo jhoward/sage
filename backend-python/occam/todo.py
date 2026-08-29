@@ -23,7 +23,11 @@ TODO_DIR = "todo"
 
 TASK_RE = re.compile(r"^(\s*[-*]\s+\[)([ xX])(\]\s?)(.*)$")
 HEADING_RE = re.compile(r"^#{1,6}\s")
-ROLLED_RE = re.compile(r"\s*<!--\s*rolled:(\d+)\s*-->")
+# One trailing comment carries a task's metadata: <!-- added:2026-08-28 rolled:3 -->.
+# Invisible in every renderer, and a single comment rather than one per key so a task
+# with several never grows a tail of them.
+META_RE = re.compile(r"\s*<!--\s*((?:\w+:\S+\s*)+)-->")
+ROLLED_RE = re.compile(r"\s*<!--\s*rolled:(\d+)\s*-->")  # kept for older files
 # Week files are named for the Sunday that starts them: todo/2026-08-23.md. A date says
 # what it means at a glance, where a week number has to be looked up. Note this is a
 # Sunday-start week, not the ISO Monday-start one.
@@ -150,8 +154,14 @@ def append_task(vault, text: str, target: str = "week") -> str:
 
 
 def append_to_heading(vault, text: str, path: str, heading: str) -> str:
-    """Append a new task at the end of a section, creating the heading if absent."""
-    return append_line(vault, path, f"- [ ] {text.strip()}", heading)
+    """Append a new task at the end of a section, creating the heading if absent.
+
+    Dated on creation so a backlog can be sorted by age — the single most useful thing to
+    know about something that has been sitting there.
+    """
+    return append_line(
+        vault, path, render_task(text.strip(), added=date.today().isoformat()), heading
+    )
 
 
 def append_line(vault, path: str, task: str, heading: str) -> str:
@@ -181,9 +191,10 @@ def append_line(vault, path: str, task: str, heading: str) -> str:
 class Task:
     line: int  # 1-based, as the editor counts
     done: bool
-    text: str  # without the checkbox or the rolled marker
+    text: str  # without the checkbox or the metadata comment
     section: str
     rolled: int = 0
+    added: str = ""  # ISO date the task first appeared
     raw: str = ""
 
 
@@ -201,23 +212,48 @@ def parse_tasks(content: str) -> list[Task]:
             continue
 
         body = m.group(4)
-        rolled_m = ROLLED_RE.search(body)
+        meta = parse_meta(body)
         tasks.append(
             Task(
                 line=n,
                 done=m.group(2) != " ",
-                text=ROLLED_RE.sub("", body).strip(),
+                text=META_RE.sub("", body).strip(),
                 section=section,
-                rolled=int(rolled_m.group(1)) if rolled_m else 0,
+                rolled=int(meta.get("rolled", 0) or 0),
+                added=meta.get("added", ""),
                 raw=raw,
             )
         )
     return tasks
 
 
-def render_task(text: str, rolled: int = 0, done: bool = False) -> str:
+def parse_meta(body: str) -> dict[str, str]:
+    """Read the trailing metadata comment, if any."""
+    m = META_RE.search(body)
+    if not m:
+        return {}
+    out = {}
+    for pair in m.group(1).split():
+        key, _, value = pair.partition(":")
+        if key and value:
+            out[key] = value
+    return out
+
+
+def render_task(
+    text: str,
+    rolled: int = 0,
+    done: bool = False,
+    added: str = "",
+) -> str:
+    """Render a task line, with its metadata in one trailing comment."""
     mark = "x" if done else " "
-    suffix = f" <!-- rolled:{rolled} -->" if rolled else ""
+    meta = []
+    if added:
+        meta.append(f"added:{added}")
+    if rolled:
+        meta.append(f"rolled:{rolled}")
+    suffix = f" <!-- {' '.join(meta)} -->" if meta else ""
     return f"- [{mark}] {text}{suffix}"
 
 
@@ -289,7 +325,9 @@ def rollover(vault, when: date | None = None) -> RolloverResult:
             continue
         rolled = task.rolled + 1
         heading = task.section or WEEK_CAPTURE
-        append_line(vault, target, render_task(task.text, rolled), heading)
+        append_line(
+            vault, target, render_task(task.text, rolled, added=task.added), heading
+        )
         existing.add(task.text)
         result.moved.append(task.text)
         if rolled >= STALE_AFTER:
@@ -321,7 +359,12 @@ def move_task(vault, source: str, line: int, target: str, heading: str | None = 
 
     del lines[line - 1]
     vault.write_file(source, "\n".join(lines).rstrip() + "\n")
-    append_line(vault, target, render_task(task.text, task.rolled, task.done), heading)
+    append_line(
+        vault,
+        target,
+        render_task(task.text, task.rolled, task.done, task.added),
+        heading,
+    )
     return task
 
 

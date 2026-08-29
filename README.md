@@ -77,6 +77,7 @@ nothing can drift out of sync with it.
 | Settings (reveal `.occam/`) | `⌘K` → settings |
 | Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
 | Quick-add to the backlog instead | `⌘⇧T`, then `⇧↵` |
+| Meeting note from clipboard + follow-ups | `⌘⇧V` |
 | Toggle done | `⌘⏎` |
 | Promote to top of section | `⌥⇧↑` |
 | Nudge up / down | `⌥↑` / `⌥↓` |
@@ -88,6 +89,10 @@ nothing can drift out of sync with it.
 
 Quick-add is global — it goes to this week's file regardless of which note you are
 looking at, so capture never depends on where you happen to be.
+
+Tasks carry the date they were added, in a trailing comment alongside the rollover count
+(`<!-- added:2026-08-28 rolled:3 -->`), so a backlog can be judged by age — the most useful
+thing to know about something that has been sitting there.
 
 **Position is priority.** Line order is sort order — no priority field to maintain.
 Sections are ordinary markdown headings, and nothing in the code enforces them: capture
@@ -257,6 +262,30 @@ claims a model wrote it. Stale provenance is worse than none, because you would 
 
 Git answers the same question properly — a commit shows exactly what the model wrote and
 what you changed afterwards — and it does not rot.
+
+## Meetings to follow-ups
+
+The loop this app is for. `⌘⇧V` takes a meeting recap off the clipboard, writes it to
+`notes/meetings/<date>-<title>.md` with a title derived from the text, and immediately asks
+for the follow-ups **you** committed to — not everyone else's actions. Each proposed task
+links back to the meeting, so the reason it exists stays visible, and they land in this
+week rather than the backlog because a commitment made in a meeting is usually live.
+
+Set your name so it knows which commitments are yours:
+
+```toml
+me = ["Jim", "Jim Howard"]
+```
+
+This is deliberately **not** a Teams or Loop integration. Reading meeting content out of
+either means the Graph API, an Azure AD app registration, and tenant admin consent — and a
+personal tool ingesting corporate meeting transcripts is exactly the shadow-AI problem its
+owner would flag at work. The clipboard needs no auth and is a decision you are already
+allowed to make.
+
+If you later want it automatic, the achievable path is a Power Automate flow writing
+recaps into a synced folder that the app watches — auth stays inside Microsoft's own
+tooling. Worth trying the paste for a fortnight first; it is usually not the annoying part.
 
 ## Ask the vault
 

@@ -25,11 +25,16 @@ export function AskPanel({
   onClose,
   onOpenNote,
   onApplied,
+  pending: pendingQuestion,
+  onPendingConsumed,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenNote: (path: string) => void;
   onApplied: () => void;
+  /** A question handed in from elsewhere — the meeting flow uses this. */
+  pending?: string | null;
+  onPendingConsumed?: () => void;
 }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [question, setQuestion] = useState("");
@@ -43,6 +48,15 @@ export function AskPanel({
   useEffect(() => {
     if (open) input.current?.focus();
   }, [open]);
+
+  // A question handed in from outside runs immediately: the meeting flow should go from
+  // paste to proposed tasks without the user retyping what they already asked for.
+  useEffect(() => {
+    if (!pendingQuestion || busy) return;
+    onPendingConsumed?.();
+    void send(pendingQuestion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingQuestion]);
 
   useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
@@ -67,8 +81,8 @@ export function AskPanel({
 
   if (!open) return null;
 
-  const send = async () => {
-    const q = question.trim();
+  const send = async (override?: string) => {
+    const q = (override ?? question).trim();
     if (!q || busy) return;
 
     const history = turns.map((t) => ({ role: t.role, content: t.text }));

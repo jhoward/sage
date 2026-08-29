@@ -17,7 +17,7 @@ who already had the file. Existing lines are never touched.
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".config" / "occam"
@@ -69,6 +69,15 @@ anthropic_api_key = "{anthropic_api_key}"
 """,
     ),
     (
+        "me",
+        """
+# Your name, and any variants colleagues use. Meeting recaps list everyone's actions, and
+# the useful subset is the handful you personally owe — this is how follow-up extraction
+# knows which ones are yours.
+me = {me}
+""",
+    ),
+    (
         "anthropic_workspace_id",
         """
 # Workspace ID, required only if the key above is an identity-linked key. Those keys act
@@ -97,6 +106,8 @@ class Config:
     anthropic_api_key: str | None = None
     # Only needed for identity-linked keys; a standard key ignores it.
     anthropic_workspace_id: str | None = None
+    # Names to match when pulling your commitments out of a meeting note.
+    me: list[str] = field(default_factory=list)
 
     def _values(self) -> dict[str, str]:
         return {
@@ -104,6 +115,7 @@ class Config:
             "sync": _escape(self.sync),
             "anthropic_api_key": _escape(self.anthropic_api_key or ""),
             "anthropic_workspace_id": _escape(self.anthropic_workspace_id or ""),
+            "me": "[" + ", ".join(f'"{_escape(n)}"' for n in self.me) + "]",
         }
 
     def block(self, name: str) -> str:
@@ -197,6 +209,7 @@ def load(path: Path | None = None) -> Config:
         sync=raw.get("sync", DEFAULT_SYNC),
         anthropic_api_key=raw.get("anthropic_api_key") or None,
         anthropic_workspace_id=raw.get("anthropic_workspace_id") or None,
+        me=[str(n) for n in raw.get("me", []) if str(n).strip()],
     )
     add_missing_settings(path, cfg)
     return cfg

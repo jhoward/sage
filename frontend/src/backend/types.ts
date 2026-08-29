@@ -124,6 +124,12 @@ export interface VaultBackend {
 
   /** Skills are vault files, so this is re-read rather than cached. */
   skills(): Promise<{ skills: SkillInfo[]; available: boolean }>;
+  /** Create a meeting note from the clipboard, and get the follow-up question for it. */
+  meetingFromClipboard(): Promise<{
+    path: string;
+    title: string;
+    followUpPrompt: string;
+  }>;
   /** Ask a question across the whole vault. Reads run; writes come back as proposals. */
   ask(messages: Array<{ role: string; content: string }>): Promise<AskAnswer>;
   /** Apply accepted proposals. Snapshots the touched files so they can be undone. */
