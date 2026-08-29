@@ -261,3 +261,32 @@ def test_top_level_folders_are_ordered_by_usefulness(vault: Vault):
         n.name for n in vault.list_files() if n.is_dir
     ]
     assert names == ["todo", "meetings", "notes", "zebra", "archive"]
+
+
+def test_deleting_the_last_note_removes_its_folder(vault: Vault):
+    """Folders exist because files are in them; the last file out takes the folder."""
+    vault.write_file("notes/governance/only.md", "x")
+    vault.delete_file("notes/governance/only.md")
+
+    assert not (vault.root / "notes/governance").exists()
+    assert (vault.root / "notes").is_dir()  # a folder with siblings survives
+
+
+def test_pruning_stops_at_a_folder_that_still_has_files(vault: Vault):
+    vault.write_file("notes/governance/one.md", "x")
+    vault.write_file("notes/governance/two.md", "x")
+    vault.delete_file("notes/governance/one.md")
+
+    assert (vault.root / "notes/governance").is_dir()
+
+
+def test_pruning_never_removes_the_vault_root(vault: Vault):
+    vault.write_file("only.md", "x")
+    vault.delete_file("only.md")
+    assert vault.root.is_dir()
+
+
+def test_pruning_walks_up_nested_empties(vault: Vault):
+    vault.write_file("notes/a/b/c/deep.md", "x")
+    vault.delete_file("notes/a/b/c/deep.md")
+    assert not (vault.root / "notes/a").exists()

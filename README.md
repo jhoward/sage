@@ -149,7 +149,14 @@ and in a one-line input there is no line to move to anyway.
 
 There is no notebooks-or-sections concept, and there will not be: a folder already does
 that job, and a second hierarchy on top of the filesystem is the thing the "no" list
-exists to prevent. Make a folder and it appears in the sidebar.
+exists to prevent.
+
+**You make a folder by naming one.** `⌘N` → `governance/vendor-risk` writes
+`notes/governance/vendor-risk.md` and the folder comes into being by having a file in it;
+so does renaming a note to a path, and so does ⌘-clicking `[[governance/vendor-risk]]`.
+There is no "new folder" command because an empty folder is not something this app has any
+use for. The other half of that bargain: when the last file leaves a folder, the folder
+goes with it, so nothing accumulates that you cannot see or remove from inside the app.
 
 `⌘K` → "Archive this note" moves a note to `archive/`, keeping the folder it came from so
 provenance survives and two notes with the same name cannot collide. It is a move, not a

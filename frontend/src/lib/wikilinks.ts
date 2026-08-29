@@ -84,15 +84,33 @@ export function lineLinksTo(line: string, path: string, files: FileNode[]): bool
 }
 
 /**
- * A note name to a filename. Keeps unicode letters (notes are personal, not URLs) and
- * only collapses what would actually be awkward in a path.
+ * One path segment to a filename. Keeps unicode letters — notes are personal, not URLs —
+ * and only collapses what would be awkward in a filename.
  */
-export function slugify(name: string): string {
+function slugSegment(name: string): string {
   return name
     .trim()
     .replace(/\.md$/i, "")
-    .replace(/[/\\:*?"<>|]+/g, "-")
+    .replace(/[\\:*?"<>|]+/g, "-")
     .replace(/\s+/g, "-")
     .replace(/-{2,}/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * A typed name to a vault-relative path, slugifying each segment separately.
+ *
+ * Slashes are kept, so "governance/vendor risk" becomes "governance/vendor-risk" and the
+ * folder comes into being by having a file written into it. That is how the filesystem
+ * already works, and it is why there is no "new folder" command: a folder with nothing in
+ * it is not a thing this app has any use for.
+ */
+export function slugify(name: string): string {
+  return name
+    .split("/")
+    .map(slugSegment)
+    // Drop "." and ".." outright. The backend refuses traversal anyway, but a path that
+    // cannot mean anything should not reach it and come back as an error.
+    .filter((seg) => seg && !/^\.+$/.test(seg))
+    .join("/");
 }

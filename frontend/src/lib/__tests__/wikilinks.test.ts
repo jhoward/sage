@@ -106,8 +106,9 @@ describe("slugify", () => {
     expect(slugify("Cross-cloud networking")).toBe("Cross-cloud-networking");
   });
 
-  it("strips characters that are awkward in a path", () => {
-    expect(slugify('a/b:c*d?e"f<g>h|i')).toBe("a-b-c-d-e-f-g-h-i");
+  it("strips characters that are awkward in a filename, but keeps slashes", () => {
+    // Slashes are meaningful now — they make folders. Everything else is collapsed.
+    expect(slugify('a/b:c*d?e"f<g>h|i')).toBe("a/b-c-d-e-f-g-h-i");
   });
 
   it("collapses runs and trims edges", () => {
@@ -125,5 +126,31 @@ describe("slugify", () => {
 
   it("returns empty for a name with nothing usable", () => {
     expect(slugify("   ")).toBe("");
+  });
+});
+
+describe("slugify with paths", () => {
+  it("keeps slashes so a folder can be made by naming one", () => {
+    expect(slugify("governance/vendor risk")).toBe("governance/vendor-risk");
+  });
+
+  it("slugifies each segment independently", () => {
+    expect(slugify("Q4 Planning/Scope & budget")).toBe("Q4-Planning/Scope-&-budget");
+  });
+
+  it("drops empty segments rather than leaving a double slash", () => {
+    expect(slugify("a//b")).toBe("a/b");
+    expect(slugify("/leading")).toBe("leading");
+    expect(slugify("trailing/")).toBe("trailing");
+  });
+
+  it("still handles a plain name", () => {
+    expect(slugify("Cross-cloud networking")).toBe("Cross-cloud-networking");
+  });
+
+  it("drops dot segments so a path cannot climb", () => {
+    expect(slugify("../secrets")).toBe("secrets");
+    expect(slugify("a/../../b")).toBe("a/b");
+    expect(slugify("./notes")).toBe("notes");
   });
 });
