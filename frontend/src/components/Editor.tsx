@@ -3,7 +3,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, highlightActiveLine, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import {
   defaultHighlightStyle,
   indentUnit,
@@ -87,7 +87,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         history(),
         drawSelection(),
         highlightActiveLine(),
-        markdown(),
+        // GFM rather than plain CommonMark: without it ~~strikethrough~~ and tables do
+        // not parse at all, so nothing downstream can render them.
+        markdown({ base: markdownLanguage }),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorView.lineWrapping,
         // Two spaces per level, which is what the cheat sheet documents and what markdown

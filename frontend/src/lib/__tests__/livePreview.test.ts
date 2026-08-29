@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { livePreviewExtension } from "../livePreview";
 
 function view(doc: string, cursor = 0) {
@@ -18,7 +18,7 @@ function view(doc: string, cursor = 0) {
     state: EditorState.create({
       doc,
       selection: EditorSelection.single(cursor),
-      extensions: [markdown(), livePreviewExtension()],
+      extensions: [markdown({ base: markdownLanguage }), livePreviewExtension()],
     }),
     parent: document.body,
   });
@@ -168,6 +168,58 @@ describe("it never alters the document", () => {
     const doc = "# Head\n\n**bold**\n\n- [ ] task `code`\n\n> quote";
     const v = view(doc, 0);
     expect(v.state.doc.toString()).toBe(doc);
+    v.destroy();
+  });
+});
+
+describe("only markers of rendered things are hidden", () => {
+  it("keeps the ``` fences of a code block", () => {
+    // FencedCode also uses CodeMark. A blanket marker list hid the fences while styling
+    // nothing, so a code block read as ordinary prose with a stray language tag.
+    const doc = "text\n\n```js\nconst x = 1;\n```";
+    const v = view(doc, 0);
+    expect(hiddenRanges(v)).toHaveLength(0);
+    v.destroy();
+  });
+
+  it("still hides the backticks of inline code", () => {
+    const v = view("some `code` here", 0);
+    expect(hiddenRanges(v)).toHaveLength(2);
+    expect(classes(v, "cm-md-code")).toHaveLength(1);
+    v.destroy();
+  });
+
+  it("renders strikethrough, which needs GFM", () => {
+    const v = view("~~struck~~ text", 12);
+    expect(classes(v, "cm-md-strike")).toHaveLength(1);
+    expect(hiddenRanges(v)).toHaveLength(2);
+    v.destroy();
+  });
+
+  it("leaves link syntax alone", () => {
+    // Not rendered, so not hidden — hiding a URL you cannot see is how you lose it.
+    const v = view("[text](https://example.com)", 0);
+    expect(hiddenRanges(v)).toHaveLength(0);
+    v.destroy();
+  });
+});
+
+describe("blockquotes reveal per line", () => {
+  const doc = "> one\n> two\n> three";
+
+  it("hides every > when the cursor is outside", () => {
+    const v = view(doc + "\n\nafter", doc.length + 4);
+    expect(hiddenRanges(v)).toHaveLength(3);
+    v.destroy();
+  });
+
+  it("reveals only the > on the cursor's line", () => {
+    // Revealing all three because the cursor is on one of them moves the other two lines
+    // sideways, which is worse than the syntax it uncovers.
+    const v = view(doc, doc.indexOf("two"));
+    const marks = hiddenRanges(v);
+    expect(marks).toHaveLength(2);
+    for (const m of marks) expect(m.from).not.toBe(6); // line two's > stays visible
     v.destroy();
   });
 });
