@@ -50,12 +50,12 @@ def test_long_titles_are_trimmed_on_a_word():
 
 def test_note_path_is_dated_and_slugged():
     assert meetings.note_path("Q4 planning sync", date(2026, 8, 28)) == (
-        "notes/meetings/2026-08-28-q4-planning-sync.md"
+        "meetings/2026-08-28-q4-planning-sync.md"
     )
 
 
 def test_two_meetings_the_same_day_do_not_collide():
-    taken = {"notes/meetings/2026-08-28-standup.md"}
+    taken = {"meetings/2026-08-28-standup.md"}
     assert meetings.note_path("Standup", date(2026, 8, 28), taken).endswith("standup-2.md")
 
 
@@ -233,4 +233,32 @@ def test_note_path_stays_short(vault: Vault):
     path = meetings.note_path(
         "Review of the vendor contract clauses for Q4", date(2026, 8, 28)
     )
-    assert path == "notes/meetings/2026-08-28-review-vendor-contract-clauses.md"
+    assert path == "meetings/2026-08-28-review-vendor-contract-clauses.md"
+
+
+def test_meetings_migrate_out_of_notes(vault: Vault):
+    """Records and thinking have different lifecycles; they should not share a folder."""
+    vault.write_file("notes/meetings/2026-08-11-ai-risk-forum.md", "# Forum\n")
+    vault.write_file("notes/meetings/2026-08-18-vendor-review.md", "# Vendor\n")
+
+    moved = meetings.migrate_legacy_meetings(vault)
+
+    assert moved == [
+        "meetings/2026-08-11-ai-risk-forum.md",
+        "meetings/2026-08-18-vendor-review.md",
+    ]
+    assert "# Forum" in vault.read_file("meetings/2026-08-11-ai-risk-forum.md")
+    assert not (vault.root / "notes/meetings").exists()
+
+
+def test_meeting_migration_is_idempotent(vault: Vault):
+    vault.write_file("notes/meetings/x.md", "x")
+    meetings.migrate_legacy_meetings(vault)
+    assert meetings.migrate_legacy_meetings(vault) == []
+
+
+def test_meeting_migration_does_not_clobber(vault: Vault):
+    vault.write_file("notes/meetings/x.md", "old")
+    vault.write_file("meetings/x.md", "already moved")
+    meetings.migrate_legacy_meetings(vault)
+    assert vault.read_file("meetings/x.md") == "already moved"

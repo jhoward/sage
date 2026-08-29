@@ -250,3 +250,14 @@ def test_delete_refuses_a_directory(vault: Vault):
     with pytest.raises(VaultError):
         vault.delete_file("notes")
     assert (vault.root / "notes").is_dir()
+
+
+def test_top_level_folders_are_ordered_by_usefulness(vault: Vault):
+    """Alphabetical put archive first — the least-used folder at the top of the sidebar."""
+    for folder in ["archive", "meetings", "notes", "todo", "zebra"]:
+        vault.write_file(f"{folder}/a.md", "x")
+
+    names = [n.name for n in vault.list_files() if n.isDir] if False else [
+        n.name for n in vault.list_files() if n.is_dir
+    ]
+    assert names == ["todo", "meetings", "notes", "zebra", "archive"]

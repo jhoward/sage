@@ -92,6 +92,7 @@ def create_app(
     skills_mod.ensure_default_skills(vault)
     todo.migrate_week_files(vault)
     todo.strip_added_dates(vault)
+    meetings_mod.migrate_legacy_meetings(vault)
     ai.strip_ai_markers(vault)
     skills_mod.ensure_reference_notes(vault)
 

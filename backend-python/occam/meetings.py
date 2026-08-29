@@ -17,7 +17,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-MEETINGS_DIR = "notes/meetings"
+MEETINGS_DIR = "meetings"
+LEGACY_MEETINGS_DIR = "notes/meetings"
 MAX_TITLE = 60
 
 TEMPLATE = """---
@@ -233,3 +234,33 @@ def follow_up_prompt(path: str, me: list[str]) -> str:
         f"link it back to [[{Path(path).stem}]] so the reason for it stays visible. "
         f"If there are none, say so rather than inventing any."
     )
+
+
+def migrate_legacy_meetings(vault) -> list[str]:
+    """Move meetings out of notes/ to the top level. Idempotent.
+
+    Meetings are records; notes are thinking. They have different lifecycles — dated,
+    high-volume, archival versus slow and curated — and leaving them nested means notes/
+    becomes mostly meetings within a year. Wiki-links resolve by basename, so nothing
+    breaks in the move.
+    """
+    legacy = vault.root / LEGACY_MEETINGS_DIR
+    if not legacy.is_dir():
+        return []
+
+    target = vault.root / MEETINGS_DIR
+    target.mkdir(parents=True, exist_ok=True)
+
+    moved = []
+    for file in sorted(legacy.glob("*.md")):
+        dest = target / file.name
+        if dest.exists():
+            continue
+        file.rename(dest)
+        moved.append(f"{MEETINGS_DIR}/{file.name}")
+
+    try:
+        legacy.rmdir()  # only if now empty
+    except OSError:
+        pass
+    return moved

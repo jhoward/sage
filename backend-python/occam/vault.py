@@ -26,6 +26,12 @@ SKIP_DIRS = {".git", ".obsidian", "node_modules", "__pycache__"}
 # The one hidden directory the app will reveal on request.
 SETTINGS_DIR = ".occam"
 
+# Top-level folders in the order they are worth seeing. Anything not listed sorts
+# alphabetically between these and the archive, so a folder you invent still appears
+# without needing to be registered anywhere.
+FOLDER_ORDER = ["todo", "meetings", "notes"]
+FOLDER_LAST = ["archive"]
+
 # Cap search output so a pathological query cannot flood the UI.
 MAX_SEARCH_HITS = 200
 
@@ -56,6 +62,15 @@ class SearchHit:
 
     def to_dict(self) -> dict:
         return {"path": self.path, "line": self.line, "text": self.text}
+
+
+def _folder_rank(node: "FileNode") -> tuple[int, str]:
+    name = node.name.lower()
+    if name in FOLDER_ORDER:
+        return (0, f"{FOLDER_ORDER.index(name):02d}")
+    if name in FOLDER_LAST:
+        return (2, name)
+    return (1, name)
 
 
 class Vault:
@@ -117,6 +132,8 @@ class Vault:
                 elif entry.suffix.lower() in MARKDOWN_SUFFIXES or entry.suffix == ".toml":
                     files.append(FileNode(entry.name, self._rel(entry), False))
 
+            if directory == self.root:
+                dirs.sort(key=_folder_rank)
             return dirs + files
 
         if not self.root.exists():
