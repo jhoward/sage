@@ -109,10 +109,20 @@ function wrap(view: Target, marker: string): boolean {
   const { state } = view;
   const range = state.selection.main;
   const first = state.doc.lineAt(range.from).number;
-  const last = state.doc.lineAt(range.to).number;
-  return first === last
-    ? wrapSingle(view, marker)
-    : wrapEach(view, marker, first, last);
+  const reached = state.doc.lineAt(range.to).number;
+
+  // Whether this is a line-wise operation is decided before trimming, not after. A
+  // selection covering one whole line plus its newline is still line-wise, and routing
+  // it back to the single-line path would wrap the newline and the list marker with it.
+  if (reached === first) return wrapSingle(view, marker);
+
+  // A selection ending at column 0 does not include that line — shift-selecting three
+  // lines leaves the cursor at the start of the fourth, and bolding it too is not what
+  // was asked for. Every line-wise editor command drops the trailing line this way.
+  const last =
+    range.to === state.doc.line(reached).from ? reached - 1 : reached;
+
+  return wrapEach(view, marker, first, last);
 }
 
 export const bold = (view: EditorView) => wrap(view, "**");
