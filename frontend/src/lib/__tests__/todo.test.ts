@@ -203,3 +203,56 @@ describe("toggleTask leaves structure alone", () => {
     expect(t.doc()).toBe(line);
   });
 });
+
+describe("toggleTask across a selection", () => {
+  function selecting(doc: string, fromLine: number, toLine: number) {
+    const t = target(doc);
+    t.dispatch({
+      selection: {
+        anchor: t.state.doc.line(fromLine).from,
+        head: t.state.doc.line(toLine).to,
+      },
+    });
+    return t;
+  }
+
+  const MIXED = "- [ ] One\n- [x] Two\n- [ ] Three";
+
+  it("finishes everything when any item is unfinished", () => {
+    // The bug: flipping each independently unchecked "Two" while checking the others.
+    const t = selecting(MIXED, 1, 3);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [x] One\n- [x] Two\n- [x] Three");
+  });
+
+  it("unfinishes everything only when all are finished", () => {
+    const t = selecting("- [x] One\n- [x] Two", 1, 2);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [ ] One\n- [ ] Two");
+  });
+
+  it("is idempotent — a second press on a finished batch unfinishes once", () => {
+    const t = selecting(MIXED, 1, 3);
+    toggleTask(t);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [ ] One\n- [ ] Two\n- [ ] Three");
+  });
+
+  it("still flips a single line", () => {
+    const t = target("- [ ] One");
+    toggleTask(t);
+    expect(t.doc()).toBe("- [x] One");
+  });
+
+  it("ignores non-task lines inside the selection", () => {
+    const t = selecting("## Now\n- [ ] One\n\n- [ ] Two", 1, 4);
+    toggleTask(t);
+    expect(t.doc()).toBe("## Now\n- [x] One\n\n- [x] Two");
+  });
+
+  it("converts a selection of plain lines into tasks", () => {
+    const t = selecting("Call the dentist\nBook the venue", 1, 2);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [ ] Call the dentist\n- [ ] Book the venue");
+  });
+})
