@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 
 from . import ai, chat as chat_mod, config as config_mod
+from . import meetings as meetings_mod
 from . import links as links_mod
 from . import skills as skills_mod
 from . import todo, vault_sync
@@ -257,6 +258,26 @@ def create_app(
         restored = chat_mod.undo(vault, app.state.last_change)
         app.state.last_change = {}
         return {"restored": restored}
+
+    @app.post("/api/meeting")
+    def meeting_from_clipboard():
+        """Create a meeting note from whatever is on the clipboard.
+
+        A paste rather than an integration — see the note in meetings.py.
+        """
+        text = meetings_mod.read_clipboard()
+        try:
+            path, title = meetings_mod.create(vault, text)
+        except (ValueError, VaultError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        return {
+            "path": path,
+            "title": title,
+            "followUpPrompt": meetings_mod.follow_up_prompt(
+                path, getattr(cfg, "me", []) or []
+            ),
+        }
 
     @app.get("/api/skills")
     def list_skills():

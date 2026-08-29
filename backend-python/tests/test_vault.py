@@ -168,8 +168,8 @@ def test_quick_add_appends_in_order(vault: Vault):
     assert "- [ ] Write the sync layer" in vault.read_file(path)
 
     todo.append_task(vault, "Second task")
-    lines = [l for l in vault.read_file(path).splitlines() if l.startswith("- [ ]")]
-    assert lines == ["- [ ] Write the sync layer", "- [ ] Second task"]
+    texts = [t.text for t in todo.parse_tasks(vault.read_file(path))]
+    assert texts == ["Write the sync layer", "Second task"]
 
 
 def test_quick_add_lands_under_this_week(vault: Vault):
@@ -179,7 +179,8 @@ def test_quick_add_lands_under_this_week(vault: Vault):
 
     assert "## Inbox" not in lines
     heading = lines.index(todo.WEEK_CAPTURE)
-    assert lines[heading + 1] == "- [ ] Draft the doc"
+    # The line now carries a date comment, so assert on the parsed task.
+    assert todo.parse_tasks(lines[heading + 1])[0].text == "Draft the doc"
     # "## Now" stays empty — capture never jumps the commitment line.
     now = lines.index("## Now")
     assert not lines[now + 1].startswith("- [ ]")
@@ -192,7 +193,7 @@ def test_backlog_capture_lands_under_general(vault: Vault):
 
     assert "## Inbox" not in lines
     heading = lines.index(todo.BACKLOG_CAPTURE)
-    assert lines[heading + 1] == "- [ ] Look into caching"
+    assert todo.parse_tasks(lines[heading + 1])[0].text == "Look into caching"
 
 
 def test_append_creates_missing_heading(vault: Vault):

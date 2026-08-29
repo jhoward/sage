@@ -99,6 +99,7 @@ export default function App() {
   const [pulling, setPulling] = useState(false);
   const [week, setWeek] = useState<WeekInfo | null>(null);
   const [asking2, setAsking2] = useState(false);
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [showBacklinks, setShowBacklinks] = useState(false);
   // Most-recently-opened first; drives ranking in the file switcher.
   const [recent, setRecent] = useState<string[]>([]);
@@ -184,6 +185,26 @@ export default function App() {
     },
     [open, refresh],
   );
+
+  /**
+   * Paste a meeting recap in, and go straight to proposed follow-ups.
+   *
+   * Two steps rather than one command each way: the note is written immediately so the
+   * record exists even if extraction fails or is interrupted, and only then does the
+   * question go to the panel.
+   */
+  const meetingFromClipboard = useCallback(async () => {
+    try {
+      const { path, title, followUpPrompt } = await backend.meetingFromClipboard();
+      await refresh();
+      await open(path);
+      setStatus(`Meeting note: ${title}`);
+      setAsking2(true);
+      setPendingQuestion(followUpPrompt);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, [open, refresh]);
 
   const openSplit = useCallback(async (p: string) => {
     try {
@@ -354,6 +375,14 @@ export default function App() {
         },
       },
       {
+        id: "meeting.paste",
+        group: "Notes",
+        title: "Meeting note from clipboard, then extract my follow-ups",
+        keywords: "paste recap teams loop minutes actions commitments",
+        hint: label(BINDINGS.meeting),
+        run: meetingFromClipboard,
+      },
+      {
         id: "note.new",
         group: "Notes",
         title: "New note",
@@ -509,7 +538,7 @@ export default function App() {
 
     // Files live in ⌘O, not here — see the note on the overlay state above.
     return list;
-  }, [path, backlog, split, skills, aiReady, showSettings, open, openSplit, refresh, runSkill]);
+  }, [path, backlog, split, skills, aiReady, showSettings, open, openSplit, refresh, runSkill, meetingFromClipboard]);
 
   const fileCommands = useMemo<Command[]>(
     () =>
@@ -571,6 +600,9 @@ export default function App() {
       } else if (matches(e, BINDINGS.quickAdd)) {
         e.preventDefault();
         setQuickAdd(true);
+      } else if (matches(e, BINDINGS.meeting)) {
+        e.preventDefault();
+        void meetingFromClipboard();
       } else if (matches(e, BINDINGS.ask)) {
         e.preventDefault();
         setAsking2((v) => !v);
@@ -593,7 +625,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [split, openSplit]);
+  }, [split, openSplit, meetingFromClipboard]);
 
   // Status messages are transient; errors stay until the next action.
   useEffect(() => {
@@ -746,6 +778,8 @@ export default function App() {
 
       <AskPanel
         open={asking2}
+        pending={pendingQuestion}
+        onPendingConsumed={() => setPendingQuestion(null)}
         onClose={() => setAsking2(false)}
         onOpenNote={open}
         onApplied={async () => {

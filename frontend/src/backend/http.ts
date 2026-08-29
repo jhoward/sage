@@ -119,6 +119,13 @@ export const httpBackend: VaultBackend = {
     return request<{ skills: SkillInfo[]; available: boolean }>("/api/skills");
   },
 
+  async meetingFromClipboard() {
+    return request<{ path: string; title: string; followUpPrompt: string }>(
+      "/api/meeting",
+      { method: "POST" },
+    );
+  },
+
   async ask(messages) {
     return request<AskAnswer>("/api/chat", {
       method: "POST",

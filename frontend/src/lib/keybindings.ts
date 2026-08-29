@@ -63,6 +63,7 @@ export const BINDINGS = {
   deleteNote: { key: "Backspace", mod: true },
   pull: { key: "p", mod: true, shift: true },
   ask: { key: "j", mod: true },
+  meeting: { key: "v", mod: true, shift: true },
 } satisfies Record<string, KeySpec>;
 
 export type BindingName = keyof typeof BINDINGS;
