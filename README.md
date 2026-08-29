@@ -72,7 +72,7 @@ nothing can drift out of sync with it.
 | Search the vault | `⌘⇧F` |
 | New note | `⌘N` |
 | Rename a note, updating inbound links | `⌘K` → rename |
-| Delete a note (asks you to type its name) | `⌘⌫` |
+| Delete a note (confirm; undoable) | `⌘⌫` |
 | Pull several tasks from the backlog | `⌘⇧P` |
 | Settings (reveal `.occam/`) | `⌘K` → settings |
 | Quick-add from anywhere → bottom of `## This week` | `⌘⇧T`, then `↵` |
@@ -308,7 +308,9 @@ Proposals are reviewed as a batch rather than one at a time, because a set of no
 usually one thought spread across files and approving the first without seeing the fourth
 is how two of them end up contradicting each other. Additive changes are pre-selected;
 replacements start unticked and expanded, since a replacement loses the original.
-`⌘K` → "Undo last AI change" restores every file in the last applied batch.
+`⌘K` → "Undo last change" restores every file in the last applied batch — and a deleted
+note, which shares the same slot. The answer to an irreversible action is to make it
+reversible, not to make it tedious.
 
 ### Synthesis becomes notes
 

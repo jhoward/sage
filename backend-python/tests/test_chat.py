@@ -287,3 +287,14 @@ def test_create_note_is_not_destructive(vault: Vault):
     answer = chat.ask(vault, [{"role": "user", "content": "capture that"}], client=client)
     assert answer.proposals[0].destructive is False
     assert not (vault.root / "notes/s.md").exists()  # still only a proposal
+
+
+def test_undo_restores_a_deleted_note(vault: Vault):
+    """Delete shares the AI undo slot, so a mistaken deletion is recoverable."""
+    before = vault.read_file("notes/evals.md")
+    snapshot = {"notes/evals.md": before}
+    vault.delete_file("notes/evals.md")
+    assert not (vault.root / "notes/evals.md").exists()
+
+    chat.undo(vault, snapshot)
+    assert vault.read_file("notes/evals.md") == before
