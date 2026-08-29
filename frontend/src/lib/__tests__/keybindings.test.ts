@@ -100,7 +100,11 @@ describe("modifier precision", () => {
 describe("the tiering rule", () => {
   beforeEach(() => underPlatform("MacIntel"));
 
-  const CORE = ["palette", "switcher", "ask", "newNote", "quickAdd", "startMeeting", "split"];
+  const CORE = [
+    "palette", "switcher", "ask", "newNote", "quickAdd", "startMeeting", "split",
+    // ⌘[ / ⌘] are the platform's own back/forward, so they belong unshifted.
+    "back", "forward",
+  ];
 
   it("core commands are unshifted", () => {
     for (const name of CORE) {
@@ -124,6 +128,15 @@ describe("the tiering rule", () => {
     expect(matches(ev("r", { metaKey: true }), BINDINGS.rollover)).toBe(false);
     // Not even a bare modifier press.
     expect(matches(ev("", { metaKey: true }), BINDINGS.rollover)).toBe(false);
+  });
+
+  it("keeps macOS bindings where the platform already has one", () => {
+    // ⌘[ / ⌘] are back/forward in Safari, Finder, Preview and Mail — the platform
+    // convention, which beats CodeMirror's outdent/indent.
+    expect(label(BINDINGS.back)).toBe("⌘[");
+    expect(label(BINDINGS.forward)).toBe("⌘]");
+    // ⌘B must stay Bold in a markdown editor, so the sidebar takes the shifted key.
+    expect(label(BINDINGS.sidebar)).toBe("⌘⇧B");
   });
 
   it("the three new-verbs are siblings", () => {

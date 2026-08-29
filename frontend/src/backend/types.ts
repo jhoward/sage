@@ -116,6 +116,8 @@ export interface VaultBackend {
   deleteFile(path: string): Promise<void>;
   /** Move a note into archive/, keeping which folder it came from. Undoable. */
   archiveNote(path: string): Promise<{ path: string }>;
+  /** Put the open note in the native title bar; a webview ignores document.title. */
+  setTitle(title: string): Promise<void>;
   /** Rename a folder, moving everything under it. Path-style links are repointed. */
   renameFolder(path: string, newPath: string): Promise<{ moved: string[] }>;
   /**

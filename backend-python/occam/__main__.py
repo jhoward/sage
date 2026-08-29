@@ -140,7 +140,10 @@ def main() -> int:
             return 1
         url = f"http://127.0.0.1:{port}/"
 
-    webview.create_window("Occam Notes", url, width=1200, height=800)
+    window = webview.create_window("Occam Notes", url, width=1200, height=800)
+    # Handed to the app so it can put the open note in the title bar. A webview ignores
+    # document.title on macOS, so the native window has to be told.
+    app.state.window = window
     # Passed as the start callback rather than called beforehand: pywebview brings up
     # AppKit inside start(), and an icon set before that is discarded.
     webview.start(set_dock_icon)

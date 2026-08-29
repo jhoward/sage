@@ -67,6 +67,9 @@ nothing can drift out of sync with it.
 
 | Action | Key |
 |---|---|
+| Back / forward through notes | `⌘[` / `⌘]` |
+| Show or hide the sidebar | `⌘⇧B` |
+| Bold / italic | `⌘B` / `⌘I` |
 | Command palette (commands and skills) | `⌘K` |
 | Open a note (recently opened first) | `⌘O` |
 | Search the vault | `⌘⇧F` |
@@ -153,6 +156,14 @@ what already is. Uncomment one, give it a combination, restart.
 A binding that cannot work is reported: an unreadable combination, or two commands on the
 same keys. A command name this version does not have is **ignored** — it is most likely
 from a newer version or one since renamed, and neither deserves an error every startup.
+
+Two bindings sit on top of a macOS default, deliberately. `⌘[` / `⌘]` are the platform's own
+back and forward — Safari, Finder, Preview, Mail — and CodeMirror's outdent/indent is a
+VS Code convention rather than a platform one, so the platform wins. `⌘⇧V` shadows Paste and
+Match Style, which means nothing in a plain-text editor.
+
+`⌘B` stays Bold, because a markdown editor without it is missing a table stake; the sidebar
+takes `⌘⇧B` instead.
 
 `⌘M` is Minimize on macOS. Taken deliberately: a single-window app is rarely minimised, and
 keeping the three "new" verbs together is worth more than the system default.
