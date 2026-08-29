@@ -19,6 +19,20 @@ cd ../backend-python && uv run sage    # opens a native window
 For frontend hot-reload, run `npm run dev` in `frontend/` and start the app with
 `SAGE_DEV=1 uv run sage`.
 
+### A real app icon and name
+
+An unbundled Python process shows a blank document icon and calls itself "python", because
+macOS reads both from a bundle's `Info.plist` before any code runs. Setting them from
+inside the process only half works.
+
+```bash
+uv run python scripts/make_icon.py   # assets/icon.png + icon.icns, drawn in code
+uv run python scripts/make_app.py    # Sage.app
+```
+
+`Sage.app` launches this working copy in place — it is not distributable and the repo has
+to stay where it is. A shippable build is the Tauri phase. Drag it to the Dock.
+
 ```bash
 cd backend-python && uv run pytest     # vault conformance suite
 cd frontend && npm test                # todo commands + editor save safety
