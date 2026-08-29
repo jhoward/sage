@@ -105,10 +105,6 @@ body {
    Markers are dimmed, never hidden: nothing is concealed, so there is no mode to
    toggle back out of. */
 
-.cm-md-marker {
-  opacity: 0.3;
-}
-
 .cm-md-h1 { font-size: 1.5em; font-weight: 650; line-height: 1.4; }
 .cm-md-h2 { font-size: 1.3em; font-weight: 650; line-height: 1.45; }
 .cm-md-h3 { font-size: 1.15em; font-weight: 600; }

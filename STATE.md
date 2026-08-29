@@ -41,7 +41,8 @@ Editor, file tree, autosave, native window, and the core todo loop, all working:
 - `⌘N` new note; `⌘`-click an unresolved `[[link]]` to create it
 - Rename with inbound link rewriting
 - Settings = revealing `.occam/` in the tree; no settings panel
-- Live-preview styling (persistent, nothing hidden, so no mode to toggle)
+- Live preview over the markdown syntax tree: formatting renders, and its markers hide
+  unless the cursor is inside the span — so there is still no mode to toggle
 - Delete a note (`⌘K`), which asks you to type its name — there is no undo yet
 - All global shortcuts in one table; Ctrl is never treated as Cmd on macOS, so the
   readline bindings (`⌃A`, `⌃E`, `⌃K`, `⌃N`…) still work
@@ -118,6 +119,11 @@ only if the escalation ladder in the README actually demands it.
   this and was verified to fail against the old implementation — keep those tests passing.
 - **Headings are not a schema.** Capture creates whatever section it targets. Renaming or
   deleting one must never break anything; there is a test for it.
+- **Emphasis cannot cross a block boundary.** A single `**…**` wrapped around several list
+  items parses as a paragraph plus an unrelated list, and shows literal asterisks in every
+  renderer. `⌘B` on a multi-line selection therefore wraps each line inside its list marker.
+  If bold ever looks broken again, check whether the markdown is valid before blaming the
+  renderer — that mistake cost a rewrite of the wrong component.
 - **No provenance markers.** They were tried and removed: the pairing broke on any edit
   near a boundary, and a marker outlived the text it described, so it made false claims
   about paragraphs you had since rewritten. Git is the right place for this.
