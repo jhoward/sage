@@ -14,6 +14,7 @@ import { Editor, type EditorHandle } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
 import { Prompt } from "./components/Prompt";
+import { Confirm } from "./components/Confirm";
 import { MultiPicker } from "./components/MultiPicker";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
@@ -361,7 +362,7 @@ export default function App() {
       {
         id: "ai.undo",
         group: "AI",
-        title: "Undo last AI change",
+        title: "Undo last change",
         keywords: "revert restore",
         run: async () => {
           try {
@@ -900,19 +901,14 @@ export default function App() {
           if (sk) void runSkill(sk, question);
         }}
       />
-      <Prompt
+      <Confirm
         open={confirmDelete && !!path}
-        label={`Delete ${path ?? ""}? Type the note name to confirm — this cannot be undone.`}
-        placeholder={path ? path.split("/").pop()!.replace(/\.md$/, "") : ""}
+        title={`Delete ${path}?`}
+        detail="⌘K → Undo last change will bring it back."
         onClose={() => setConfirmDelete(false)}
-        onSubmit={async (typed) => {
-          if (!path) return;
-          const expected = path.split("/").pop()!.replace(/\.md$/, "");
-          if (typed !== expected) {
-            setStatus(`Not deleted — type "${expected}" exactly to confirm`);
-            return;
-          }
+        onConfirm={async () => {
           setConfirmDelete(false);
+          if (!path) return;
           try {
             await backend.deleteFile(path);
             setDoc({ path: null, content: "" });
@@ -920,7 +916,7 @@ export default function App() {
             await refresh();
             const week = await backend.week();
             await open(week.path);
-            setStatus(`Deleted ${path}`);
+            setStatus(`Deleted ${path} — ⌘K → undo to restore`);
           } catch (e) {
             setError(String(e));
           }

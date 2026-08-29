@@ -135,8 +135,21 @@ def create_app(
 
     @app.delete("/api/file")
     def delete_file(path: str):
+        """Delete a note, keeping its contents so the deletion can be undone.
+
+        Reversibility rather than ceremony: an earlier version asked you to type the
+        note's name, which is friction that punishes the careful and does nothing for the
+        unlucky. Snapshotting into the same undo slot the AI changes use means a mistaken
+        delete is one command away from being fixed.
+        """
+        try:
+            body = vault.read_file(path)
+        except VaultError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         guard(vault.delete_file, path)
-        return {"ok": True}
+        app.state.last_change = {path: body}
+        return {"ok": True, "canUndo": True}
 
     @app.get("/api/search")
     def search(q: str = ""):
