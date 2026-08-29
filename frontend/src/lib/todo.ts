@@ -158,44 +158,61 @@ export function continueList(view: CommandTarget): boolean {
 }
 
 export function toggleTask(view: CommandTarget): boolean {
-  const changes = [];
-  const seen = new Set<number>();
+  const { state } = view;
+  const lines = selectedLineNumbers(state);
+  const tasks = lines
+    .map((n) => parseTask(state.doc.line(n)))
+    .filter((t): t is TaskLine => t !== null);
 
-  for (const range of view.state.selection.ranges) {
-    const first = view.state.doc.lineAt(range.from).number;
-    const last = view.state.doc.lineAt(range.to).number;
-    for (let n = first; n <= last; n++) {
-      if (seen.has(n)) continue;
-      seen.add(n);
-      const task = parseTask(view.state.doc.line(n));
-      if (task) {
-        changes.push({
-          from: task.markPos,
-          to: task.markPos + 1,
-          insert: task.done ? " " : "x",
-        });
-      }
-    }
-  }
+  if (tasks.length) {
+    // Every selected task ends in the *same* state, rather than each flipping
+    // independently. Flipping is right for one line and wrong for a batch: dragging over
+    // a range you have half-finished would uncheck the done ones while checking the rest,
+    // which is never what was meant. If anything is unfinished, finish everything —
+    // that is what selecting a batch usually means.
+    const done = !tasks.some((t) => !t.done);
+    const target = done ? " " : "x";
 
-  if (changes.length) {
+    const changes = tasks
+      .filter((t) => (t.done ? "x" : " ") !== target)
+      .map((t) => ({ from: t.markPos, to: t.markPos + 1, insert: target }));
+
+    if (!changes.length) return true; // already uniform
     view.dispatch({ changes, userEvent: "input.toggleTask" });
     return true;
   }
 
-  // Nothing on this line is a task yet — make it one.
-  const line = view.state.doc.lineAt(view.state.selection.main.head);
-  const text = line.text.trim();
-  if (!text || STRUCTURAL.test(line.text)) return false;
+  // Nothing selected is a task yet — make them all tasks.
+  const changes = [];
+  for (const n of lines) {
+    const line = state.doc.line(n);
+    const text = line.text.trim();
+    if (!text || STRUCTURAL.test(line.text)) continue;
 
-  const m = BULLET.exec(line.text);
-  const indent = m ? m[1] : line.text.match(/^\s*/)![0];
-  const body = m ? m[4] : text;
-  view.dispatch({
-    changes: { from: line.from, to: line.to, insert: `${indent}- [ ] ${body}` },
-    userEvent: "input.makeTask",
-  });
+    const m = BULLET.exec(line.text);
+    const indent = m ? m[1] : line.text.match(/^\s*/)![0];
+    const body = m ? m[4] : text;
+    changes.push({
+      from: line.from,
+      to: line.to,
+      insert: `${indent}- [ ] ${body}`,
+    });
+  }
+
+  if (!changes.length) return false;
+  view.dispatch({ changes, userEvent: "input.makeTask" });
   return true;
+}
+
+/** Every line number the selection touches, deduplicated and in order. */
+function selectedLineNumbers(state: EditorState): number[] {
+  const seen = new Set<number>();
+  for (const range of state.selection.ranges) {
+    const first = state.doc.lineAt(range.from).number;
+    const last = state.doc.lineAt(range.to).number;
+    for (let n = first; n <= last; n++) seen.add(n);
+  }
+  return [...seen].sort((a, b) => a - b);
 }
 
 /**
