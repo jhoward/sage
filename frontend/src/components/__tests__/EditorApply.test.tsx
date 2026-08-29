@@ -55,7 +55,7 @@ describe("AIReview accept", () => {
     title: "Expand",
     context: "note" as const,
     mode: "replace" as const,
-    path: ".sage/skills/expand.md",
+    path: ".occam/skills/expand.md",
   };
 
   function panel(props: Partial<{ streaming: boolean; text: string }> = {}) {

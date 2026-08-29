@@ -87,12 +87,13 @@ def create_app(
         vault = Vault(cfg.vault_path)
         vault.ensure()
     sync = sync or vault_sync.make(cfg.sync, vault.root)
+    skills_mod.migrate_legacy_settings(vault)
     skills_mod.ensure_default_skills(vault)
     todo.migrate_week_files(vault)
     ai.strip_ai_markers(vault)
     skills_mod.ensure_reference_notes(vault)
 
-    app = FastAPI(title="sage", docs_url=None, redoc_url=None)
+    app = FastAPI(title="occam", docs_url=None, redoc_url=None)
     app.state.vault = vault
     app.state.sync = sync
 

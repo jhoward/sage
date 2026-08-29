@@ -26,7 +26,7 @@ export function CopyButton({ text }: { text: string }) {
         window.setTimeout(() => setCopied(false), 1500);
       }}
       className="rounded border px-2.5 py-1 text-xs"
-      style={{ borderColor: "var(--sage-border)", color: "var(--sage-fg)" }}
+      style={{ borderColor: "var(--ink-border)", color: "var(--ink-fg)" }}
     >
       {copied ? "Copied" : "Copy error"}
     </button>
@@ -92,14 +92,14 @@ export function AIReview({
   return (
     <div
       className="flex max-h-[45vh] shrink-0 flex-col border-t"
-      style={{ borderColor: "var(--sage-border)", background: "var(--sage-panel)" }}
+      style={{ borderColor: "var(--ink-border)", background: "var(--ink-panel)" }}
     >
       <div
         className="flex shrink-0 items-center justify-between border-b px-4 py-1.5 text-[11px]"
-        style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+        style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
       >
         <span>
-          <span style={{ color: "var(--sage-accent)" }}>{skill.title}</span>
+          <span style={{ color: "var(--ink-accent)" }}>{skill.title}</span>
           {streaming && " · generating…"}
           {!streaming && !error && ` · will ${skill.mode}`}
         </span>
@@ -111,30 +111,30 @@ export function AIReview({
         className="cm-selectable min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 text-sm"
         style={{
           fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
-          color: error ? "#ef4444" : "var(--sage-fg)",
+          color: error ? "#ef4444" : "var(--ink-fg)",
         }}
       >
         {error ?? text}
-        {streaming && <span style={{ color: "var(--sage-muted)" }}>▍</span>}
+        {streaming && <span style={{ color: "var(--ink-muted)" }}>▍</span>}
       </div>
 
       {!streaming && !error && text.trim() && (
         <div
           className="flex shrink-0 gap-2 border-t px-4 py-2"
-          style={{ borderColor: "var(--sage-border)" }}
+          style={{ borderColor: "var(--ink-border)" }}
         >
           <button
             ref={acceptBtn}
             onClick={onAccept}
             className="rounded px-2.5 py-1 text-xs"
-            style={{ background: "var(--sage-accent)", color: "white" }}
+            style={{ background: "var(--ink-accent)", color: "white" }}
           >
             Accept
           </button>
           <button
             onClick={onReject}
             className="rounded px-2.5 py-1 text-xs"
-            style={{ color: "var(--sage-muted)" }}
+            style={{ color: "var(--ink-muted)" }}
           >
             Discard
           </button>
@@ -144,13 +144,13 @@ export function AIReview({
       {error && (
         <div
           className="flex shrink-0 gap-2 border-t px-4 py-2"
-          style={{ borderColor: "var(--sage-border)" }}
+          style={{ borderColor: "var(--ink-border)" }}
         >
           <CopyButton text={error} />
           <button
             onClick={onReject}
             className="rounded px-2.5 py-1 text-xs"
-            style={{ color: "var(--sage-muted)" }}
+            style={{ color: "var(--ink-muted)" }}
           >
             Dismiss
           </button>

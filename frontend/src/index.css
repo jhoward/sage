@@ -1,24 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --sage-bg: #ffffff;
-  --sage-fg: #1a1a1a;
-  --sage-muted: #6b7280;
-  --sage-border: #e5e7eb;
-  --sage-panel: #fafafa;
-  --sage-accent: #2563eb;
-  --sage-done: #9ca3af;
+  --ink-bg: #ffffff;
+  --ink-fg: #1a1a1a;
+  --ink-muted: #6b7280;
+  --ink-border: #e5e7eb;
+  --ink-panel: #fafafa;
+  --ink-accent: #2563eb;
+  --ink-done: #9ca3af;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --sage-bg: #16181d;
-    --sage-fg: #e5e7eb;
-    --sage-muted: #8b93a1;
-    --sage-border: #2a2e37;
-    --sage-panel: #1b1e24;
-    --sage-accent: #60a5fa;
-    --sage-done: #6b7280;
+    --ink-bg: #16181d;
+    --ink-fg: #e5e7eb;
+    --ink-muted: #8b93a1;
+    --ink-border: #2a2e37;
+    --ink-panel: #1b1e24;
+    --ink-accent: #60a5fa;
+    --ink-done: #6b7280;
   }
 }
 
@@ -28,8 +28,8 @@ html, body, #root {
 }
 
 body {
-  background: var(--sage-bg);
-  color: var(--sage-fg);
+  background: var(--ink-bg);
+  color: var(--ink-fg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow: hidden;
 }
@@ -52,23 +52,23 @@ body {
 }
 
 .cm-content {
-  caret-color: var(--sage-fg);
+  caret-color: var(--ink-fg);
 }
 
 .cm-gutters {
   background: transparent;
   border: none;
-  color: var(--sage-muted);
+  color: var(--ink-muted);
 }
 
 .cm-activeLine,
 .cm-activeLineGutter {
-  background: color-mix(in srgb, var(--sage-accent) 7%, transparent);
+  background: color-mix(in srgb, var(--ink-accent) 7%, transparent);
 }
 
 /* Completed tasks read as done without hiding them. */
 .cm-task-done {
-  color: var(--sage-done);
+  color: var(--ink-done);
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }
@@ -81,14 +81,14 @@ body {
 /* ---- wiki-links ---- */
 
 .cm-wikilink {
-  color: var(--sage-accent);
+  color: var(--ink-accent);
   cursor: pointer;
 }
 
 /* A link to a note that does not exist yet is a normal state while writing —
    show it rather than hide it. */
 .cm-wikilink-broken {
-  color: var(--sage-muted);
+  color: var(--ink-muted);
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }
@@ -121,13 +121,13 @@ body {
 .cm-md-strike { text-decoration: line-through; opacity: 0.7; }
 
 .cm-md-code {
-  background: color-mix(in srgb, var(--sage-fg) 8%, transparent);
+  background: color-mix(in srgb, var(--ink-fg) 8%, transparent);
   border-radius: 3px;
   padding: 0 3px;
 }
 
 .cm-md-quote {
-  color: var(--sage-muted);
-  box-shadow: inset 2px 0 0 var(--sage-border);
+  color: var(--ink-muted);
+  box-shadow: inset 2px 0 0 var(--ink-border);
   padding-left: 8px;
 }

@@ -1,6 +1,6 @@
 """Skills — prompts as vault content.
 
-A skill is a markdown file in `<vault>/.sage/skills/`. That is the anti-bloat mechanism:
+A skill is a markdown file in `<vault>/.occam/skills/`. That is the anti-bloat mechanism:
 features are files, so a skill you do not use is a file you delete, and the app itself does
 not grow. It is also why skills can be versioned, linked to from notes, shared as a folder,
 and edited with the same editor as everything else.
@@ -29,7 +29,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-SKILLS_DIR = ".sage/skills"
+SKILLS_DIR = ".occam/skills"
 DEFAULT_MODEL = "claude-opus-5"
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?(.*)\Z", re.DOTALL)
 
@@ -321,7 +321,7 @@ Metadata at the very top of a file, between `---` lines:
     ---
 """
 
-REFERENCE = {".sage/markdown.md": CHEATSHEET}
+REFERENCE = {".occam/markdown.md": CHEATSHEET}
 
 
 def ensure_reference_notes(vault) -> list[str]:
@@ -332,3 +332,20 @@ def ensure_reference_notes(vault) -> list[str]:
             vault.write_file(path, body)
             written.append(path)
     return written
+
+
+LEGACY_SETTINGS_DIR = ".sage"
+
+
+def migrate_legacy_settings(vault) -> bool:
+    """Move a vault's `.sage/` to `.occam/`. Returns True if one was moved.
+
+    Renaming the app must not orphan someone's skills, which are their prompts and the
+    thing they are most likely to have edited.
+    """
+    legacy = vault.root / LEGACY_SETTINGS_DIR
+    target = vault.root / ".occam"
+    if target.exists() or not legacy.is_dir():
+        return False
+    legacy.rename(target)
+    return True

@@ -46,7 +46,7 @@ def wait_for(url: str, timeout: float = 15.0) -> bool:
     return False
 
 
-def set_app_name(name: str = "Sage") -> None:
+def set_app_name(name: str = "Occam Notes") -> None:
     """Show the app's own name in the macOS menu bar instead of "python3".
 
     A Python process inherits the interpreter's name, so an unbundled app announces
@@ -140,7 +140,7 @@ def main() -> int:
             return 1
         url = f"http://127.0.0.1:{port}/"
 
-    webview.create_window("Sage", url, width=1200, height=800)
+    webview.create_window("Occam Notes", url, width=1200, height=800)
     # Passed as the start callback rather than called beforehand: pywebview brings up
     # AppKit inside start(), and an icon set before that is discarded.
     webview.start(set_dock_icon)

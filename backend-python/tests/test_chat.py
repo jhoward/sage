@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from sage import chat
-from sage.config import Config
-from sage.vault import Vault
+from occam import chat
+from occam.config import Config
+from occam.vault import Vault
 
 
 @pytest.fixture
@@ -212,7 +212,7 @@ def test_undo_removes_a_file_that_did_not_exist(vault: Vault):
         vault, [{"tool": "add_task", "args": {"text": "New", "target": "week"}}]
     )
     chat.undo(vault, snapshot)
-    from sage import todo
+    from occam import todo
     assert not (vault.root / todo.week_path()).exists()
 
 

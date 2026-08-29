@@ -150,11 +150,11 @@ export function AskPanel({
   return (
     <aside
       className="flex w-[380px] shrink-0 flex-col border-l"
-      style={{ borderColor: "var(--sage-border)", background: "var(--sage-panel)" }}
+      style={{ borderColor: "var(--ink-border)", background: "var(--ink-panel)" }}
     >
       <div
         className="flex h-9 shrink-0 items-center justify-between border-b px-4 text-xs"
-        style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+        style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
       >
         <span>Ask the vault</span>
         <div className="flex items-center gap-3">
@@ -171,7 +171,7 @@ export function AskPanel({
 
       <div ref={scroller} className="cm-selectable min-h-0 flex-1 overflow-auto px-4 py-3">
         {turns.length === 0 && !busy && (
-          <p className="text-sm" style={{ color: "var(--sage-muted)" }}>
+          <p className="text-sm" style={{ color: "var(--ink-muted)" }}>
             Questions across every note — "what have I said about override rates?" Ask for
             something to be recorded and it will propose the change for review.
           </p>
@@ -193,8 +193,8 @@ export function AskPanel({
                         onClick={() => onOpenNote(p)}
                         className="rounded border px-1.5 py-0.5 text-[11px]"
                         style={{
-                          borderColor: "var(--sage-border)",
-                          color: "var(--sage-accent)",
+                          borderColor: "var(--ink-border)",
+                          color: "var(--ink-accent)",
                         }}
                       >
                         {p.replace(/^notes\//, "").replace(/\.md$/, "")}
@@ -208,8 +208,8 @@ export function AskPanel({
                     onClick={() => void capture()}
                     className="mt-2 rounded border px-1.5 py-0.5 text-[11px]"
                     style={{
-                      borderColor: "var(--sage-border)",
-                      color: "var(--sage-muted)",
+                      borderColor: "var(--ink-border)",
+                      color: "var(--ink-muted)",
                     }}
                     title="Let it decide: a new note, or added to an existing one"
                   >
@@ -218,7 +218,7 @@ export function AskPanel({
                 )}
 
                 {turn.applied && (
-                  <div className="mt-2 text-[11px]" style={{ color: "var(--sage-muted)" }}>
+                  <div className="mt-2 text-[11px]" style={{ color: "var(--ink-muted)" }}>
                     Applied {turn.applied.length} change
                     {turn.applied.length > 1 ? "s" : ""} · ⌘K → undo
                   </div>
@@ -229,7 +229,7 @@ export function AskPanel({
         ))}
 
         {busy && (
-          <p className="text-sm" style={{ color: "var(--sage-muted)" }}>
+          <p className="text-sm" style={{ color: "var(--ink-muted)" }}>
             Reading notes…
           </p>
         )}
@@ -241,10 +241,10 @@ export function AskPanel({
       </div>
 
       {pending && (
-        <div className="shrink-0 border-t" style={{ borderColor: "var(--sage-border)" }}>
+        <div className="shrink-0 border-t" style={{ borderColor: "var(--ink-border)" }}>
           <div
             className="px-4 py-1.5 text-[11px] font-semibold tracking-wide"
-            style={{ color: "var(--sage-muted)" }}
+            style={{ color: "var(--ink-muted)" }}
           >
             {pending.length} PROPOSED CHANGE{pending.length > 1 ? "S" : ""}
           </div>
@@ -262,7 +262,7 @@ export function AskPanel({
                     }
                     className="shrink-0 font-mono"
                     style={{
-                      color: picked.has(i) ? "var(--sage-accent)" : "var(--sage-muted)",
+                      color: picked.has(i) ? "var(--ink-accent)" : "var(--ink-muted)",
                     }}
                   >
                     {picked.has(i) ? "[x]" : "[ ]"}
@@ -277,7 +277,7 @@ export function AskPanel({
                     }
                     className="min-w-0 flex-1 text-left"
                   >
-                    <span style={{ color: p.destructive ? "#d97706" : "var(--sage-fg)" }}>
+                    <span style={{ color: p.destructive ? "#d97706" : "var(--ink-fg)" }}>
                       {p.destructive ? "~ " : "+ "}
                       {describe(p)}
                     </span>
@@ -287,8 +287,8 @@ export function AskPanel({
                   <pre
                     className="mx-2 mb-1 overflow-x-auto whitespace-pre-wrap rounded px-2 py-1.5 text-[11px]"
                     style={{
-                      background: "color-mix(in srgb, var(--sage-fg) 6%, transparent)",
-                      color: "var(--sage-fg)",
+                      background: "color-mix(in srgb, var(--ink-fg) 6%, transparent)",
+                      color: "var(--ink-fg)",
                     }}
                   >
                     {detail(p)}
@@ -299,7 +299,7 @@ export function AskPanel({
           </div>
           <div
             className="flex items-center justify-between border-t px-4 py-2 text-[11px]"
-            style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+            style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
           >
             <span>{picked.size} selected</span>
             <button
@@ -307,8 +307,8 @@ export function AskPanel({
               disabled={picked.size === 0}
               className="rounded px-2.5 py-1 text-xs"
               style={{
-                background: picked.size ? "var(--sage-accent)" : "transparent",
-                color: picked.size ? "white" : "var(--sage-muted)",
+                background: picked.size ? "var(--ink-accent)" : "transparent",
+                color: picked.size ? "white" : "var(--ink-muted)",
               }}
             >
               Apply {picked.size || ""}
@@ -317,7 +317,7 @@ export function AskPanel({
         </div>
       )}
 
-      <div className="shrink-0 border-t p-2" style={{ borderColor: "var(--sage-border)" }}>
+      <div className="shrink-0 border-t p-2" style={{ borderColor: "var(--ink-border)" }}>
         <textarea
           ref={input}
           value={question}
@@ -332,7 +332,7 @@ export function AskPanel({
             if (e.key === "Escape") onClose();
           }}
           className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none"
-          style={{ color: "var(--sage-fg)" }}
+          style={{ color: "var(--ink-fg)" }}
         />
       </div>
     </aside>

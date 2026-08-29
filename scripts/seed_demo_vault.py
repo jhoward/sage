@@ -15,9 +15,9 @@ overwritten; nothing else is touched.
 import importlib.util, sys
 from pathlib import Path
 
-sys.path.insert(0, "/Users/jimhoward/code/sage/backend-python")
-from sage.config import load
-from sage.vault import Vault
+sys.path.insert(0, "backend-python")
+from occam.config import load
+from occam.vault import Vault
 
 notes = {}
 for part in ["part1", "part2", "part3", "part4", "part5", "part6"]:

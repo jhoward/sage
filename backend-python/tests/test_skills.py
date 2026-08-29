@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from sage import ai, context, skills
-from sage.app import create_app
-from sage.config import Config
-from sage.vault import Vault
+from occam import ai, context, skills
+from occam.app import create_app
+from occam.config import Config
+from occam.vault import Vault
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def test_parse_frontmatter_without_frontmatter():
 
 
 def test_parse_skill_defaults(vault: Vault):
-    s = skills.parse_skill(".sage/skills/tighten.md", "Make it shorter.")
+    s = skills.parse_skill(".occam/skills/tighten.md", "Make it shorter.")
     assert s.id == "tighten"
     assert s.title == "Tighten"  # derived from the filename
     assert s.context == "selection" and s.mode == "replace"
@@ -82,9 +82,9 @@ def test_default_skills_are_written_once(vault: Vault):
     written = skills.ensure_default_skills(vault)
     assert set(written) == set(skills.DEFAULTS)
 
-    vault.write_file(".sage/skills/cleanup.md", "---\ntitle: Mine\n---\nEdited")
+    vault.write_file(".occam/skills/cleanup.md", "---\ntitle: Mine\n---\nEdited")
     assert skills.ensure_default_skills(vault) == []  # never overwrites
-    assert "Edited" in vault.read_file(".sage/skills/cleanup.md")
+    assert "Edited" in vault.read_file(".occam/skills/cleanup.md")
 
 
 def test_load_skills_sorted_by_title(vault: Vault):
@@ -222,7 +222,7 @@ def test_run_unknown_skill_is_404(vault: Vault):
 
 def test_new_config_documents_the_api_key(tmp_path: Path):
     """The file should teach you what is available, including the empty settings."""
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     path = tmp_path / "config.toml"
     cfg = config_mod.load(path)
@@ -234,7 +234,7 @@ def test_new_config_documents_the_api_key(tmp_path: Path):
 
 
 def test_config_round_trips_through_the_template(tmp_path: Path):
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     path = tmp_path / "config.toml"
     config_mod.Config(tmp_path / "vault", "local", "sk-test-123").save(path)
@@ -243,7 +243,7 @@ def test_config_round_trips_through_the_template(tmp_path: Path):
 
 
 def test_config_escapes_a_windows_style_path(tmp_path: Path):
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     path = tmp_path / "config.toml"
     config_mod.Config(Path(r"C:\Users\me\notes")).save(path)
@@ -266,7 +266,7 @@ def test_create_app_loads_config_even_when_given_a_vault(tmp_path: Path, monkeyp
     """
     from fastapi.testclient import TestClient
 
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     cfg_path = tmp_path / "config.toml"
     config_mod.Config(tmp_path / "vault", "local", "sk-test-key").save(cfg_path)
@@ -285,7 +285,7 @@ def test_workspace_id_is_sent_as_a_header(vault: Vault, monkeypatch):
     """Identity-linked keys need a workspace; the SDK has no parameter for it."""
     import anthropic
 
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     captured = {}
 
@@ -306,7 +306,7 @@ def test_workspace_id_is_sent_as_a_header(vault: Vault, monkeypatch):
 def test_no_workspace_header_when_unset(vault: Vault, monkeypatch):
     import anthropic
 
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     captured = {}
     monkeypatch.setattr(
@@ -345,7 +345,7 @@ def test_missing_workspace_error_names_the_setting(vault: Vault):
 
 
 def test_config_round_trips_the_workspace_id(tmp_path: Path):
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     path = tmp_path / "config.toml"
     config_mod.Config(tmp_path / "v", "local", "sk-x", "wrkspc_9").save(path)
@@ -355,7 +355,7 @@ def test_config_round_trips_the_workspace_id(tmp_path: Path):
 
 def test_missing_settings_are_appended_to_an_existing_config(tmp_path: Path):
     """A setting added in a later version must not stay invisible to existing users."""
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     path = tmp_path / "config.toml"
     path.write_text(
@@ -374,7 +374,7 @@ def test_missing_settings_are_appended_to_an_existing_config(tmp_path: Path):
 
 
 def test_existing_values_are_never_rewritten(tmp_path: Path):
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     path = tmp_path / "config.toml"
     path.write_text('vault_path = "/tmp/v"\nanthropic_api_key = "sk-mine"\n')
@@ -389,7 +389,7 @@ def test_existing_values_are_never_rewritten(tmp_path: Path):
 
 
 def test_appending_is_idempotent(tmp_path: Path):
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     path = tmp_path / "config.toml"
     path.write_text('vault_path = "/tmp/v"\n')
@@ -403,7 +403,7 @@ def test_appending_is_idempotent(tmp_path: Path):
 
 def test_a_commented_out_setting_still_counts_as_missing(tmp_path: Path):
     """A commented line is documentation, not a value — the real setting is still absent."""
-    from sage import config as config_mod
+    from occam import config as config_mod
 
     path = tmp_path / "config.toml"
     path.write_text('vault_path = "/tmp/v"\n# anthropic_api_key = "example"\n')
@@ -454,12 +454,12 @@ def test_missing_frontmatter_keys_are_added(vault: Vault):
     skills.ensure_default_skills(vault)
     # Simulate a copy created before the key shipped.
     vault.write_file(
-        ".sage/skills/ask.md",
+        ".occam/skills/ask.md",
         "---\ntitle: My own title\ncontext: note-and-links\n---\nMy own prompt.",
     )
 
     added = skills.add_missing_frontmatter(vault)
-    body = vault.read_file(".sage/skills/ask.md")
+    body = vault.read_file(".occam/skills/ask.md")
 
     assert ("ask.md", "asks") in added
     assert "asks: true" in body
@@ -471,7 +471,7 @@ def test_missing_frontmatter_keys_are_added(vault: Vault):
 def test_existing_values_are_never_changed(vault: Vault):
     skills.ensure_default_skills(vault)
     vault.write_file(
-        ".sage/skills/cleanup.md",
+        ".occam/skills/cleanup.md",
         "---\ntitle: Tidy\ncontext: selection\nmode: replace\neffort: max\n---\nMine.",
     )
     skills.add_missing_frontmatter(vault)
@@ -490,19 +490,19 @@ def test_frontmatter_merge_is_idempotent(vault: Vault):
 def test_a_users_own_skill_is_left_alone(vault: Vault):
     """Only shipped skills are touched; anything you wrote is entirely yours."""
     skills.ensure_default_skills(vault)
-    vault.write_file(".sage/skills/mine.md", "---\ntitle: Mine\n---\nBody")
-    before = vault.read_file(".sage/skills/mine.md")
+    vault.write_file(".occam/skills/mine.md", "---\ntitle: Mine\n---\nBody")
+    before = vault.read_file(".occam/skills/mine.md")
 
     skills.add_missing_frontmatter(vault)
-    assert vault.read_file(".sage/skills/mine.md") == before
+    assert vault.read_file(".occam/skills/mine.md") == before
 
 
 def test_reset_skill_restores_the_default(vault: Vault):
     skills.ensure_default_skills(vault)
-    vault.write_file(".sage/skills/cleanup.md", "---\ntitle: Broken\n---\noops")
+    vault.write_file(".occam/skills/cleanup.md", "---\ntitle: Broken\n---\noops")
 
     skills.reset_skill(vault, "cleanup")
-    assert vault.read_file(".sage/skills/cleanup.md") == skills.DEFAULTS["cleanup.md"]
+    assert vault.read_file(".occam/skills/cleanup.md") == skills.DEFAULTS["cleanup.md"]
 
 
 def test_reset_refuses_a_skill_it_does_not_ship(vault: Vault):
@@ -568,3 +568,39 @@ def test_rate_limits_say_what_to_do():
         body = {"error": {"message": "rate_limit_error: too many requests"}}
 
     assert "Rate limited" in ai.describe_error(Limited())
+
+
+def test_legacy_migration_never_touches_a_custom_path(tmp_path: Path, monkeypatch):
+    """Regression: this once moved the developer's real config into a pytest temp file.
+
+    Migration reads a fixed home-directory path, so it must refuse to act when the caller
+    named a different destination — otherwise a test asking for a fresh config silently
+    consumes the real one.
+    """
+    from occam import config as config_mod
+
+    home_legacy = tmp_path / "legacy" / "config.toml"
+    home_legacy.parent.mkdir()
+    home_legacy.write_text('vault_path = "/real"\nanthropic_api_key = "sk-real"\n')
+    monkeypatch.setattr(config_mod, "LEGACY_CONFIG_DIR", home_legacy.parent)
+
+    elsewhere = tmp_path / "elsewhere.toml"
+    assert config_mod.migrate_legacy_config(elsewhere) is False
+    assert home_legacy.exists()  # untouched
+    assert not elsewhere.exists()
+
+
+def test_legacy_migration_moves_the_real_config(tmp_path: Path, monkeypatch):
+    from occam import config as config_mod
+
+    legacy_dir = tmp_path / "sage"
+    legacy_dir.mkdir()
+    (legacy_dir / "config.toml").write_text('vault_path = "/v"\nanthropic_api_key = "k"\n')
+    target = tmp_path / "occam" / "config.toml"
+
+    monkeypatch.setattr(config_mod, "LEGACY_CONFIG_DIR", legacy_dir)
+    monkeypatch.setattr(config_mod, "CONFIG_PATH", target)
+
+    assert config_mod.migrate_legacy_config(target) is True
+    assert config_mod.load(target).anthropic_api_key == "k"
+    assert not (legacy_dir / "config.toml").exists()

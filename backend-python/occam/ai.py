@@ -35,12 +35,12 @@ Return only the requested text. No preamble, no commentary, no code fences aroun
 
 MISSING_KEY = (
     "No Anthropic API key. Set ANTHROPIC_API_KEY, or add "
-    "anthropic_api_key to ~/.config/sage/config.toml."
+    "anthropic_api_key to ~/.config/occam/config.toml."
 )
 
 MISSING_WORKSPACE = (
     "This is an identity-linked API key, which also needs a workspace ID.\n\n"
-    "Add anthropic_workspace_id to ~/.config/sage/config.toml (Anthropic Console -> "
+    "Add anthropic_workspace_id to ~/.config/occam/config.toml (Anthropic Console -> "
     "Settings -> Workspaces, it looks like wrkspc_...), then restart Sage.\n\n"
     "A standard organisation API key does not need this."
 )

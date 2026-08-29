@@ -41,14 +41,14 @@ function PaneHeader({
   return (
     <div
       className="flex h-9 shrink-0 items-center gap-3 border-b px-4 text-xs"
-      style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+      style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
     >
       <span className="min-w-0 flex-1 truncate">{path ?? "No file open"}</span>
       {!!links && (
         <button
           onClick={onLinks}
           className="shrink-0"
-          style={{ color: "var(--sage-accent)" }}
+          style={{ color: "var(--ink-accent)" }}
           title="Notes linking here"
         >
           ← {links}
@@ -292,7 +292,7 @@ export default function App() {
   }, [path, files]);
 
   // Rebuilt whenever the vault changes so "Open …" always reflects what is on disk.
-  // In Phase 3, skills from .sage/skills/ append to this same list.
+  // In Phase 3, skills from .occam/skills/ append to this same list.
   const commands = useMemo<Command[]>(() => {
     const list: Command[] = [
       {
@@ -388,24 +388,24 @@ export default function App() {
         id: "config.open",
         group: "Settings",
         title: aiReady
-          ? "Open Sage config (API key, vault path)"
+          ? "Open config (API key, vault path)"
           : "Set the Anthropic API key…",
         keywords: "anthropic claude api key config toml machine settings",
         hint: aiReady ? undefined : "no key set",
         run: async () => {
           try {
             const { path } = await backend.openConfig();
-            setStatus(`Opened ${path} — restart Sage after editing`);
+            setStatus(`Opened ${path} — restart Occam Notes after editing`);
           } catch {
             const { path } = await backend.config();
-            setStatus(`Edit ${path}, then restart Sage`);
+            setStatus(`Edit ${path}, then restart Occam Notes`);
           }
         },
       },
       {
         id: "vault.settings",
         group: "Settings",
-        title: showSettings ? "Hide settings" : "Settings (show .sage folder)",
+        title: showSettings ? "Hide settings" : "Settings (show .occam folder)",
         keywords: "config skills keybindings preferences",
         run: () => setShowSettings((v) => !v),
       },
@@ -414,7 +414,7 @@ export default function App() {
         group: "View",
         title: "Markdown cheat sheet (in split pane)",
         keywords: "help syntax reference formatting",
-        run: () => openSplit(".sage/markdown.md"),
+        run: () => openSplit(".occam/markdown.md"),
       },
       {
         id: "view.split",
@@ -606,19 +606,19 @@ export default function App() {
     <div className="flex h-full">
       <aside
         className="flex w-60 shrink-0 flex-col border-r"
-        style={{ background: "var(--sage-panel)", borderColor: "var(--sage-border)" }}
+        style={{ background: "var(--ink-panel)", borderColor: "var(--ink-border)" }}
       >
         <div
           className="flex items-center justify-between border-b px-3 py-2"
-          style={{ borderColor: "var(--sage-border)" }}
+          style={{ borderColor: "var(--ink-border)" }}
         >
-          <span className="text-xs font-semibold tracking-wide">SAGE</span>
+          <span className="text-xs font-semibold tracking-wide">OCCAM</span>
           <SyncIndicator status={sync} />
         </div>
         {week && (
           <div
             className="shrink-0 border-b px-2 py-2"
-            style={{ borderColor: "var(--sage-border)" }}
+            style={{ borderColor: "var(--ink-border)" }}
           >
             {[
               { path: week.path, label: "This week", sub: week.label },
@@ -633,14 +633,14 @@ export default function App() {
                 style={{
                   background:
                     row.path === path
-                      ? "color-mix(in srgb, var(--sage-accent) 14%, transparent)"
+                      ? "color-mix(in srgb, var(--ink-accent) 14%, transparent)"
                       : undefined,
-                  color: row.path === path ? "var(--sage-accent)" : "var(--sage-fg)",
+                  color: row.path === path ? "var(--ink-accent)" : "var(--ink-fg)",
                 }}
               >
                 <span className="flex-1 truncate">{row.label}</span>
                 {row.sub && (
-                  <span className="shrink-0 text-[11px]" style={{ color: "var(--sage-muted)" }}>
+                  <span className="shrink-0 text-[11px]" style={{ color: "var(--ink-muted)" }}>
                     {row.sub}
                   </span>
                 )}
@@ -658,7 +658,7 @@ export default function App() {
         </div>
         <div
           className="border-t px-3 py-2 text-[11px]"
-          style={{ borderColor: "var(--sage-border)", color: "var(--sage-muted)" }}
+          style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
         >
           {label(BINDINGS.palette)} commands · {label(BINDINGS.switcher)} files ·{" "}
           {label(BINDINGS.search)} search · {label(BINDINGS.ask)} ask
@@ -678,7 +678,7 @@ export default function App() {
             <button
               onClick={() => setError(null)}
               className="shrink-0 px-1 text-xs"
-              style={{ color: "var(--sage-muted)" }}
+              style={{ color: "var(--ink-muted)" }}
             >
               ✕
             </button>
@@ -688,9 +688,9 @@ export default function App() {
           <div
             className="border-b px-4 py-2 text-xs"
             style={{
-              borderColor: "var(--sage-border)",
-              color: "var(--sage-muted)",
-              background: "color-mix(in srgb, var(--sage-accent) 6%, transparent)",
+              borderColor: "var(--ink-border)",
+              color: "var(--ink-muted)",
+              background: "color-mix(in srgb, var(--ink-accent) 6%, transparent)",
             }}
           >
             {status}
@@ -719,7 +719,7 @@ export default function App() {
           {split && (
             <div
               className="flex min-w-0 flex-1 flex-col border-l"
-              style={{ borderColor: "var(--sage-border)" }}
+              style={{ borderColor: "var(--ink-border)" }}
             >
               <PaneHeader path={split.path} onClose={() => setSplit(null)} />
               <div className="min-h-0 flex-1">
