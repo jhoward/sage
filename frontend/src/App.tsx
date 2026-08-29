@@ -739,7 +739,8 @@ export default function App() {
           style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
         >
           {label(BINDINGS.palette)} commands · {label(BINDINGS.switcher)} files ·{" "}
-          {label(BINDINGS.search)} search · {label(BINDINGS.ask)} ask
+          {label(BINDINGS.ask)} ask · {label(BINDINGS.newNote)}/{label(BINDINGS.quickAdd)}/
+          {label(BINDINGS.startMeeting)} new note/task/meeting
         </div>
       </aside>
 
