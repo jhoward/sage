@@ -147,3 +147,62 @@ def test_round_trip(vault: Vault):
     result = keys.load(vault, {"quickAdd"})
     assert result.overrides["quickAdd"]["key"] == "t"
     assert result.problems == []
+
+
+def test_the_file_is_seeded_before_anyone_looks_for_it(vault: Vault):
+    """Deleting it and opening settings should not show an empty folder.
+
+    The file is created when the app asks for overrides, which happens on every start —
+    not only when someone runs the command that edits it.
+    """
+    from fastapi.testclient import TestClient
+
+    from occam.app import create_app
+    from occam.config import Config
+
+    client = TestClient(create_app(vault, cfg=Config(vault.root)))
+    assert not (vault.root / keys.PATH).exists()
+
+    client.post(
+        "/api/keybindings",
+        json={"defaults": {"palette": {"key": "k", "mod": True}}},
+    )
+    assert (vault.root / keys.PATH).exists()
+    assert 'palette = "mod+k"' in vault.read_file(keys.PATH)
+
+
+def test_a_backslash_binding_does_not_break_the_file(vault: Vault):
+    """⌘\\ is a real binding, and writing it raw made the whole file unparseable.
+
+    Because a malformed file falls back to the defaults, one unescaped character silently
+    disabled every override in it — the worst kind of failure, since nothing reports it.
+    """
+    import tomllib
+
+    keys.ensure_template(vault, {"split": {"key": "\\", "mod": True}})
+    body = vault.read_file(keys.PATH)
+
+    tomllib.loads(body)  # must not raise
+    assert keys.load(vault, {"split"}).overrides["split"]["key"] == "\\"
+
+
+def test_every_default_round_trips_through_the_file(vault: Vault):
+    """Whatever the app ships must survive being written out and read back."""
+    import tomllib
+
+    defaults = {
+        "palette": {"key": "k", "mod": True},
+        "split": {"key": "\\", "mod": True},
+        "deleteNote": {"key": "Backspace", "mod": True},
+        "search": {"key": "f", "mod": True, "shift": True},
+        "rollover": {"key": "", "mod": True},
+    }
+    keys.ensure_template(vault, defaults)
+    tomllib.loads(vault.read_file(keys.PATH))
+
+    result = keys.load(vault, set(defaults))
+    assert result.problems == []
+    for name, spec in defaults.items():
+        if not spec["key"]:
+            continue
+        assert result.overrides[name]["key"] == spec["key"].lower(), name

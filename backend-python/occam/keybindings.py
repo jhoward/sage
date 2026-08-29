@@ -57,6 +57,17 @@ class Bindings:
         }
 
 
+def _escape(value: str) -> str:
+    """Escape for a TOML basic string.
+
+    The split binding is ⌘\\, and writing it raw produced `split = "mod+\\"` — an
+    unterminated string that made the whole file unparseable. Because a malformed file
+    falls back to the defaults, every override in it was then silently ignored: a single
+    unescaped character quietly disabled the entire feature.
+    """
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def parse_spec(value: str) -> dict | None:
     """"mod+shift+f" to {key, mod, shift, alt}. None if it cannot be read."""
     parts = [p.strip().lower() for p in str(value).split("+") if p.strip()]
@@ -127,7 +138,8 @@ def render(defaults: dict[str, dict]) -> str:
             unbound.append(f'# {name} = ""')
             continue
         mods = [m for m in ("mod", "shift", "alt") if spec.get(m)]
-        bound.append(f'{name} = "{"+".join([*mods, key])}"')
+        combo = "+".join([*mods, key])
+        bound.append(f'{name} = "{_escape(combo)}"')
 
     out = [HEADER, *bound]
     if unbound:
