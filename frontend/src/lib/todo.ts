@@ -27,7 +27,13 @@ import {
   type Line,
   type TransactionSpec,
 } from "@codemirror/state";
-import { deleteLine, moveLineDown, moveLineUp } from "@codemirror/commands";
+import {
+  deleteLine,
+  indentLess,
+  indentMore,
+  moveLineDown,
+  moveLineUp,
+} from "@codemirror/commands";
 
 const TASK = /^(\s*[-*]\s+\[)([ xX])(\]\s?)(.*)$/;
 const HEADING = /^#{1,6}\s/;
@@ -248,6 +254,25 @@ export function promoteToTop(view: CommandTarget): boolean {
   return true;
 }
 
+/**
+ * Tab indents a list item, Shift-Tab outdents.
+ *
+ * The universal convention in anything list-shaped — Obsidian, Notion, Bear, Apple Notes.
+ * It coexists with ⌘[ / ⌘] for back/forward because they are different jobs: Tab is the
+ * text-editor gesture for structure, ⌘[ is the platform gesture for navigation.
+ *
+ * Outside a list Tab inserts indentation as usual. Capturing Tab does cost keyboard focus
+ * traversal, which is the accepted trade in every editor that does this; Escape then Tab
+ * still moves focus out.
+ */
+export function indentListItem(view: CommandTarget): boolean {
+  return indentMore(view as never);
+}
+
+export function outdentListItem(view: CommandTarget): boolean {
+  return indentLess(view as never);
+}
+
 export function hideCompleted(view: CommandTarget): boolean {
   view.dispatch({ effects: toggleHideCompleted.of() });
   return true;
@@ -296,6 +321,8 @@ export function todoExtension() {
         { key: "Alt-Shift-ArrowUp", run: promoteToTop },
         { key: "Alt-ArrowUp", run: moveLineUp },
         { key: "Alt-ArrowDown", run: moveLineDown },
+        { key: "Tab", run: indentListItem },
+        { key: "Shift-Tab", run: outdentListItem },
         { key: "Mod-Shift-k", run: deleteLine },
         { key: "Mod-Shift-h", run: hideCompleted },
       ]),

@@ -67,6 +67,7 @@ nothing can drift out of sync with it.
 
 | Action | Key |
 |---|---|
+| Indent / outdent a list item | `⇥` / `⇧⇥` |
 | Back / forward through notes | `⌘[` / `⌘]` |
 | Show or hide the sidebar | `⌘⇧B` |
 | Bold / italic | `⌘B` / `⌘I` |
@@ -156,6 +157,11 @@ what already is. Uncomment one, give it a combination, restart.
 A binding that cannot work is reported: an unreadable combination, or two commands on the
 same keys. A command name this version does not have is **ignored** — it is most likely
 from a newer version or one since renamed, and neither deserves an error every startup.
+
+`⇥` and `⇧⇥` indent and outdent list items, two spaces per level — the convention in
+everything list-shaped, and the reason `⌘[` / `⌘]` are free to be navigation. Both gestures
+exist because they are different jobs: Tab is the text-editor gesture for structure, `⌘[`
+is the platform gesture for going back.
 
 Two bindings sit on top of a macOS default, deliberately. `⌘[` / `⌘]` are the platform's own
 back and forward — Safari, Finder, Preview, Mail — and CodeMirror's outdent/indent is a

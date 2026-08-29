@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import { EditorState, type TransactionSpec } from "@codemirror/state";
 import {
   continueList,
+  indentListItem,
+  outdentListItem,
   hideCompletedField,
   parseTask,
   promoteToTop,
@@ -256,3 +258,50 @@ describe("toggleTask across a selection", () => {
     expect(t.doc()).toBe("- [ ] Call the dentist\n- [ ] Book the venue");
   });
 })
+
+describe("Tab indents list items", () => {
+  it("indents the current line", () => {
+    const t = target("- [ ] Task");
+    expect(indentListItem(t)).toBe(true);
+    expect(t.doc()).toBe("  - [ ] Task");
+  });
+
+  it("outdents again", () => {
+    const t = target("  - [ ] Task");
+    outdentListItem(t);
+    expect(t.doc()).toBe("- [ ] Task");
+  });
+
+  it("outdenting an unindented line leaves it alone", () => {
+    const t = target("- [ ] Task");
+    outdentListItem(t);
+    expect(t.doc()).toBe("- [ ] Task");
+  });
+
+  it("indents every line in a selection", () => {
+    const t = target("- [ ] One\n- [ ] Two");
+    t.dispatch({
+      selection: { anchor: t.state.doc.line(1).from, head: t.state.doc.line(2).to },
+    });
+    indentListItem(t);
+    expect(t.doc()).toBe("  - [ ] One\n  - [ ] Two");
+  });
+
+  it("round-trips", () => {
+    const t = target("- [ ] Task");
+    indentListItem(t);
+    indentListItem(t);
+    outdentListItem(t);
+    outdentListItem(t);
+    expect(t.doc()).toBe("- [ ] Task");
+  });
+
+  it("continueList keeps the new indentation", () => {
+    // Indent, then Enter: the next item should line up with the one you just indented.
+    const t = target("- [ ] Task");
+    indentListItem(t);
+    t.dispatch({ selection: { anchor: t.state.doc.line(1).to } });
+    continueList(t);
+    expect(t.doc()).toBe("  - [ ] Task\n  - [ ] ");
+  });
+});
