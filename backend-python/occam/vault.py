@@ -174,6 +174,23 @@ class Vault:
         if not path.is_file():
             raise VaultError(f"not a file: {rel}")
         path.unlink()
+        self.prune_empty_dirs(path.parent)
+
+    def prune_empty_dirs(self, directory: Path) -> None:
+        """Remove folders left empty, up to (but never including) the vault root.
+
+        Folders here exist only because a file is in them — that is what makes "make a
+        folder by naming a path" work without a folder concept. The other half of that
+        bargain is that the last file leaving takes the folder with it, rather than
+        accumulating empty directories nobody can see or remove from the app.
+        """
+        current = directory.resolve()
+        while current != self.root and self.root in current.parents:
+            try:
+                current.rmdir()  # fails unless empty
+            except OSError:
+                return
+            current = current.parent
 
     def search(self, query: str) -> list[SearchHit]:
         """Literal search. ripgrep when available, pure-Python otherwise.

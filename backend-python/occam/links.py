@@ -75,6 +75,7 @@ def rename(vault, old_path: str, new_path: str) -> RenameResult:
     body = vault.read_file(old_path)
     vault.write_file(new_path, body)
     source.unlink()
+    vault.prune_empty_dirs(source.parent)
 
     updated: list[str] = []
     if old_stem != new_stem:
@@ -131,5 +132,6 @@ def archive(vault, path: str) -> tuple[str, dict[str, str]]:
     body = vault.read_file(path)
     vault.write_file(target, body)
     source.unlink()
+    vault.prune_empty_dirs(source.parent)
 
     return target, {path: body, target: ""}
