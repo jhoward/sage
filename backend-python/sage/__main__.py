@@ -71,6 +71,30 @@ def set_app_name(name: str = "Sage") -> None:
         info["CFBundleDisplayName"] = name
 
 
+ICON = REPO_ROOT / "assets" / "icon.png"
+
+
+def set_dock_icon(path: Path = ICON) -> None:
+    """Set the Dock icon at runtime.
+
+    An unbundled Python process shows a blank document icon. pywebview's `icon=` argument
+    does not cover macOS, so this goes through AppKit directly. A real .app bundle would
+    read assets/icon.icns from its Info.plist instead; this is the unbundled equivalent.
+
+    Must run after the GUI loop is up, so it is passed to webview.start() as its callback.
+    """
+    if sys.platform != "darwin" or not path.exists():
+        return
+    try:
+        from AppKit import NSApplication, NSImage
+    except ImportError:
+        return
+
+    image = NSImage.alloc().initWithContentsOfFile_(str(path))
+    if image:
+        NSApplication.sharedApplication().setApplicationIconImage_(image)
+
+
 def main() -> int:
     dev = os.environ.get("SAGE_DEV") == "1"
 
@@ -117,7 +141,9 @@ def main() -> int:
         url = f"http://127.0.0.1:{port}/"
 
     webview.create_window("Sage", url, width=1200, height=800)
-    webview.start()
+    # Passed as the start callback rather than called beforehand: pywebview brings up
+    # AppKit inside start(), and an icon set before that is discarded.
+    webview.start(set_dock_icon)
 
     sync.shutdown()
     return 0
