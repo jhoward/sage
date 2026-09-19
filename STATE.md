@@ -13,7 +13,7 @@ For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
 cd backend-python && uv run pytest   # 220 passed, 1 skipped
-cd frontend && npm test              # 186 passed
+cd frontend && npm test              # 203 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -102,11 +102,39 @@ and there was no way to check one off. The command existed; nothing showed it.
 - **List-aware `⇥` / `⇧⇥`**: nests to the parent's text column (3 under `4. `, not 2),
   takes children along, renumbers both levels. With nothing above to nest under it falls
   back to a plain indent.
+- **Numbers stay in order after `⌘⇧K`, `⌥↑/↓` and `⌥⇧↑`** too, in the same transaction, so
+  it is one undo. The list keeps the start it had *before* the edit — deleting item 1 must
+  not leave it starting at 2. `⌘⇧K` is our own `deleteLines`: CodeMirror's steers the
+  cursor by pixel geometry and cannot run against a stand-in dispatch. Deleting a line by
+  hand (select, backspace) deliberately does not renumber.
+- **A selection ending at column 0 excludes that line**, for every line-wise todo command —
+  the rule `⌘B` already had. It also stopped the untouched line below from deciding
+  whether a batch `⌘⏎` checks or unchecks.
+- The drawn tick is CSS, never text: a box with text in it aligns by the text baseline, an
+  empty one by its bottom edge, which made done boxes sit lower than open ones.
 - Global shortcuts now listen in the capture phase and stop propagation. Before, `⌘]` went
   forward *and* indented the line in the note being left, because CodeMirror saw it too.
 
 Not checked by eye: the checkbox styling in `index.css`. Behaviour is covered by
 `lib/__tests__/todoView.test.ts`; how it looks beside real text is not.
+
+## Done — sidebar finish and a dark palette (2026-09-19)
+
+Apple Notes' finish, not its three-column structure (`⌘O` already does what the note
+list is for). The editor font stays monospace — asked and answered.
+
+- Sidebar rows are `.side-row`: 26px, inset rounded selection, a hover state, one rotating
+  chevron. The OCCAM header bar is gone; sync status moved to the footer.
+- `lib/highlight.ts` replaces CodeMirror's default highlight style, whose colours assume a
+  white page. Every tag points at a `--ink-*` token, so it follows the system appearance.
+- The caret and selection are now coloured. CodeMirror draws its own, and the defaults
+  were a black caret and a pale lavender selection — both invisible in dark mode.
+- `--ink-on-accent` for text on accent fills: the dark accent is light, so white washed out.
+- Fixed: right-click, rename and ⌥-click did nothing on anything inside a folder, because
+  `FileTree` passed those handlers to top-level rows only.
+
+**None of this has been seen by eye.** It was written from the code. Check both
+appearances, and expect to nudge spacing and the dark tokens in `index.css`.
 
 ## Known rough edges
 

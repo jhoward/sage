@@ -1,24 +1,36 @@
 @import "tailwindcss";
 
 :root {
+  /* Lets the platform draw its own parts to match: scrollbars, form controls. */
+  color-scheme: light dark;
+
   --ink-bg: #ffffff;
   --ink-fg: #1a1a1a;
   --ink-muted: #6b7280;
   --ink-border: #e5e7eb;
-  --ink-panel: #fafafa;
+  --ink-panel: #f6f6f7;
   --ink-accent: #2563eb;
   --ink-done: #9ca3af;
+  --ink-code: #9a3412;
+  --ink-danger: #dc2626;
+  /* Text on an accent fill. The dark accent is a light blue, where white would wash out. */
+  --ink-on-accent: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink-bg: #16181d;
-    --ink-fg: #e5e7eb;
+    /* Not pure black, and the text not pure white: full contrast on a large dark
+       surface glares, which is most of why a dark theme can feel harsher than a light one. */
+    --ink-bg: #1c1e22;
+    --ink-fg: #dfe2e7;
     --ink-muted: #8b93a1;
-    --ink-border: #2a2e37;
-    --ink-panel: #1b1e24;
-    --ink-accent: #60a5fa;
-    --ink-done: #6b7280;
+    --ink-border: #2c3038;
+    --ink-panel: #16181b;
+    --ink-accent: #6cb0ff;
+    --ink-done: #646c7a;
+    --ink-code: #e0a16b;
+    --ink-danger: #f87171;
+    --ink-on-accent: #0c1a2e;
   }
 }
 
@@ -53,6 +65,26 @@ body {
 
 .cm-content {
   caret-color: var(--ink-fg);
+}
+
+/* The editor draws its own caret and selection, and its defaults assume a white page:
+   a black caret, and a pale lavender selection that light text vanishes into. The
+   selectors are as long as CodeMirror's own so that these win without !important. */
+.cm-editor .cm-cursor,
+.cm-editor .cm-dropCursor {
+  border-left-color: var(--ink-fg);
+}
+
+.cm-editor .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: color-mix(in srgb, var(--ink-fg) 12%, transparent);
+}
+
+.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: color-mix(in srgb, var(--ink-accent) 28%, transparent);
+}
+
+.cm-editor .cm-selectionMatch {
+  background: color-mix(in srgb, var(--ink-accent) 14%, transparent);
 }
 
 .cm-gutters {

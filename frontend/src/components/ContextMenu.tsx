@@ -70,7 +70,7 @@ export function ContextMenu({
             item.run();
           }}
           className="block w-full px-3 py-1 text-left text-xs hover:opacity-70"
-          style={{ color: item.danger ? "#dc2626" : "var(--ink-fg)" }}
+          style={{ color: item.danger ? "var(--ink-danger)" : "var(--ink-fg)" }}
         >
           {item.label}
         </button>
