@@ -146,7 +146,10 @@ def test_rollover_picks_the_most_recent_prior_week(vault: Vault):
 def test_rollover_merges_into_an_existing_week(vault: Vault):
     """The app seeds an empty current week on launch, so the target usually exists."""
     vault.write_file("todo/2026-08-16.md", LAST_WEEK)
-    todo.append_task(vault, "Added today")  # creates + populates W35
+    # Pinned to the test's week. `append_task` writes to whichever week is current, so
+    # this passed only for as long as the calendar happened to agree with MONDAY_W35.
+    week = todo.ensure_week_files(vault, MONDAY_W35)
+    todo.append_to_heading(vault, "Added today", week, todo.WEEK_CAPTURE)
     todo.rollover(vault, MONDAY_W35)
 
     texts = [t.text for t in todo.parse_tasks(vault.read_file("todo/2026-08-23.md"))]
