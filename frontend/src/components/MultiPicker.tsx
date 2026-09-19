@@ -167,7 +167,7 @@ export function MultiPicker({
           <button
             onClick={confirm}
             className="rounded px-2.5 py-1 text-xs"
-            style={{ background: "var(--ink-accent)", color: "white" }}
+            style={{ background: "var(--ink-accent)", color: "var(--ink-on-accent)" }}
           >
             {confirmLabel(picked.size)}
           </button>

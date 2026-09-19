@@ -4,16 +4,13 @@ import { EditorView, keymap, highlightActiveLine, drawSelection } from "@codemir
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import {
-  defaultHighlightStyle,
-  indentUnit,
-  syntaxHighlighting,
-} from "@codemirror/language";
+import { indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { todoCommands, todoExtension } from "../lib/todo";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
 import { livePreviewExtension } from "../lib/livePreview";
 import { bold, italic } from "../lib/markdownKeys";
 import { boundKeys } from "../lib/editorKeys";
+import { inkHighlight } from "../lib/highlight";
 import type { SkillMode } from "../backend";
 import type { FileNode } from "../backend";
 
@@ -93,7 +90,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         // GFM rather than plain CommonMark: without it ~~strikethrough~~ and tables do
         // not parse at all, so nothing downstream can render them.
         markdown({ base: markdownLanguage }),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        syntaxHighlighting(inkHighlight),
         EditorView.lineWrapping,
         // Two spaces per level, which is what the cheat sheet documents and what markdown
         // list nesting conventionally uses.

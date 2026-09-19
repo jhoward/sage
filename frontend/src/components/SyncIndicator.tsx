@@ -9,7 +9,7 @@ export function SyncIndicator({ status }: { status: SyncStatus | null }) {
 
   const dot =
     status.state === "ok" ? "var(--ink-muted)"
-    : status.state === "conflict" || status.state === "error" ? "#ef4444"
+    : status.state === "conflict" || status.state === "error" ? "var(--ink-danger)"
     : "#eab308";
 
   return (
@@ -17,7 +17,7 @@ export function SyncIndicator({ status }: { status: SyncStatus | null }) {
       <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
       {status.backend}
       {status.conflicts.length > 0 && (
-        <span style={{ color: "#ef4444" }}>
+        <span style={{ color: "var(--ink-danger)" }}>
           {status.conflicts.length} conflict{status.conflicts.length > 1 ? "s" : ""}
         </span>
       )}

@@ -1065,7 +1065,7 @@ export default function App() {
           <div className="flex items-start gap-3 px-4 py-2">
             <div
               className="cm-selectable min-w-0 flex-1 whitespace-pre-wrap text-xs"
-              style={{ color: "#ef4444" }}
+              style={{ color: "var(--ink-danger)" }}
             >
               {error}
             </div>

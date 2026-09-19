@@ -248,7 +248,7 @@ export function AskPanel({
           </p>
         )}
         {error && (
-          <p className="whitespace-pre-wrap text-sm" style={{ color: "#ef4444" }}>
+          <p className="whitespace-pre-wrap text-sm" style={{ color: "var(--ink-danger)" }}>
             {error}
           </p>
         )}
@@ -322,7 +322,7 @@ export function AskPanel({
               className="rounded px-2.5 py-1 text-xs"
               style={{
                 background: picked.size ? "var(--ink-accent)" : "transparent",
-                color: picked.size ? "white" : "var(--ink-muted)",
+                color: picked.size ? "var(--ink-on-accent)" : "var(--ink-muted)",
               }}
             >
               Apply {picked.size || ""}

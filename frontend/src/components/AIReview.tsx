@@ -118,7 +118,7 @@ export function AIReview({
         className="cm-selectable min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-4 py-3 text-sm"
         style={{
           fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
-          color: error ? "#ef4444" : "var(--ink-fg)",
+          color: error ? "var(--ink-danger)" : "var(--ink-fg)",
         }}
       >
         {error ?? text}
@@ -134,7 +134,7 @@ export function AIReview({
             ref={acceptBtn}
             onClick={onAccept}
             className="rounded px-2.5 py-1 text-xs"
-            style={{ background: "var(--ink-accent)", color: "white" }}
+            style={{ background: "var(--ink-accent)", color: "var(--ink-on-accent)" }}
           >
             Accept
           </button>
