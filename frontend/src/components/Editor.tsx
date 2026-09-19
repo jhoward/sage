@@ -9,10 +9,11 @@ import {
   indentUnit,
   syntaxHighlighting,
 } from "@codemirror/language";
-import { todoExtension } from "../lib/todo";
+import { todoCommands, todoExtension } from "../lib/todo";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
 import { livePreviewExtension } from "../lib/livePreview";
 import { bold, italic } from "../lib/markdownKeys";
+import { boundKeys } from "../lib/editorKeys";
 import type { SkillMode } from "../backend";
 import type { FileNode } from "../backend";
 
@@ -36,6 +37,8 @@ export interface EditorHandle {
   selection(): string;
   /** Apply generated text. `replace` swaps the selection, or the whole doc if none. */
   apply(text: string, mode: SkillMode): void;
+  /** Run an editor command on the line under the cursor, as its key would. */
+  run(command: keyof typeof todoCommands): void;
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
@@ -106,13 +109,15 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           (name) => createLink.current?.(name),
         ),
         livePreviewExtension(),
+        boundKeys({ bold, italic }),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },
-          { key: "Mod-b", run: bold },
-          { key: "Mod-i", run: italic },
           ...searchKeymap,
           ...historyKeymap,
-          ...defaultKeymap,
+          // Without CodeMirror's ⌘[ / ⌘] indent: Tab and Shift-Tab are the indent keys
+          // here, and those two belong to back/forward. Left in, they would come back
+          // to life the moment back/forward were rebound to something else.
+          ...defaultKeymap.filter((b) => b.key !== "Mod-[" && b.key !== "Mod-]"),
         ]),
         EditorView.updateListener.of((u) => {
           if (u.selectionSet || u.docChanged) {
@@ -178,6 +183,12 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
                 : { from, to, insert: text };
 
         v.dispatch({ changes: change, userEvent: "input.ai", scrollIntoView: true });
+        v.focus();
+      },
+      run(command) {
+        const v = view.current;
+        if (!v) return;
+        todoCommands[command](v);
         v.focus();
       },
     }),

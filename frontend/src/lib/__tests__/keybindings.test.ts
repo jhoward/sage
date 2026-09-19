@@ -7,7 +7,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BINDINGS, label, matches, type KeySpec } from "../keybindings";
+import {
+  BINDINGS,
+  SHEET,
+  applyOverrides,
+  label,
+  matches,
+  renderKeySheet,
+  type KeySpec,
+} from "../keybindings";
 
 function ev(key: string, mods: Partial<KeyboardEvent> = {}): KeyboardEvent {
   return {
@@ -104,6 +112,10 @@ describe("the tiering rule", () => {
     "palette", "switcher", "ask", "newNote", "quickAdd", "startMeeting", "split",
     // ⌘[ / ⌘] are the platform's own back/forward, so they belong unshifted.
     "back", "forward",
+    // Checking a task off is the most frequent action in the app.
+    "toggleTask",
+    // Conventions that arrive with the platform: bold, italic, and ⌘/ for the keys.
+    "bold", "italic", "keys",
   ];
 
   it("core commands are unshifted", () => {
@@ -119,8 +131,18 @@ describe("the tiering rule", () => {
       // Unbound commands have no key to shift; they are listed so the settings file can
       // offer them, not because they have a default.
       if (CORE.includes(name) || name === "deleteNote" || !spec.key) continue;
+      // The rule rations ⌘-alone. A binding that does not use ⌘ (⌥↑ to nudge a line)
+      // spends nothing from that budget.
+      if (!spec.mod) continue;
       expect(spec.shift, name).toBe(true);
     }
+  });
+
+  it("labels named keys with their glyphs", () => {
+    expect(label(BINDINGS.toggleTask)).toBe("⌘⏎");
+    expect(label(BINDINGS.untask)).toBe("⌘⇧⏎");
+    expect(label(BINDINGS.promote)).toBe("⌥⇧↑");
+    expect(label(BINDINGS.deleteNote)).toBe("⌘⌫");
   });
 
   it("unbound commands match nothing until given a key", () => {
@@ -154,5 +176,33 @@ describe("the tiering rule", () => {
       expect(seen.get(key), `${name} collides with ${seen.get(key)}`).toBeUndefined();
       seen.set(key, name);
     }
+  });
+});
+
+describe("the key sheet", () => {
+  beforeEach(() => {
+    underPlatform("MacIntel");
+    applyOverrides({});
+  });
+
+  it("describes every binding, so none can go undocumented", () => {
+    const described = new Set(SHEET.flatMap((g) => g.keys.map(([name]) => name)));
+    for (const name of Object.keys(BINDINGS)) {
+      expect(described.has(name as never), name).toBe(true);
+    }
+  });
+
+  it("lists bound keys under their group and unbound ones at the end", () => {
+    const sheet = renderKeySheet();
+    expect(sheet).toContain("- `⌘⏎` Make this line a task");
+    expect(sheet).toContain("- `⌘⇧⏎` Turn a task back");
+    expect(sheet.indexOf("## No key yet")).toBeGreaterThan(sheet.indexOf("## View"));
+    expect(sheet).toContain("`rollover`");
+  });
+
+  it("shows the override in force, not the default", () => {
+    applyOverrides({ toggleTask: { key: "d", mod: true, shift: true } });
+    expect(renderKeySheet()).toContain("- `⌘⇧D` Make this line a task");
+    applyOverrides({});
   });
 });

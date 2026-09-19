@@ -15,6 +15,7 @@ import {
   parseTask,
   promoteToTop,
   toggleTask,
+  untask,
 } from "../todo";
 
 function target(doc: string, cursorLine = 1) {
@@ -303,5 +304,125 @@ describe("Tab indents list items", () => {
     t.dispatch({ selection: { anchor: t.state.doc.line(1).to } });
     continueList(t);
     expect(t.doc()).toBe("  - [ ] Task\n  - [ ] ");
+  });
+});
+
+/** Cursor at the end of a line, which is where Enter and Tab are pressed. */
+function atEndOf(doc: string, lineNumber: number) {
+  const t = target(doc);
+  t.dispatch({ selection: { anchor: t.state.doc.line(lineNumber).to } });
+  return t;
+}
+
+describe("numbered lists", () => {
+  it("a numbered task is a task", () => {
+    const s = EditorState.create({ doc: "1. [ ] open\n2) [x] done\n3. plain" });
+    expect(parseTask(s.doc.line(1))?.done).toBe(false);
+    expect(parseTask(s.doc.line(2))?.done).toBe(true);
+    expect(parseTask(s.doc.line(3))).toBeNull();
+  });
+
+  it("making a numbered item a task keeps its number", () => {
+    const t = target("1. Buy milk");
+    toggleTask(t);
+    expect(t.doc()).toBe("1. [ ] Buy milk");
+    toggleTask(t);
+    expect(t.doc()).toBe("1. [x] Buy milk");
+  });
+
+  it("Enter continues the number and the box", () => {
+    const t = atEndOf("1. [ ] One", 1);
+    continueList(t);
+    expect(t.doc()).toBe("1. [ ] One\n2. [ ] ");
+    expect(t.state.selection.main.head).toBe(t.state.doc.length);
+  });
+
+  it("Enter continues a plain numbered list", () => {
+    const t = atEndOf("1) One", 1);
+    continueList(t);
+    expect(t.doc()).toBe("1) One\n2) ");
+  });
+
+  it("Enter in the middle renumbers what follows, in one undoable step", () => {
+    const t = atEndOf("1. One\n2. Two\n3. Three", 1);
+    continueList(t);
+    expect(t.doc()).toBe("1. One\n2. \n3. Two\n4. Three");
+    expect(t.state.doc.lineAt(t.state.selection.main.head).number).toBe(2);
+  });
+
+  it("a list that starts at 4 on purpose stays that way", () => {
+    const t = atEndOf("4. Four\n5. Five", 2);
+    continueList(t);
+    expect(t.doc()).toBe("4. Four\n5. Five\n6. ");
+  });
+
+  it("Tab nests under the item above, restarts at 1, and closes the gap", () => {
+    const t = atEndOf("1. a\n2. b\n3. c\n4. d\n5. e\n6. f", 5);
+    indentListItem(t);
+    expect(t.doc()).toBe("1. a\n2. b\n3. c\n4. d\n   1. e\n5. f");
+  });
+
+  it("a second nested item counts on from the first", () => {
+    const t = atEndOf("1. a\n   1. b\n2. c\n3. d", 3);
+    indentListItem(t);
+    expect(t.doc()).toBe("1. a\n   1. b\n   2. c\n2. d");
+  });
+
+  it("nests under the text of a two-digit item", () => {
+    const t = atEndOf("10. a\n11. b", 2);
+    indentListItem(t);
+    expect(t.doc()).toBe("10. a\n    1. b");
+  });
+
+  it("Shift-Tab rejoins the outer list and renumbers both levels", () => {
+    const t = atEndOf("1. a\n   1. b\n   2. c\n2. d", 2);
+    outdentListItem(t);
+    expect(t.doc()).toBe("1. a\n2. b\n   1. c\n3. d");
+  });
+
+  it("children move with their parent", () => {
+    const t = atEndOf("- a\n- b\n  - child\n- c", 2);
+    indentListItem(t);
+    expect(t.doc()).toBe("- a\n  - b\n    - child\n- c");
+  });
+
+  it("a bullet under a numbered item lines up with its text", () => {
+    const t = atEndOf("1. [ ] a\n- b", 2);
+    indentListItem(t);
+    expect(t.doc()).toBe("1. [ ] a\n   - b");
+  });
+});
+
+describe("untask", () => {
+  it("removes the box and keeps the bullet", () => {
+    const t = target("- [ ] Task");
+    expect(untask(t)).toBe(true);
+    expect(t.doc()).toBe("- Task");
+  });
+
+  it("keeps the number, and drops a completed box too", () => {
+    const t = target("  3. [x] Task");
+    untask(t);
+    expect(t.doc()).toBe("  3. Task");
+  });
+
+  it("is the inverse of making a task from a list item", () => {
+    const t = target("1. Buy milk");
+    toggleTask(t);
+    untask(t);
+    expect(t.doc()).toBe("1. Buy milk");
+  });
+
+  it("leaves a line that is not a task alone", () => {
+    const t = target("Just a sentence");
+    expect(untask(t)).toBe(false);
+    expect(t.doc()).toBe("Just a sentence");
+  });
+
+  it("untasks every task in a selection", () => {
+    const t = target("- [ ] One\nprose\n- [x] Two");
+    t.dispatch({ selection: { anchor: 0, head: t.state.doc.length } });
+    untask(t);
+    expect(t.doc()).toBe("- One\nprose\n- Two");
   });
 });

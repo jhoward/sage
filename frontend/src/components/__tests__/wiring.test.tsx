@@ -48,9 +48,19 @@ describe("App wires every global binding it defines", () => {
     const names = [...bindings.matchAll(/^\s{2}(\w+): \{ key:/gm)].map((m) => m[1]);
     const table = app.slice(app.indexOf("const actions = useMemo"), app.indexOf("useEffect(() => {\n    const onKey"));
 
+    // Editor commands are wired in the editor instead: they need the view, and only make
+    // sense while it has focus. A name has to turn up in one place or the other.
+    const todo = readFileSync(join(__dirname, "../../lib/todo.ts"), "utf8");
+    const editor = readFileSync(join(__dirname, "../Editor.tsx"), "utf8");
+    const inEditor =
+      todo.slice(todo.indexOf("export const todoCommands"), todo.indexOf("export function todoExtension")) +
+      (/boundKeys\(\{([^}]*)\}\)/.exec(editor)?.[1] ?? "");
+
     expect(names.length).toBeGreaterThan(10);
     for (const name of names) {
-      expect(table, name).toMatch(new RegExp(`\\b${name}:`));
+      const wired =
+        new RegExp(`\\b${name}:`).test(table) || new RegExp(`\\b${name}\\b`).test(inEditor);
+      expect(wired, name).toBe(true);
     }
   });
 

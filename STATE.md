@@ -1,6 +1,6 @@
 # Where this is
 
-_Last updated: 2026-08-29 — standard-UI pass and live preview rebuilt._
+_Last updated: 2026-09-19 — todo discoverability: drawn checkboxes, numbered tasks, one key table._
 
 ## Running it in 30 seconds
 
@@ -12,8 +12,8 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
-cd backend-python && uv run pytest   # 218 passed, 1 skipped
-cd frontend && npm test              # 159 passed
+cd backend-python && uv run pytest   # 220 passed, 1 skipped
+cd frontend && npm test              # 186 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -82,6 +82,31 @@ hide unless the cursor is inside the span — the Obsidian Live Preview model, a
 a mode. **Coverage is narrower than Obsidian's**: bold, italic, inline code, strikethrough,
 headings and blockquotes render; links, images, tables, code blocks and horizontal rules
 keep their syntax. Links are the obvious next one and the same mechanism.
+
+## Done — todo discoverability (2026-09-19)
+
+The trigger: after real use, `⌘⏎` had been forgotten, numbered lists were typed instead,
+and there was no way to check one off. The command existed; nothing showed it.
+
+- **One key table.** The editor's commands (`⌘⏎`, `⌥⇧↑`, `⌘⇧H`, bold, italic…) moved out
+  of a private CodeMirror keymap into `BINDINGS`. They now appear in `⌘K`, in the key
+  sheet, and in `keybindings.toml`. `lib/editorKeys.ts` matches them at event time, so an
+  override that loads after the editor is built still applies.
+- **`⌘/` key sheet** in the split pane, written to `.occam/keys.md` from the table on every
+  open. Replaces the hand-written sidebar list, which had gone stale. A test fails if a
+  binding is missing from the sheet.
+- **Drawn, clickable checkboxes**; raw markdown returns when the cursor is on the box.
+- **Numbered tasks** on both sides: `1. [ ]` parses in the editor and in `todo.py`. Moving
+  or rolling one re-renders it as `- [ ]`, so a number never lands in another list.
+- **`⌘⇧⏎` un-tasks**, keeping the bullet or number.
+- **List-aware `⇥` / `⇧⇥`**: nests to the parent's text column (3 under `4. `, not 2),
+  takes children along, renumbers both levels. With nothing above to nest under it falls
+  back to a plain indent.
+- Global shortcuts now listen in the capture phase and stop propagation. Before, `⌘]` went
+  forward *and* indented the line in the note being left, because CodeMirror saw it too.
+
+Not checked by eye: the checkbox styling in `index.css`. Behaviour is covered by
+`lib/__tests__/todoView.test.ts`; how it looks beside real text is not.
 
 ## Known rough edges
 

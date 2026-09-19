@@ -85,7 +85,9 @@ nothing can drift out of sync with it.
 | Start a meeting note (live notes) | `⌘M` |
 | Paste a recap — into this meeting, or a new one | `⌘⇧V` |
 | Move a note to another folder | `⌘K` → move |
-| Toggle done | `⌘⏎` |
+| Every shortcut, in the split pane | `⌘/` |
+| Make a line a task, then check it off | `⌘⏎` |
+| Turn a task back into an ordinary line | `⌘⇧⏎` |
 | Promote to top of section | `⌥⇧↑` |
 | Nudge up / down | `⌥↑` / `⌥↓` |
 | Delete line | `⌘⇧K` |
@@ -100,7 +102,21 @@ looking at, so capture never depends on where you happen to be.
 Enter continues a list — another task after a task, another bullet after a bullet — and
 Enter on an *empty* item removes it and leaves the list. That is why there is no "new task"
 key: the obvious gesture already works. `⌘⏎` on a line that is not yet a task makes it one,
-so the same key both creates and completes.
+so the same key both creates and completes. `⌘⇧⏎` takes the box away again and keeps the
+bullet or number — shift undoes, as `⇧⇥` undoes `⇥`.
+
+Numbered items are tasks too: `⌘⏎` on `3. Buy milk` gives `3. [ ] Buy milk`, and Enter
+continues with `4. [ ]`. `⇥` nests an item under the one above, aligned to that item's text
+— markdown has no `4.1`, so the first item under 4 is `1.`, and the numbers on both levels
+are put back in order. Children move with their parent.
+
+A task's checkbox is drawn and clickable; put the cursor on it and the raw `- [ ]` comes
+back, the same rule as the rest of live preview.
+
+`⌘/` opens every shortcut in the split pane. The sheet is written fresh from the binding
+table each time, overrides included, so it cannot fall behind — and the editor's own
+commands now live in that table, so they appear in `⌘K` and can be rebound in
+`.occam/keybindings.toml` like everything else.
 
 **Position is priority.** Line order is sort order — no priority field to maintain.
 Sections are ordinary markdown headings, and nothing in the code enforces them: capture
