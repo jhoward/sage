@@ -19,7 +19,14 @@ import { ContextMenu, type MenuItem } from "./components/ContextMenu";
 import { MultiPicker } from "./components/MultiPicker";
 import { SyncIndicator } from "./components/SyncIndicator";
 import type { Command } from "./lib/commands";
-import { BINDINGS, applyOverrides, binding, label, matches } from "./lib/keybindings";
+import {
+  BINDINGS,
+  applyOverrides,
+  binding,
+  label,
+  matches,
+  renderKeySheet,
+} from "./lib/keybindings";
 import { lineLinksTo, linkNameFor, slugify } from "./lib/wikilinks";
 
 /** The note's own title: its first `# heading`, else the filename. */
@@ -72,18 +79,6 @@ function PaneHeader({
   );
 }
 
-/** Short labels for the shortcut cheat sheet. */
-const HINTS: Record<string, string> = {
-  switcher: "notes",
-  search: "search",
-  newNote: "note",
-  quickAdd: "task",
-  startMeeting: "meeting",
-  ask: "ask",
-  meeting: "paste recap",
-  split: "split",
-};
-
 /** Flatten the tree so every note is reachable from the palette. */
 function flatten(nodes: FileNode[], out: FileNode[] = []): FileNode[] {
   for (const n of nodes) {
@@ -121,7 +116,6 @@ export default function App() {
   const [searching, setSearching] = useState(false);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [showSettings, setShowSettings] = useState(false);
-  const [showKeys, setShowKeys] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   // Mirrors sidebarWidth so the drag's mouseup handler can persist the final value
   // without capturing a stale one from when the drag began.
@@ -291,6 +285,18 @@ export default function App() {
       setError(String(e));
     }
   }, []);
+
+  // The key sheet is a file like the markdown one, so it opens in the same pane with the
+  // same gestures — but written fresh each time, because a shortcut list maintained by
+  // hand is wrong within a month, and this one has to show the overrides in force.
+  const openKeys = useCallback(async () => {
+    try {
+      await backend.writeFile(".occam/keys.md", renderKeySheet());
+      await openSplit(".occam/keys.md");
+    } catch (e) {
+      setError(String(e));
+    }
+  }, [openSplit]);
 
   const runSkill = useCallback(
     async (skill: SkillInfo, instruction?: string) => {
@@ -601,6 +607,14 @@ export default function App() {
         run: () => setShowSettings((v) => !v),
       },
       {
+        id: "view.keys",
+        group: "View",
+        title: "Keyboard shortcuts (in split pane)",
+        keywords: "help keys hotkeys bindings cheat sheet",
+        hint: label(binding("keys")),
+        run: openKeys,
+      },
+      {
         id: "view.cheatsheet",
         group: "View",
         title: "Markdown cheat sheet (in split pane)",
@@ -619,6 +633,23 @@ export default function App() {
           if (backlogs[0]) await openSplit(backlogs[0]);
         },
       },
+      // The editor's own commands, listed so that typing "task" into the palette finds the
+      // key for it. They act on the line under the cursor, as the key does.
+      ...(
+        [
+          ["toggleTask", "Make this line a task, or check it off", "todo done complete checkbox tick"],
+          ["untask", "Turn this task back into an ordinary line", "remove checkbox undo not a todo"],
+          ["promote", "Move this line to the top of its section", "prioritise first"],
+          ["hideDone", "Hide or show completed tasks", "done finished filter"],
+        ] as const
+      ).map(([name, title, keywords]) => ({
+        id: `editor.${name}`,
+        group: "Todo",
+        title,
+        keywords,
+        hint: label(binding(name)),
+        run: () => editor.current?.run(name),
+      })),
       {
         id: "todo.send",
         group: "Todo",
@@ -701,7 +732,7 @@ export default function App() {
     // Files live in ⌘O, not here — see the note on the overlay state above.
     commandsRef.current = list;
     return list;
-  }, [path, backlog, split, skills, aiReady, showSettings, keysLoaded, open, openSplit, refresh, runSkill, meetingFromClipboard]);
+  }, [path, backlog, split, skills, aiReady, showSettings, keysLoaded, open, openSplit, openKeys, refresh, runSkill, meetingFromClipboard]);
 
   const fileCommands = useMemo<Command[]>(
     () =>
@@ -776,6 +807,7 @@ export default function App() {
         }
       },
       cheatsheet: () => void openSplit(".occam/markdown.md"),
+      keys: () => void openKeys(),
       week: () => void backend.week().then((w) => open(w.path)),
       backlog: () => {
         void backend.week().then((w) => {
@@ -786,7 +818,7 @@ export default function App() {
       archiveNote: () => void runCommand("note.archive"),
       undo: () => void runCommand("ai.undo"),
     }),
-    [split, meetingFromClipboard, openSplit, open, runCommand, go],
+    [split, meetingFromClipboard, openSplit, openKeys, open, runCommand, go],
   );
 
   useEffect(() => {
@@ -794,13 +826,16 @@ export default function App() {
       for (const [name, run] of Object.entries(actions)) {
         if (matches(e, binding(name as never))) {
           e.preventDefault();
+          // Capture, and stop here: CodeMirror has its own ideas about ⌘/ (toggle comment)
+          // and ⌘] (indent), and left to bubble it would do those *as well as* this.
+          e.stopPropagation();
           run();
           return;
         }
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [actions]);
 
   // Status messages are transient; errors stay until the next action.
@@ -937,35 +972,13 @@ export default function App() {
           />
         </div>
         <button
-          onClick={() => setShowKeys((v) => !v)}
+          onClick={() => void openKeys()}
           className="shrink-0 border-t px-3 py-1.5 text-left text-[11px]"
           style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
           title="Keyboard shortcuts"
         >
-          {showKeys ? "▾" : "▸"} {label(binding("palette"))} commands
+          {label(binding("keys"))} shortcuts · {label(binding("palette"))} commands
         </button>
-        {showKeys && (
-          <div
-            className="shrink-0 space-y-0.5 border-t px-3 py-2 text-[11px]"
-            style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
-          >
-            {[
-              ["Find", ["switcher", "search"]],
-              ["New", ["newNote", "quickAdd", "startMeeting"]],
-              ["AI", ["ask", "meeting"]],
-              ["View", ["split"]],
-            ].map(([group, names]) => (
-              <div key={group as string} className="flex gap-2">
-                <span className="w-10 shrink-0 opacity-60">{group}</span>
-                <span className="min-w-0 flex-1">
-                  {(names as string[])
-                    .map((n) => `${label(binding(n as never))} ${HINTS[n]}`)
-                    .join(" · ")}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </aside>
       )}
       {showSidebar && (

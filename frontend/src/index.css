@@ -73,9 +73,33 @@ body {
   text-decoration-thickness: 1px;
 }
 
-/* Clickable checkbox affordance. */
+/* The drawn checkbox. inline-block keeps a done line's strikethrough off the box. */
 .cm-task-checkbox {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.1em;
+  border: 1.5px solid var(--ink-muted);
+  border-radius: 3px;
+  vertical-align: -0.12em;
   cursor: pointer;
+  font-size: 0.95em;
+  line-height: 0.85em;
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+}
+
+.cm-task-checkbox:hover {
+  border-color: var(--ink-accent);
+}
+
+.cm-task-checkbox[aria-checked="true"] {
+  border-color: var(--ink-done);
+  background: var(--ink-done);
+  color: var(--ink-bg);
+  font-weight: 700;
 }
 
 /* ---- wiki-links ---- */

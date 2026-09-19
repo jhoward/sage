@@ -90,6 +90,26 @@ export const BINDINGS = {
   forward: { key: "]", mod: true },
   // ⌘B must stay Bold in a markdown editor, so the sidebar takes ⌘⇧B.
   sidebar: { key: "b", mod: true, shift: true },
+  // The shortcut for finding shortcuts has to be the one people already try.
+  keys: { key: "/", mod: true },
+
+  // Editor commands. These used to live in a private CodeMirror keymap, which kept them
+  // out of the palette, the key sheet and the keybindings file — so the most-used keys in
+  // the app were the only ones written down nowhere. They act on the line under the
+  // cursor, and only fire while an editor has focus.
+  toggleTask: { key: "Enter", mod: true },
+  // Shift undoes, as ⇧⇥ undoes ⇥.
+  untask: { key: "Enter", mod: true, shift: true },
+  // ⌥⇧↑ rather than ⌘⇧↑: the latter is "extend selection to the start of the document"
+  // on macOS, which is worth more than a task shortcut. It also pairs — ⌥↑ nudges one
+  // line, ⌥⇧↑ goes all the way.
+  promote: { key: "ArrowUp", alt: true, shift: true },
+  lineUp: { key: "ArrowUp", alt: true },
+  lineDown: { key: "ArrowDown", alt: true },
+  deleteLine: { key: "k", mod: true, shift: true },
+  hideDone: { key: "h", mod: true, shift: true },
+  bold: { key: "b", mod: true },
+  italic: { key: "i", mod: true },
 
   rollover: { key: "", mod: true },
   archiveNote: { key: "", mod: true },
@@ -122,12 +142,132 @@ export function binding(name: BindingName): KeySpec {
   return (overrides[name] as KeySpec | undefined) ?? BINDINGS[name];
 }
 
+/** Named keys, as the glyphs macOS menus use for them. */
+const GLYPHS: Record<string, string> = {
+  enter: "⏎",
+  backspace: "⌫",
+  tab: "⇥",
+  escape: "esc",
+  arrowup: "↑",
+  arrowdown: "↓",
+  arrowleft: "←",
+  arrowright: "→",
+};
+
 /** Human label for the footer, e.g. "⌘⇧F" or "Ctrl+Shift+F". */
 export function label(spec: KeySpec): string {
-  const key = spec.key === "\\" ? "\\" : spec.key.toUpperCase();
-  return isMac()
-    ? `${spec.mod ? "⌘" : ""}${spec.shift ? "⇧" : ""}${spec.alt ? "⌥" : ""}${key}`
+  const mac = isMac();
+  const named = GLYPHS[spec.key.toLowerCase()];
+  const key = mac && named ? named : spec.key.length > 1 ? spec.key : spec.key.toUpperCase();
+  return mac
+    ? // ⌥ before ⇧, so ⌥⇧↑ reads the way it is written everywhere else.
+      `${spec.mod ? "⌘" : ""}${spec.alt ? "⌥" : ""}${spec.shift ? "⇧" : ""}${key}`
     : [spec.mod && "Ctrl", spec.shift && "Shift", spec.alt && "Alt", key]
         .filter(Boolean)
         .join("+");
+}
+
+/**
+ * What each command is, in the words the key sheet uses.
+ *
+ * Kept beside BINDINGS, and a test fails if a binding is missing from it — the sheet
+ * cannot fall behind the table the way a hand-written list did.
+ */
+export const SHEET: Array<{ group: string; keys: Array<[BindingName, string]> }> = [
+  {
+    group: "Tasks",
+    keys: [
+      ["toggleTask", "Make this line a task, or check it off (again to uncheck)"],
+      ["untask", "Turn a task back into an ordinary line"],
+      ["quickAdd", "Add a task from anywhere"],
+      ["promote", "Move this line to the top of its section"],
+      ["lineUp", "Nudge this line up"],
+      ["lineDown", "Nudge this line down"],
+      ["hideDone", "Hide or show completed tasks"],
+      ["pull", "Pull tasks from the backlog"],
+      ["week", "Open this week"],
+      ["backlog", "Open the backlog"],
+      ["rollover", "Roll unfinished work into this week"],
+    ],
+  },
+  {
+    group: "Writing",
+    keys: [
+      ["bold", "Bold"],
+      ["italic", "Italic"],
+      ["deleteLine", "Delete this line"],
+      ["undo", "Undo the last AI change"],
+    ],
+  },
+  {
+    group: "Find and create",
+    keys: [
+      ["palette", "Every command, by name"],
+      ["switcher", "Open a note"],
+      ["search", "Search the vault"],
+      ["newNote", "New note"],
+      ["startMeeting", "Start a meeting note"],
+      ["meeting", "Paste a meeting recap"],
+      ["ask", "Ask the vault"],
+    ],
+  },
+  {
+    group: "This note",
+    keys: [
+      ["renameNote", "Rename (updates links)"],
+      ["moveNote", "Move to another folder"],
+      ["archiveNote", "Archive"],
+      ["deleteNote", "Delete"],
+    ],
+  },
+  {
+    group: "View",
+    keys: [
+      ["keys", "This sheet"],
+      ["cheatsheet", "Markdown cheat sheet"],
+      ["split", "Split pane"],
+      ["sidebar", "Show or hide the sidebar"],
+      ["back", "Back"],
+      ["forward", "Forward"],
+      ["settings", "Show or hide the settings folder"],
+    ],
+  },
+];
+
+/**
+ * Gestures that are not bindings: they belong to the text layer, and rebinding Enter is
+ * not a thing anyone should be offered. Listed so the sheet is the whole answer.
+ */
+const FIXED: Array<[string, string]> = [
+  ["⏎", "Continue a list; on an empty item, leave it"],
+  ["⇥", "Indent a list item under the one above"],
+  ["⇧⇥", "Outdent a list item"],
+  ["click", "Check or uncheck a task's box"],
+];
+
+/** The key sheet as markdown, reflecting whatever overrides are in force right now. */
+export function renderKeySheet(): string {
+  const out = [
+    "# Keyboard shortcuts",
+    "",
+    "Generated each time it is opened, so edits here do not stick. To change a key, run",
+    "**Edit keybindings** from the palette.",
+  ];
+  const unbound: string[] = [];
+
+  for (const { group, keys } of SHEET) {
+    const rows = [];
+    for (const [name, what] of keys) {
+      const spec = binding(name);
+      if (spec.key) rows.push(`- \`${label(spec)}\` ${what}`);
+      else unbound.push(`- ${what} — \`${name}\``);
+    }
+    if (rows.length) out.push("", `## ${group}`, ...rows);
+  }
+
+  out.push("", "## In a list", ...FIXED.map(([key, what]) => `- \`${key}\` ${what}`));
+  if (unbound.length) {
+    out.push("", "## No key yet", "Give one a key in the keybindings file.", ...unbound);
+  }
+  return out.join("\n") + "\n";
 }
