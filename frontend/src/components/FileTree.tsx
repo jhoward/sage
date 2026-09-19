@@ -18,7 +18,7 @@ interface Props {
 
 export function FileTree({ nodes, selected, onOpen, onOpenAlt, onContext, onRename }: Props) {
   return (
-    <div className="py-2 text-sm">
+    <div className="py-1.5">
       {nodes.map((n) => (
         <Node
           key={n.path}
@@ -116,7 +116,9 @@ function Node({
   const [open, setOpen] = useState(depth === 0);
   const [editing, setEditing] = useState(false);
   const isSelected = node.path === selected;
-  const pad = { paddingLeft: `${depth * 12 + 12}px` };
+  // A note sits under its folder's label, not under the chevron: the chevron's width
+  // plus its gap is added so the two text columns line up.
+  const pad = { paddingLeft: `${depth * 14 + (node.isDir ? 6 : 22)}px` };
 
   if (node.isDir) {
     return (
@@ -128,10 +130,11 @@ function Node({
           }}
           onClick={() => setOpen(!open)}
           onDoubleClick={() => setEditing(true)}
-          className="flex w-full items-center gap-1 py-[3px] text-left hover:opacity-70"
-          style={{ ...pad, color: "var(--ink-muted)" }}
+          aria-expanded={open}
+          className="side-row side-row-folder"
+          style={pad}
         >
-          <span className="inline-block w-3 text-[10px]">{open ? "▾" : "▸"}</span>
+          <Chevron open={open} />
           {editing ? (
             <NameInput
               initial={node.name}
@@ -142,12 +145,21 @@ function Node({
               onCancel={() => setEditing(false)}
             />
           ) : (
-            node.name
+            <span className="side-row-label">{node.name}</span>
           )}
         </button>
         {open &&
           node.children?.map((c) => (
-            <Node key={c.path} node={c} depth={depth + 1} selected={selected} onOpen={onOpen} />
+            <Node
+              key={c.path}
+              node={c}
+              depth={depth + 1}
+              selected={selected}
+              onOpen={onOpen}
+              onOpenAlt={onOpenAlt}
+              onContext={onContext}
+              onRename={onRename}
+            />
           ))}
       </div>
     );
@@ -164,12 +176,9 @@ function Node({
       }}
       onDoubleClick={() => setEditing(true)}
       title={onOpenAlt ? "⌥-click for split · double-click to rename" : undefined}
-      className="block w-full truncate py-[3px] text-left"
-      style={{
-        ...pad,
-        background: isSelected ? "color-mix(in srgb, var(--ink-accent) 14%, transparent)" : undefined,
-        color: isSelected ? "var(--ink-accent)" : "var(--ink-fg)",
-      }}
+      aria-current={isSelected ? "true" : undefined}
+      className="side-row"
+      style={pad}
     >
       {editing ? (
         <NameInput
@@ -181,8 +190,27 @@ function Node({
           onCancel={() => setEditing(false)}
         />
       ) : (
-        displayName(node)
+        <span className="side-row-label">{displayName(node)}</span>
       )}
     </button>
+  );
+}
+
+/**
+ * One chevron that rotates, rather than the ▸ and ▾ glyphs: those come from whatever font
+ * has them, at different sizes and baselines, so the row twitched when a folder opened.
+ */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg className="side-chevron" data-open={open} viewBox="0 0 12 12" aria-hidden="true">
+      <path
+        d="M4.5 2.5 8 6l-3.5 3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

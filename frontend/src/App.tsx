@@ -856,16 +856,11 @@ export default function App() {
           borderColor: "var(--ink-border)",
         }}
       >
-        <div
-          className="flex h-9 shrink-0 items-center justify-between border-b px-3"
-          style={{ borderColor: "var(--ink-border)" }}
-        >
-          <span className="text-xs font-semibold tracking-wide">OCCAM</span>
-          <SyncIndicator status={sync} />
-        </div>
+        {/* No header: the window's title bar already says what this is, and the space is
+            better spent putting the week within reach at the very top. */}
         {week && (
           <div
-            className="shrink-0 border-b px-2 py-2"
+            className="shrink-0 border-b py-1.5"
             style={{ borderColor: "var(--ink-border)" }}
           >
             {[
@@ -877,16 +872,11 @@ export default function App() {
               <button
                 key={row.path}
                 onClick={() => open(row.path)}
-                className="flex w-full items-baseline gap-2 rounded px-2 py-[3px] text-left text-sm"
-                style={{
-                  background:
-                    row.path === path
-                      ? "color-mix(in srgb, var(--ink-accent) 14%, transparent)"
-                      : undefined,
-                  color: row.path === path ? "var(--ink-accent)" : "var(--ink-fg)",
-                }}
+                aria-current={row.path === path ? "true" : undefined}
+                className="side-row"
+                style={{ paddingLeft: 8 }}
               >
-                <span className="flex-1 truncate">{row.label}</span>
+                <span className="side-row-label">{row.label}</span>
                 {row.sub && (
                   <span className="shrink-0 text-[11px]" style={{ color: "var(--ink-muted)" }}>
                     {row.sub}
@@ -971,14 +961,20 @@ export default function App() {
             }}
           />
         </div>
-        <button
-          onClick={() => void openKeys()}
-          className="shrink-0 border-t px-3 py-1.5 text-left text-[11px]"
-          style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
-          title="Keyboard shortcuts"
+        <div
+          className="flex shrink-0 items-center justify-between gap-2 border-t px-3 py-1.5"
+          style={{ borderColor: "var(--ink-border)" }}
         >
-          {label(binding("keys"))} shortcuts · {label(binding("palette"))} commands
-        </button>
+          <button
+            onClick={() => void openKeys()}
+            className="min-w-0 truncate text-left text-[11px] hover:opacity-70"
+            style={{ color: "var(--ink-muted)" }}
+            title="Keyboard shortcuts"
+          >
+            {label(binding("keys"))} shortcuts · {label(binding("palette"))} commands
+          </button>
+          <SyncIndicator status={sync} />
+        </div>
       </aside>
       )}
       {showSidebar && (
