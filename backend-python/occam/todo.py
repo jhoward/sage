@@ -21,7 +21,11 @@ from pathlib import Path
 
 TODO_DIR = "todo"
 
-TASK_RE = re.compile(r"^(\s*[-*]\s+\[)([ xX])(\]\s?)(.*)$")
+# Numbered items count: `1. [ ] foo` is a task in GitHub-flavoured markdown, and the editor
+# makes one when ⌘⏎ is pressed inside a numbered list. A task this cannot see is a task
+# rollover would leave behind. Moving one re-renders it as `- [ ]`, so a number never
+# travels into a list it does not belong to.
+TASK_RE = re.compile(r"^(\s*(?:[-*]|\d+[.)])\s+\[)([ xX])(\]\s?)(.*)$")
 HEADING_RE = re.compile(r"^#{1,6}\s")
 # One trailing comment carries a task's metadata: <!-- added:2026-08-28 rolled:3 -->.
 # Invisible in every renderer, and a single comment rather than one per key so a task

@@ -63,7 +63,26 @@ def test_render_task_roundtrips():
     assert todo.parse_tasks(line)[0].text == "Follow up on JIRA-482"
 
 
+def test_parse_tasks_sees_numbered_tasks():
+    tasks = todo.parse_tasks("1. [ ] first\n2) [x] second\n3. not a task\n")
+    assert [(t.text, t.done) for t in tasks] == [("first", False), ("second", True)]
+
+
 # ---- rollover --------------------------------------------------------
+
+def test_rollover_carries_numbered_tasks_without_their_numbers(vault: Vault):
+    vault.write_file(
+        "todo/2026-08-16.md",
+        "## This week\n1. [x] done\n2. [ ] still open\n3. [ ] also open\n",
+    )
+    result = todo.rollover(vault, MONDAY_W35)
+
+    assert result.moved == ["still open", "also open"]
+    body = vault.read_file(result.target)
+    # A "2." arriving in another list would be a lie about its position there.
+    assert "- [ ] still open" in body
+    assert "2. [ ]" not in body
+
 
 def test_rollover_carries_only_unfinished(vault: Vault):
     vault.write_file("todo/2026-08-16.md", LAST_WEEK)
