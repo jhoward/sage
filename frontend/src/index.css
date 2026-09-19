@@ -73,8 +73,13 @@ body {
   text-decoration-thickness: 1px;
 }
 
-/* The drawn checkbox. inline-block keeps a done line's strikethrough off the box. */
+/* The drawn checkbox. inline-block keeps a done line's strikethrough off the box.
+   It never holds text: an inline-block with text aligns by the text's baseline and an
+   empty one by its bottom edge, so a typed tick made the done box sit lower than the
+   open one. The tick is an absolutely positioned pseudo-element, which has no say in
+   where the box sits. */
 .cm-task-checkbox {
+  position: relative;
   display: inline-block;
   box-sizing: border-box;
   width: 1em;
@@ -84,10 +89,6 @@ body {
   border-radius: 3px;
   vertical-align: -0.12em;
   cursor: pointer;
-  font-size: 0.95em;
-  line-height: 0.85em;
-  text-align: center;
-  text-decoration: none;
   user-select: none;
 }
 
@@ -98,8 +99,19 @@ body {
 .cm-task-checkbox[aria-checked="true"] {
   border-color: var(--ink-done);
   background: var(--ink-done);
-  color: var(--ink-bg);
-  font-weight: 700;
+}
+
+/* Two sides of a rotated rectangle. */
+.cm-task-checkbox[aria-checked="true"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 0.28em;
+  height: 0.55em;
+  border: solid var(--ink-bg);
+  border-width: 0 0.13em 0.13em 0;
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 /* ---- wiki-links ---- */

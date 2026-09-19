@@ -26,11 +26,11 @@ import {
   type ChangeSpec,
   type EditorState,
   type Line,
+  Transaction,
   type Range,
   type TransactionSpec,
 } from "@codemirror/state";
 import {
-  deleteLine,
   indentLess,
   indentMore,
   moveLineDown,
@@ -110,7 +110,8 @@ class CheckboxWidget extends WidgetType {
     box.className = "cm-task-checkbox";
     box.setAttribute("role", "checkbox");
     box.setAttribute("aria-checked", String(this.done));
-    if (this.done) box.textContent = "✓";
+    // The tick is drawn in CSS, not typed in. A box with text in it aligns by that text's
+    // baseline and an empty one by its bottom edge, so a "✓" made done boxes sit lower.
     return box;
   }
   // Widgets swallow events by default, which would make the box unclickable.
@@ -216,12 +217,18 @@ const STRUCTURAL = /^\s*(#{1,6}\s|>|```|~~~|---\s*$|\w+:\s)/;
  * carrying its old number. The outermost list keeps whatever it started at — a list
  * that begins at 4 on purpose is not ours to correct.
  */
-function renumberChanges(state: EditorState, lineNumber: number): ChangeSpec[] {
+function renumberChanges(
+  state: EditorState,
+  lineNumber: number,
+  /** Overrides where the outermost list starts — see `listStart`. */
+  start: number | null = null,
+): ChangeSpec[] {
   const { doc } = state;
   const inList = (n: number) => {
     const text = doc.line(n).text;
     return BULLET.test(text) || /^\s+\S/.test(text); // an item, or its continuation
   };
+  if (lineNumber < 1 || lineNumber > doc.lines) return [];
   if (!BULLET.test(doc.line(lineNumber).text)) return [];
 
   let first = lineNumber;
@@ -253,7 +260,7 @@ function renumberChanges(state: EditorState, lineNumber: number): ChangeSpec[] {
     }
 
     const current = Number(num[1]);
-    if (level.next === null) level.next = level.outermost ? current : 1;
+    if (level.next === null) level.next = level.outermost ? (start ?? current) : 1;
     if (current !== level.next) {
       const from = line.from + indent;
       changes.push({ from, to: from + num[1].length, insert: String(level.next) });
@@ -261,6 +268,73 @@ function renumberChanges(state: EditorState, lineNumber: number): ChangeSpec[] {
     level.next += 1;
   }
   return changes;
+}
+
+/**
+ * The number the list around `lineNumber` starts at, or null if it is not numbered.
+ *
+ * Needed when an edit can change which item comes first. "Keep whatever the list starts
+ * at" is right after Enter, and wrong after deleting item 1 or moving item 2 above it —
+ * the list would then start at 2. Reading the start *before* the edit gives the edit
+ * something to restore.
+ */
+function listStart(state: EditorState, lineNumber: number): number | null {
+  const { doc } = state;
+  let first = lineNumber;
+  while (first > 1 && (BULLET.test(doc.line(first - 1).text) || /^\s+\S/.test(doc.line(first - 1).text))) {
+    first -= 1;
+  }
+  const m = BULLET.exec(doc.line(first).text);
+  const num = m && NUMBER.exec(m[2]);
+  return num ? Number(num[1]) : null;
+}
+
+/**
+ * Wrap a line command — move, delete — so the numbers still count afterwards.
+ *
+ * CodeMirror's own commands know nothing about lists: nudging item 3 above item 2 leaves
+ * "3." sitting over "2.", and deleting an item leaves a gap. The command runs against a
+ * stand-in whose dispatch folds the renumbering into the same transaction, so it is still
+ * one undo.
+ */
+function renumbering(
+  command: (target: {
+    state: EditorState;
+    dispatch: (edit: Transaction | TransactionSpec) => void;
+  }) => boolean,
+) {
+  return (view: CommandTarget): boolean => {
+    const before = view.state;
+    const was = before.doc.lineAt(before.selection.main.head).number;
+    const start = listStart(before, was);
+
+    return command({
+      state: before,
+      dispatch(edit) {
+        // CodeMirror's state commands hand over a transaction; ours hand over a spec.
+        const tr = edit instanceof Transaction ? edit : before.update(edit);
+        const after = tr.state;
+        const now = after.doc.lineAt(after.selection.main.head).number;
+        // The list the line left and the one it arrived in are usually the same list,
+        // so edits are keyed by position to keep a number from being fixed twice.
+        const fixes = new Map<number, ChangeSpec>();
+        for (const n of [was, was + 1, now]) {
+          for (const c of renumberChanges(after, n, start)) {
+            fixes.set((c as { from: number }).from, c);
+          }
+        }
+        if (!fixes.size) return view.dispatch(edit as TransactionSpec);
+
+        const fix = after.changes([...fixes.values()]);
+        view.dispatch({
+          changes: tr.changes.compose(fix),
+          selection: after.selection.map(fix),
+          scrollIntoView: true,
+          userEvent: tr.annotation(Transaction.userEvent),
+        });
+      },
+    });
+  };
 }
 
 /**
@@ -405,12 +479,20 @@ export function untask(view: CommandTarget): boolean {
   return true;
 }
 
-/** Every line number the selection touches, deduplicated and in order. */
+/**
+ * Every line the selection covers, deduplicated and in order.
+ *
+ * A selection ending at column 0 does not include that line: shift-selecting three tasks
+ * leaves the cursor at the start of the fourth, with nothing on it selected, and acting on
+ * it too is not what was asked for. The same rule ⌘B follows, and every line-wise editor.
+ */
 function selectedLineNumbers(state: EditorState): number[] {
   const seen = new Set<number>();
   for (const range of state.selection.ranges) {
     const first = state.doc.lineAt(range.from).number;
-    const last = state.doc.lineAt(range.to).number;
+    const reached = state.doc.lineAt(range.to).number;
+    const last =
+      reached > first && range.to === state.doc.line(reached).from ? reached - 1 : reached;
     for (let n = first; n <= last; n++) seen.add(n);
   }
   return [...seen].sort((a, b) => a - b);
@@ -575,16 +657,51 @@ const clickCheckbox = EditorView.domEventHandlers({
 // ---- assembly --------------------------------------------------------
 
 /**
+ * Delete the selected lines.
+ *
+ * CodeMirror has a `deleteLine`, but it steers the cursor by pixel geometry and so needs
+ * a laid-out view, which rules out folding the renumbering into it. This does the same
+ * job from the document alone: the lines go, and the cursor keeps its column on whichever
+ * line moves up to take their place.
+ */
+export function deleteLines(view: CommandTarget): boolean {
+  const { state } = view;
+  const { doc } = state;
+  const lines = selectedLineNumbers(state);
+  const first = doc.line(lines[0]);
+  const last = doc.line(lines[lines.length - 1]);
+
+  // Take the newline after the block, or the one before it when the block ends the file.
+  let from = first.from;
+  let to = last.to;
+  if (to < doc.length) to += 1;
+  else if (from > 0) from -= 1;
+
+  const head = state.selection.main.head;
+  const column = head - doc.lineAt(head).from;
+  const changes = { from, to, insert: "" };
+  const landing = state.update({ changes }).state.doc.lineAt(Math.min(first.from, doc.length - (to - from)));
+
+  view.dispatch({
+    changes,
+    selection: { anchor: Math.min(landing.from + column, landing.to) },
+    userEvent: "delete.line",
+    scrollIntoView: true,
+  });
+  return true;
+}
+
+/**
  * The rebindable commands, by binding name. One record serves both the keys and the
  * palette, so a command cannot be reachable from one and missing from the other.
  */
 export const todoCommands = {
   toggleTask,
   untask,
-  promote: promoteToTop,
-  lineUp: moveLineUp,
-  lineDown: moveLineDown,
-  deleteLine,
+  promote: renumbering(promoteToTop),
+  lineUp: renumbering(moveLineUp),
+  lineDown: renumbering(moveLineDown),
+  deleteLine: renumbering(deleteLines),
   hideDone: hideCompleted,
 } satisfies Partial<Record<BindingName, EditorCommand>>;
 

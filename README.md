@@ -108,7 +108,8 @@ bullet or number — shift undoes, as `⇧⇥` undoes `⇥`.
 Numbered items are tasks too: `⌘⏎` on `3. Buy milk` gives `3. [ ] Buy milk`, and Enter
 continues with `4. [ ]`. `⇥` nests an item under the one above, aligned to that item's text
 — markdown has no `4.1`, so the first item under 4 is `1.`, and the numbers on both levels
-are put back in order. Children move with their parent.
+are put back in order. Children move with their parent. Deleting a line (`⌘⇧K`) or moving
+one (`⌥↑` / `⌥↓`, `⌥⇧↑`) renumbers the same way, in the same undo step.
 
 A task's checkbox is drawn and clickable; put the cursor on it and the raw `- [ ]` comes
 back, the same rule as the rest of live preview.
