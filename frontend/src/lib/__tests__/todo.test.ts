@@ -14,6 +14,8 @@ import {
   hideCompletedField,
   parseTask,
   promoteToTop,
+  deleteLines,
+  todoCommands,
   toggleTask,
   untask,
 } from "../todo";
@@ -424,5 +426,137 @@ describe("untask", () => {
     t.dispatch({ selection: { anchor: 0, head: t.state.doc.length } });
     untask(t);
     expect(t.doc()).toBe("- One\nprose\n- Two");
+  });
+});
+
+describe("a selection that ends at the start of the next line", () => {
+  // What shift-↓ produces: three lines selected, cursor parked at column 0 of the fourth.
+  function throughLineBreak(doc: string, fromLine: number, toLineStart: number) {
+    const t = target(doc);
+    t.dispatch({
+      selection: {
+        anchor: t.state.doc.line(fromLine).from,
+        head: t.state.doc.line(toLineStart).from,
+      },
+    });
+    return t;
+  }
+
+  it("does not complete the task below", () => {
+    const t = throughLineBreak("- [ ] One\n- [ ] Two\n- [ ] Three", 1, 3);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [x] One\n- [x] Two\n- [ ] Three");
+  });
+
+  it("does not make a task of the line below", () => {
+    const t = throughLineBreak("One\nTwo\nThree", 1, 3);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [ ] One\n- [ ] Two\nThree");
+  });
+
+  it("does not let the untouched line decide the batch", () => {
+    // Both selected tasks are done, so the batch should uncheck — the open task below
+    // used to count, and flipped the decision to "finish everything".
+    const t = throughLineBreak("- [x] One\n- [x] Two\n- [ ] Three", 1, 3);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [ ] One\n- [ ] Two\n- [ ] Three");
+  });
+
+  it("does not untask or indent the line below either", () => {
+    const u = throughLineBreak("- [ ] One\n- [ ] Two", 1, 2);
+    untask(u);
+    expect(u.doc()).toBe("- One\n- [ ] Two");
+
+    const i = throughLineBreak("- a\n- b\n- c", 2, 3);
+    indentListItem(i);
+    expect(i.doc()).toBe("- a\n  - b\n- c");
+  });
+
+  it("still acts on the line a bare cursor sits at the start of", () => {
+    const t = target("- [ ] One\n- [ ] Two", 2);
+    toggleTask(t);
+    expect(t.doc()).toBe("- [ ] One\n- [x] Two");
+  });
+});
+
+describe("moving and deleting lines keeps a numbered list in order", () => {
+  it("deleting an item closes the gap", () => {
+    const t = target("1. a\n2. b\n3. c\n4. d", 2);
+    todoCommands.deleteLine(t);
+    expect(t.doc()).toBe("1. a\n2. c\n3. d");
+    expect(t.state.doc.lineAt(t.state.selection.main.head).number).toBe(2);
+  });
+
+  it("deleting the first item does not leave the list starting at 2", () => {
+    const t = target("1. a\n2. b\n3. c", 1);
+    todoCommands.deleteLine(t);
+    expect(t.doc()).toBe("1. b\n2. c");
+  });
+
+  it("a list that starts at 4 on purpose still does after a delete", () => {
+    const t = target("4. a\n5. b\n6. c", 1);
+    todoCommands.deleteLine(t);
+    expect(t.doc()).toBe("4. b\n5. c");
+  });
+
+  it("nudging an item up swaps the numbers with it", () => {
+    const t = target("1. a\n2. b\n3. c", 3);
+    todoCommands.lineUp(t);
+    expect(t.doc()).toBe("1. a\n2. c\n3. b");
+  });
+
+  it("nudging the second item above the first keeps the list starting at 1", () => {
+    const t = target("1. a\n2. b", 2);
+    todoCommands.lineUp(t);
+    expect(t.doc()).toBe("1. b\n2. a");
+  });
+
+  it("nudging down works the same way, and the cursor follows the line", () => {
+    const t = target("1. [ ] a\n2. [ ] b\n3. [ ] c", 1);
+    todoCommands.lineDown(t);
+    expect(t.doc()).toBe("1. [ ] b\n2. [ ] a\n3. [ ] c");
+    expect(t.state.doc.lineAt(t.state.selection.main.head).number).toBe(2);
+  });
+
+  it("promoting to the top renumbers the whole list", () => {
+    const t = target("## Now\n1. a\n2. b\n3. c\n", 4);
+    todoCommands.promote(t);
+    expect(t.doc()).toBe("## Now\n1. c\n2. a\n3. b\n");
+  });
+
+  it("leaves bullets and prose alone", () => {
+    const t = target("- a\n- b\nprose", 2);
+    todoCommands.lineUp(t);
+    expect(t.doc()).toBe("- b\n- a\nprose");
+  });
+});
+
+describe("deleteLines", () => {
+  it("deletes the last line without leaving a blank one", () => {
+    const t = target("one\ntwo", 2);
+    deleteLines(t);
+    expect(t.doc()).toBe("one");
+  });
+
+  it("deletes the only line", () => {
+    const t = target("one");
+    deleteLines(t);
+    expect(t.doc()).toBe("");
+  });
+
+  it("deletes every selected line, but not the one a selection merely reaches", () => {
+    const t = target("one\ntwo\nthree\nfour");
+    t.dispatch({
+      selection: { anchor: t.state.doc.line(1).from, head: t.state.doc.line(3).from },
+    });
+    deleteLines(t);
+    expect(t.doc()).toBe("three\nfour");
+  });
+
+  it("keeps the cursor's column on the line that moves up", () => {
+    const t = target("abcdef\nxy\nlonger line");
+    t.dispatch({ selection: { anchor: 4 } });
+    deleteLines(t);
+    expect(t.state.selection.main.head).toBe(2); // clamped to the end of "xy"
   });
 });
