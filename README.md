@@ -12,8 +12,14 @@ Phase 1 is built: editor, file tree, autosave, and the core todo interactions.
 ## Running it
 
 ```bash
-brew install node                      # once
+brew install uv node                   # once
+./install.sh                           # dependencies, build, and Occam Notes in ~/Applications
+```
 
+Then open it from Spotlight. Run `./install.sh` again after a `git pull`; every step is
+safe to repeat. The rest of this section is what that script does, for doing it by hand.
+
+```bash
 cd backend-python && uv sync --extra dev
 cd ../frontend && npm install && npm run build
 
