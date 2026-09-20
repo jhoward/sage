@@ -11,6 +11,7 @@ import { livePreviewExtension } from "../lib/livePreview";
 import { bold, italic } from "../lib/markdownKeys";
 import { boundKeys } from "../lib/editorKeys";
 import { inkHighlight } from "../lib/highlight";
+import { bodyStart, frontmatterExtension } from "../lib/frontmatter";
 import type { SkillMode } from "../backend";
 import type { FileNode } from "../backend";
 
@@ -106,6 +107,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           (name) => createLink.current?.(name),
         ),
         livePreviewExtension(),
+        frontmatterExtension,
         boundKeys({ bold, italic }),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },
@@ -131,6 +133,10 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
 
     const instance = new EditorView({ state, parent: host.current });
     view.current = instance;
+    // A new editor's cursor is at offset 0, which is inside the frontmatter — and a cursor
+    // in the frontmatter is what reveals it raw. Start in the note itself instead, which
+    // is also where anyone would want to start typing.
+    instance.dispatch({ selection: { anchor: bodyStart(instance.state) } });
 
     const remembered = scrollTops.current.get(filePath);
     if (remembered) instance.scrollDOM.scrollTop = remembered;
@@ -202,7 +208,13 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   useEffect(() => {
     const v = view.current;
     if (!v || v.state.doc.toString() === content) return;
-    v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: content } });
+    // Keep the cursor where it was. Replacing the whole document maps it to offset 0,
+    // which loses your place and lands inside the frontmatter, flipping it to raw.
+    const head = Math.min(v.state.selection.main.head, content.length);
+    v.dispatch({
+      changes: { from: 0, to: v.state.doc.length, insert: content },
+      selection: { anchor: head },
+    });
   }, [content]);
 
   if (!path) {

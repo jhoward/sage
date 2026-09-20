@@ -146,6 +146,41 @@ body {
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
+/* ---- frontmatter header ----
+   The UI font rather than the editor's: this is the app describing the file, not text
+   you typed, and setting it apart is what stops it reading as a heading of your own. */
+
+.cm-fm {
+  padding: 0 6px 0.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: text;
+}
+
+.cm-fm-overline {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.cm-fm-title {
+  font-size: 1.7em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+/* Revealed for editing: quiet, and without the bold of the setext heading that
+   `key: value` above `---` accidentally is. */
+.cm-fm-raw,
+.cm-fm-raw * {
+  color: var(--ink-muted) !important;
+  font-size: 12px;
+  font-weight: 400 !important;
+}
+
 /* ---- wiki-links ---- */
 
 .cm-wikilink {
