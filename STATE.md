@@ -13,7 +13,7 @@ For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
 cd backend-python && uv run pytest   # 220 passed, 1 skipped
-cd frontend && npm test              # 203 passed
+cd frontend && npm test              # 219 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -133,8 +133,16 @@ list is for). The editor font stays monospace — asked and answered.
 - Fixed: right-click, rename and ⌥-click did nothing on anything inside a folder, because
   `FileTree` passed those handlers to top-level rows only.
 
-**None of this has been seen by eye.** It was written from the code. Check both
-appearances, and expect to nudge spacing and the dark tokens in `index.css`.
+Seen in both appearances now and judged good; a few dark-mode nits of taste are still to
+come.
+
+- **Frontmatter renders as a header** (`lib/frontmatter.ts`): `WEEK 38 · 2026` over the
+  dates, "Backlog", a meeting's kind and date, a skill's title and settings. Click or arrow
+  in and the raw lines return. The week number is derived — ISO week of the Monday after
+  the `week:` date, the inverse of the old `2026-W35.md` migration — and the file still
+  stores the date. It is a StateField because block decorations cannot come from a plugin.
+- A new editor puts the cursor at the start of the note body, not offset 0: a cursor in
+  the frontmatter is what reveals it. An external reload now keeps the cursor in place.
 
 ## Known rough edges
 
