@@ -31,7 +31,7 @@ inside the process only half works.
 
 ```bash
 uv run python scripts/make_icon.py   # assets/icon.png + icon.icns, drawn in code
-uv run python scripts/make_app.py    # Occam Notes.app
+uv run python scripts/make_app.py --install   # Occam Notes.app, into ~/Applications for Spotlight
 ```
 
 `Occam Notes.app` launches this working copy in place — it is not distributable and the repo has
