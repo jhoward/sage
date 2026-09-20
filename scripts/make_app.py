@@ -8,9 +8,14 @@ only real fix is to be a bundle.
 This is not a distributable app — it launches the working copy in place, so the repo has to
 stay where it is and `uv sync` has to have been run. A shippable build is the Tauri phase.
 
-    uv run python scripts/make_app.py
+    uv run python scripts/make_app.py            # build it next to the repo
+    uv run python scripts/make_app.py --install  # and move it into ~/Applications
 
-Writes Sage.app next to the repo. Drag it to /Applications or the Dock.
+Install it and Spotlight finds it by name. Spotlight indexes a bundle wherever it lives,
+but only ranks it as an *application* in /Applications or ~/Applications — sitting in a
+code folder it is just another file, and never the top hit. Moving it there is safe because the
+launcher holds absolute paths back to this working copy; a symlink would not do, since
+Spotlight ignores symlinked apps. ~/Applications needs no admin password.
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 APP = REPO / "Occam Notes.app"
+INSTALLED = Path.home() / "Applications" / APP.name
 ICON = REPO / "assets" / "icon.icns"
 
 LAUNCHER = """#!/bin/sh
@@ -81,7 +87,21 @@ def main() -> int:
     subprocess.run(["touch", str(APP)], check=False)
 
     print(f"built {APP}")
-    print("Drag it to /Applications or the Dock. It launches this working copy in place.")
+
+    if "--install" in sys.argv[1:]:
+        INSTALLED.parent.mkdir(exist_ok=True)
+        if INSTALLED.exists():
+            shutil.rmtree(INSTALLED)
+        # Moved, not copied: two bundles with one name is two identical Spotlight hits.
+        shutil.move(str(APP), str(INSTALLED))
+        subprocess.run(["touch", str(INSTALLED)], check=False)
+        # Index it now rather than whenever Spotlight next gets round to it.
+        subprocess.run(["mdimport", str(INSTALLED)], check=False)
+        print(f"installed {INSTALLED} — Spotlight will find it as Occam Notes")
+    else:
+        print("Run again with --install to put it in ~/Applications, where Spotlight looks.")
+
+    print("It launches this working copy in place, so the repo has to stay where it is.")
     return 0
 
 
