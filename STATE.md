@@ -49,7 +49,7 @@ Editor, file tree, autosave, native window, and the core todo loop, all working:
 
 **The AI works.** Config lives at `~/.config/occam/config.toml` with the key and, because
 this is an identity-linked key, `anthropic_workspace_id` (workspace `sage`,
-`wrkspc_01JRamYCGCoa4QDfLgeKnAkC`). Verified against the real API: Clean up and Weekly
+the ID is in the config file, not here — this repo is public). Verified against the real API: Clean up and Weekly
 summary both produce good output. Expand and Ask have generated but their output has not
 been judged yet.
 
