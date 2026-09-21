@@ -1262,7 +1262,7 @@ export default function App() {
         onClose={() => setSettingsOpen(false)}
         onEditKeys={() => runCommand("keys.edit")}
         onShowKeys={() => void openKeys()}
-        onShowSkills={() => setShowSettings(true)}
+        onEditSkill={(p) => void open(p)}
         onSaved={(message) => {
           setStatus(message);
           // Backup may have just been switched; do not wait for the next poll to say so.

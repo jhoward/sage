@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { backend } from "../backend";
-import type { RemoteCheck, Settings as SettingsData, SettingsChanges } from "../backend";
+import type {
+  RemoteCheck,
+  Settings as SettingsData,
+  SettingsChanges,
+  SkillInfo,
+} from "../backend";
 
 /**
  * The settings screen.
@@ -19,14 +24,15 @@ export function Settings({
   onClose,
   onEditKeys,
   onShowKeys,
-  onShowSkills,
+  onEditSkill,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   onEditKeys: () => void;
   onShowKeys: () => void;
-  onShowSkills: () => void;
+  /** Open a skill's file in the editor. */
+  onEditSkill: (path: string) => void;
   onSaved: (message: string) => void;
 }) {
   const [saved, setSaved] = useState<SettingsData | null>(null);
@@ -37,6 +43,7 @@ export function Settings({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [check, setCheck] = useState<RemoteCheck | "checking" | null>(null);
+  const [skills, setSkills] = useState<SkillInfo[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +59,10 @@ export function Settings({
         setNames(s.me.join(", "));
       })
       .catch((e) => setError(reason(e)));
+    backend
+      .skills()
+      .then((r) => setSkills(r.skills))
+      .catch(() => setSkills([]));
   }, [open]);
 
   if (!open) return null;
@@ -254,20 +265,41 @@ export function Settings({
             </section>
 
             <section>
-              <h2>Keyboard and skills</h2>
+              <h2>AI skills</h2>
               <p className="settings-hint">
-                These are files in the vault rather than fields here, so they travel with your
-                notes — and so a skill you stop using is a file you delete.
+                A skill is one of the AI commands in the palette. Each is a prompt in a file:
+                edit the file to change what the command does, delete it to remove the command,
+                add a file to make a new one.
+              </p>
+              <div className="settings-list">
+                {skills.map((sk) => (
+                  <div key={sk.id} className="settings-list-row">
+                    <span className="settings-list-name">{sk.title}</span>
+                    <span className="settings-list-what">{whatItDoes(sk)}</span>
+                    <button
+                      className="settings-button"
+                      onClick={() => (onClose(), onEditSkill(sk.path))}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ))}
+                {!skills.length && <p className="settings-hint">No skills found in the vault.</p>}
+              </div>
+            </section>
+
+            <section>
+              <h2>Keyboard</h2>
+              <p className="settings-hint">
+                Keys are a file in the vault, so they travel with your notes. A change applies as
+                soon as the file is saved.
               </p>
               <div className="settings-links">
                 <button className="settings-button" onClick={() => (onClose(), onEditKeys())}>
-                  Edit keybindings
+                  Change a key…
                 </button>
                 <button className="settings-button" onClick={() => (onClose(), onShowKeys())}>
-                  Shortcut sheet
-                </button>
-                <button className="settings-button" onClick={() => (onClose(), onShowSkills())}>
-                  Show skills in the sidebar
+                  See every shortcut
                 </button>
               </div>
             </section>
@@ -288,6 +320,23 @@ export function Settings({
       </div>
     </div>
   );
+}
+
+/** A skill's frontmatter, in words: what it reads and where the result goes. */
+function whatItDoes(sk: SkillInfo): string {
+  const reads: Record<string, string> = {
+    selection: "the selected text",
+    note: "this note",
+    "note-and-links": "this note and the notes it links to",
+    "week-done": "this week's finished tasks",
+  };
+  const writes: Record<string, string> = {
+    replace: "replaces it",
+    append: "adds the result to the end of the note",
+    insert: "inserts the result at the cursor",
+  };
+  const ask = sk.asks ? "asks you a question, " : "";
+  return `${ask}reads ${reads[sk.context] ?? sk.context}, ${writes[sk.mode] ?? sk.mode}`;
 }
 
 function CheckResult({ check }: { check: RemoteCheck }) {
