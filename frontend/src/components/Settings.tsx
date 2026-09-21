@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { backend } from "../backend";
 import { describeSync } from "./SyncIndicator";
 import type {
@@ -45,6 +45,33 @@ export function Settings({
   const [busy, setBusy] = useState(false);
   const [check, setCheck] = useState<RemoteCheck | "checking" | null>(null);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
+  const dialog = useRef<HTMLDivElement>(null);
+
+  // Escape closes it from anywhere, and focus moves into it on opening.
+  //
+  // Listening on the dialog alone is not enough: a key only reaches an element that holds
+  // focus, and when this opens focus is still in the editor — so Escape did nothing, and
+  // worse, typing went into the note behind the scrim.
+  //
+  // `onClose` is read through a ref so this runs once per opening. The parent passes a
+  // new function on every render, and it re-renders whenever the sync status is polled;
+  // depending on it would re-focus the dialog every fifteen seconds, out from under
+  // whichever field was being typed in.
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    if (!open) return;
+    dialog.current?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation(); // the editor has its own uses for Escape
+      close.current();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -115,12 +142,14 @@ export function Settings({
   return (
     <div className="settings-scrim" onMouseDown={onClose}>
       <div
+        ref={dialog}
+        tabIndex={-1}
         className="settings"
         role="dialog"
+        aria-modal="true"
         aria-label="Settings"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void save();
           // Keys typed into a field are not the app's shortcuts.
           e.stopPropagation();

@@ -62,6 +62,30 @@ describe("the settings screen", () => {
     }
   });
 
+  it("closes on Escape even when nothing inside it has focus", async () => {
+    const h = await open();
+    // As it is in the app: the key arrives at the window, not at the dialog.
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(h.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes focus when it opens, so typing does not land in the note behind it", async () => {
+    await open();
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+  });
+
+  it("does not take focus back from a field when the parent re-renders", async () => {
+    const h = handlers();
+    const { rerender } = render(<Settings open {...h} />);
+    const field = (await screen.findByDisplayValue("Jim")) as HTMLInputElement;
+    field.focus();
+
+    // What the sync poll does every fifteen seconds: a render with new callbacks.
+    rerender(<Settings open {...handlers()} />);
+    expect(document.activeElement).toBe(field);
+  });
+
   it("says a key is set without having one to show", async () => {
     await open();
     const field = screen.getByPlaceholderText(/A key is set/) as HTMLInputElement;

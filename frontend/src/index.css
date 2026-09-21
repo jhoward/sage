@@ -462,6 +462,11 @@ body {
   overflow: hidden;
 }
 
+/* Focused on opening so keys land here; the ring would be noise. */
+.settings:focus {
+  outline: none;
+}
+
 .settings-head,
 .settings-foot {
   display: flex;
