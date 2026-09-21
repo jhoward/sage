@@ -13,7 +13,7 @@ For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
 cd backend-python && uv run pytest   # 244 passed, 1 skipped
-cd frontend && npm test              # 219 passed
+cd frontend && npm test              # 235 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -209,8 +209,14 @@ only if the escalation ladder in the README actually demands it.
 - **Render links in live preview.** `[text](url)` shows its full URL mid-sentence, which is
   the same readability problem the `**` were. Images and tables are widget work and a
   bigger step; links are not.
-- **Drag-and-drop in the file tree.** The argument for it weakened once right-click and
-  double-click landed — move is already reachable two ways.
+- ~~Drag-and-drop in the file tree~~ — done 2026-09-21. "Reachable two ways" turned out not
+  to be the point: dragging is the way people *try*. Rules live in `lib/treeDrag.ts`: only
+  notes drag (folders into folders is how a tree gets deep); `todo/` and `.occam/` are
+  closed both ways, because a week file dragged out would not error, rollover would just
+  never see it again; a drop on a note means that note's folder; a closed folder opens
+  under a resting drag. It calls the same `rename` as the Move prompt, so links follow.
+  **Not yet confirmed in the real webview** — the tests drive jsdom, and pywebview's
+  WKWebView is where HTML5 drag-and-drop would misbehave if it is going to.
 
 ## Open questions
 
