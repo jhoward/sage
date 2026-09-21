@@ -349,6 +349,16 @@ export default function App() {
     void refresh();
   }, [showSettings, refresh]);
 
+  // Sync runs on its own clock in the backend — a commit lands when you pause, a push when
+  // the network allows — so the indicator has to ask, or it would show whatever was true
+  // the last time the file tree happened to refresh. Cheap: the backend caches the status.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      backend.syncStatus().then(setSync).catch(() => {});
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // The title bar names what you are looking at, as every document app does.
   useEffect(() => {
     const name = path ? titleOf(doc.content, path) : "";

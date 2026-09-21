@@ -106,8 +106,9 @@ def main() -> int:
     cfg = config_mod.load()
     vault = Vault(cfg.vault_path)
     vault.ensure()
-    sync = vault_sync.make(cfg.sync, vault.root)
+    sync = vault_sync.make(cfg.sync, vault.root, remote=cfg.sync_remote)
     sync.startup()
+    ticker = vault_sync.run_ticker(sync)
 
     app = create_app(vault, sync, static_dir=None if dev else DIST_DIR, cfg=cfg)
 
@@ -148,6 +149,7 @@ def main() -> int:
     # AppKit inside start(), and an icon set before that is discarded.
     webview.start(set_dock_icon)
 
+    ticker.set()
     sync.shutdown()
     return 0
 

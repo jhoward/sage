@@ -48,6 +48,27 @@ cd backend-python && uv run pytest     # vault conformance suite
 cd frontend && npm test                # todo commands + editor save safety
 ```
 
+## Backup and history
+
+Set `sync = "git"` in `~/.config/occam/config.toml` and the vault becomes an ordinary git
+repository. Every pause in your editing becomes a commit — after 30 quiet seconds, or five
+minutes of continuous typing — with a message that names what changed (`Edit
+todo/2026-09-13.md`). That is the version history, and the undo for anything, AI edits
+included, that the app did not have before.
+
+Add `sync_remote = "git@github.com:you/notes.git"` — a **private** repository — and the
+same commits are pushed, which is the offsite copy. With no remote it is local history only.
+
+What it will not do: hang (every git call has a timeout, and password and signing prompts
+are off, so a missing SSH key is a status, not a stuck thread); write conflict markers into
+a note (a conflicting rebase is detected in advance and never started — your commits stay
+local and the indicator names the files); or commit into another repository (a vault that
+sits inside one is refused). The dot in the sidebar footer is grey when all is well, amber
+while offline, red for a conflict; hover for the detail.
+
+Not yet: browsing or restoring old versions from inside the app. Until then it is
+`git log -p -- notes/x.md` in the vault folder — the history is plain git on purpose.
+
 ## Your vault
 
 Notes live **outside this repo**, at `~/notes` by default, so the vault can be its own git
