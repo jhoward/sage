@@ -106,7 +106,7 @@ def main() -> int:
     cfg = config_mod.load()
     vault = Vault(cfg.vault_path)
     vault.ensure()
-    sync = vault_sync.make(cfg.sync, vault.root, remote=cfg.sync_remote)
+    sync = vault_sync.SyncHolder(vault_sync.make(cfg.sync, vault.root, remote=cfg.sync_remote))
     sync.startup()
     ticker = vault_sync.run_ticker(sync)
 

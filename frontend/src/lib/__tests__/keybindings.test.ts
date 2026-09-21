@@ -114,8 +114,8 @@ describe("the tiering rule", () => {
     "back", "forward",
     // Checking a task off is the most frequent action in the app.
     "toggleTask",
-    // Conventions that arrive with the platform: bold, italic, and ⌘/ for the keys.
-    "bold", "italic", "keys",
+    // Conventions that arrive with the platform: bold, italic, ⌘/ for keys, ⌘, for settings.
+    "bold", "italic", "keys", "settings",
   ];
 
   it("core commands are unshifted", () => {

@@ -28,6 +28,7 @@ from . import keybindings as keys_mod
 from . import meetings as meetings_mod
 from . import links as links_mod
 from . import skills as skills_mod
+from . import settings as settings_mod
 from . import todo, vault_sync
 from .vault import Vault, VaultError
 
@@ -115,6 +116,9 @@ def create_app(
         vault = Vault(cfg.vault_path)
         vault.ensure()
     sync = sync or vault_sync.make(cfg.sync, vault.root, remote=getattr(cfg, "sync_remote", None))
+    # Held rather than used directly, so settings can change the backend while running.
+    if not isinstance(sync, vault_sync.SyncHolder):
+        sync = vault_sync.SyncHolder(sync)
     skills_mod.migrate_legacy_settings(vault)
     skills_mod.ensure_default_skills(vault)
     todo.migrate_week_files(vault)
@@ -286,6 +290,36 @@ def create_app(
             "hasKey": ai.api_key(cfg) is not None,
             "keyFromEnv": bool(os.environ.get("ANTHROPIC_API_KEY")),
         }
+
+    @app.get("/api/settings")
+    def get_settings():
+        return settings_mod.describe(cfg, sync.status().to_dict())
+
+    @app.put("/api/settings")
+    def put_settings(changes: dict):
+        try:
+            applied = settings_mod.validate(changes)
+            before = (cfg.sync, getattr(cfg, "sync_remote", None))
+            config_mod.update(cfg, applied)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        # Backup changes take effect now. The old backend gets a last commit and push;
+        # the new one starts on its own thread, since starting can mean the network.
+        if (cfg.sync, cfg.sync_remote) != before:
+            sync.replace(vault_sync.make(cfg.sync, vault.root, remote=cfg.sync_remote))
+
+        return {
+            **settings_mod.describe(cfg, sync.status().to_dict()),
+            "restartNeeded": settings_mod.needs_restart(applied),
+        }
+
+    @app.post("/api/settings/check-remote")
+    def check_remote(body: dict):
+        try:
+            return settings_mod.check_remote(str(body.get("remote", "")))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/config/open")
     def open_config():

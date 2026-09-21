@@ -15,6 +15,7 @@ import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
 import { Prompt } from "./components/Prompt";
 import { Confirm } from "./components/Confirm";
+import { Settings } from "./components/Settings";
 import { ContextMenu, type MenuItem } from "./components/ContextMenu";
 import { MultiPicker } from "./components/MultiPicker";
 import { SyncIndicator } from "./components/SyncIndicator";
@@ -124,6 +125,7 @@ export default function App() {
   // useless once the vault has hundreds of notes.
   const [palette, setPalette] = useState(false);
   const [switcher, setSwitcher] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [newNote, setNewNote] = useState(false);
   // Set when the note was asked for from a folder's menu; null means the default place.
   const [newNoteFolder, setNewNoteFolder] = useState<string | null>(null);
@@ -599,12 +601,13 @@ export default function App() {
       {
         id: "config.open",
         group: "Settings",
-        title: aiReady
-          ? "Open config (API key, vault path)"
-          : "Set the Anthropic API key…",
+        title: aiReady ? "Open the raw config file" : "Set the Anthropic API key…",
         keywords: "anthropic claude api key config toml machine settings",
         hint: aiReady ? undefined : "no key set",
         run: async () => {
+          // Setting a key is what the settings screen is for; the file stays reachable
+          // as the escape hatch it always was.
+          if (!aiReady) return setSettingsOpen(true);
           try {
             const { path } = await backend.openConfig();
             setStatus(`Opened ${path} — restart Occam Notes after editing`);
@@ -632,10 +635,20 @@ export default function App() {
         },
       },
       {
+        id: "settings.open",
+        group: "Settings",
+        title: "Settings…",
+        keywords: "preferences config backup sync git remote api key vault folder names",
+        hint: label(binding("settings")),
+        run: () => setSettingsOpen(true),
+      },
+      {
         id: "vault.settings",
         group: "Settings",
-        title: showSettings ? "Hide settings" : "Settings (show .occam folder)",
-        keywords: "config skills keybindings preferences",
+        // Named for what it does. "Settings" used to mean this, which was a folder
+        // appearing in the sidebar and no clue that anything else could be set.
+        title: showSettings ? "Hide the settings folder" : "Show the settings folder (skills, keybindings)",
+        keywords: "occam skills keybindings files",
         run: () => setShowSettings((v) => !v),
       },
       {
@@ -825,7 +838,8 @@ export default function App() {
       deleteNote: () => setConfirmDelete(true),
       moveNote: () => setMoving(true),
       renameNote: () => setRenaming(true),
-      settings: () => setShowSettings((v) => !v),
+      settings: () => setSettingsOpen((v) => !v),
+      settingsFolder: () => setShowSettings((v) => !v),
       pull: () => {
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
         setPulling(true);
@@ -856,6 +870,10 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       for (const [name, run] of Object.entries(actions)) {
+        // With settings open, only its own key works. This listener runs in the capture
+        // phase, ahead of the form, so ⌘⌫ in a text field would otherwise reach
+        // "delete this note" before it reached the field.
+        if (settingsOpen && name !== "settings") continue;
         if (matches(e, binding(name as never))) {
           e.preventDefault();
           // Capture, and stop here: CodeMirror has its own ideas about ⌘/ (toggle comment)
@@ -868,7 +886,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [actions]);
+  }, [actions, settingsOpen]);
 
   // Status messages are transient; errors stay until the next action.
   useEffect(() => {
@@ -1219,6 +1237,19 @@ export default function App() {
             setSearching(false);
             setError(String(e));
           }
+        }}
+      />
+      <Settings
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onEditKeys={() => runCommand("keys.edit")}
+        onShowKeys={() => void openKeys()}
+        onShowSkills={() => setShowSettings(true)}
+        onSaved={(message) => {
+          setStatus(message);
+          // Backup may have just been switched; do not wait for the next poll to say so.
+          backend.syncStatus().then(setSync).catch(() => {});
+          backend.skills().then((r) => setAiReady(r.available)).catch(() => {});
         }}
       />
       <Prompt

@@ -16,6 +16,7 @@ who already had the file. Existing lines are never touched.
 
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -146,6 +147,43 @@ class Config:
         path = path or CONFIG_PATH
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.render(), encoding="utf-8")
+        _private(path)
+
+
+def _private(path: Path) -> None:
+    """Owner-only. The file holds an API key, and was world-readable for a while."""
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass  # a filesystem without modes; nothing to be done
+
+
+def update(cfg: Config, changes: dict[str, object], path: Path | None = None) -> None:
+    """Change settings in the file *and* on the live config object.
+
+    Values are replaced on their own line, so the comments around them — the app's and
+    the user's — survive. The object is mutated rather than replaced because the routes
+    read it on every request: a new key or a new name works on the very next call.
+    """
+    path = path or CONFIG_PATH
+    if not path.exists():
+        cfg.save(path)
+    add_missing_settings(path, cfg)
+
+    for name, value in changes.items():
+        setattr(cfg, name, value)
+
+    values = cfg._values()
+    text = path.read_text(encoding="utf-8")
+    for name in changes:
+        rendered = values[name] if name == "me" else f'"{values[name]}"'
+        line = re.compile(rf"(?m)^{re.escape(name)}\s*=.*$")
+        if not line.search(text):
+            raise ValueError(f"{name} is not in {path}")
+        # A function, not a string: a backslash in a Windows path is not a group reference.
+        text = line.sub(lambda _m, r=rendered, n=name: f"{n} = {r}", text, count=1)
+    path.write_text(text, encoding="utf-8")
+    _private(path)
 
 
 def add_missing_settings(path: Path, cfg: Config) -> list[str]:

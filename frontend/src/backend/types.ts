@@ -32,6 +32,30 @@ export interface SyncStatus {
   conflicts: string[];
 }
 
+export interface Settings {
+  configPath: string;
+  vaultPath: string;
+  sync: "local" | "git";
+  syncRemote: string;
+  apiKeySet: boolean;
+  /** ANTHROPIC_API_KEY is set, and wins over whatever the file says. */
+  apiKeyFromEnv: boolean;
+  workspaceId: string;
+  me: string[];
+  syncStatus: SyncStatus | null;
+}
+
+/** Only what changed is sent. `apiKey` is write-only: empty means "leave it alone". */
+export type SettingsChanges = Partial<
+  Pick<Settings, "vaultPath" | "sync" | "syncRemote" | "workspaceId" | "me">
+> & { apiKey?: string; clearApiKey?: boolean };
+
+export interface RemoteCheck {
+  reachable: boolean;
+  visibility: "public" | "private" | "unknown";
+  detail: string;
+}
+
 export type TaskTarget = "week" | "backlog";
 
 export interface TaskRef {
@@ -132,6 +156,10 @@ export interface VaultBackend {
 
   /** Where machine-local config lives, and whether a key is set. */
   config(): Promise<{ path: string; hasKey: boolean; keyFromEnv: boolean }>;
+  /** Machine settings. Note what is missing: the API key never leaves the backend. */
+  settings(): Promise<Settings>;
+  saveSettings(changes: SettingsChanges): Promise<Settings & { restartNeeded: boolean }>;
+  checkRemote(remote: string): Promise<RemoteCheck>;
   /** Hand the config file to the OS default editor. */
   openConfig(): Promise<{ path: string }>;
 

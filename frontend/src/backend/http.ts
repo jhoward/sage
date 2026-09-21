@@ -3,8 +3,10 @@
 import type {
   AskAnswer,
   FileNode,
+  RemoteCheck,
   RolloverResult,
   SearchHit,
+  Settings,
   SkillInfo,
   SyncStatus,
   TaskRef,
@@ -127,6 +129,24 @@ export const httpBackend: VaultBackend = {
     return request<{ path: string; hasKey: boolean; keyFromEnv: boolean }>(
       "/api/config",
     );
+  },
+
+  async settings() {
+    return request<Settings>("/api/settings");
+  },
+
+  async saveSettings(changes) {
+    return request<Settings & { restartNeeded: boolean }>("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(changes),
+    });
+  },
+
+  async checkRemote(remote) {
+    return request<RemoteCheck>("/api/settings/check-remote", {
+      method: "POST",
+      body: JSON.stringify({ remote }),
+    });
   },
 
   async openConfig() {
