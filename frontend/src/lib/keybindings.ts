@@ -92,6 +92,8 @@ export const BINDINGS = {
   sidebar: { key: "b", mod: true, shift: true },
   // The shortcut for finding shortcuts has to be the one people already try.
   keys: { key: "/", mod: true },
+  // ⌘, opens settings in every macOS app, so it does here.
+  settings: { key: ",", mod: true },
 
   // Editor commands. These used to live in a private CodeMirror keymap, which kept them
   // out of the palette, the key sheet and the keybindings file — so the most-used keys in
@@ -117,7 +119,7 @@ export const BINDINGS = {
   renameNote: { key: "", mod: true },
   undo: { key: "", mod: true },
   cheatsheet: { key: "", mod: true },
-  settings: { key: "", mod: true },
+  settingsFolder: { key: "", mod: true },
   backlog: { key: "", mod: true },
   week: { key: "", mod: true },
 } satisfies Record<string, KeySpec>;
@@ -229,7 +231,8 @@ export const SHEET: Array<{ group: string; keys: Array<[BindingName, string]> }>
       ["sidebar", "Show or hide the sidebar"],
       ["back", "Back"],
       ["forward", "Forward"],
-      ["settings", "Show or hide the settings folder"],
+      ["settings", "Settings"],
+      ["settingsFolder", "Show or hide the settings folder in the sidebar"],
     ],
   },
 ];

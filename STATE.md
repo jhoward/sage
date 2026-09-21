@@ -12,8 +12,8 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
-cd backend-python && uv run pytest   # 246 passed, 1 skipped
-cd frontend && npm test              # 237 passed
+cd backend-python && uv run pytest   # 274 passed, 1 skipped
+cd frontend && npm test              # 247 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -175,19 +175,30 @@ Known gaps, deliberately left:
 shifts every later argument — `sync_remote` went in after `sync` at first, and the API key
 landed in it, one step from being passed to git as a remote URL. New fields go last.
 
-## Settings — three fixes done, the shape still open (2026-09-21)
+## Done — settings (2026-09-21)
 
-Done, because they were wrong whatever settings becomes:
-- Non-markdown files open as plain text. `keybindings.toml` was getting live preview, so
-  every `# comment` rendered as an H1 with its `#` hidden — a wall of headings.
-- A saved `keybindings.toml` applies at once (no restart), and a file that cannot be
-  parsed now reports itself instead of silently meaning "no overrides".
-- The generated `.occam/keys.md` is left out of the tree; `⌘/` is how it is reached.
+Decided: **one organized, scrolling settings screen for values; files for anything with a
+body.** The worry was that two kinds of settings leaves people guessing which kind they
+want. This rewords a line of the "no" list, on purpose — see the README.
 
-Open — ask before building: settings live in two places by two mechanisms. The vault's
-(`.occam/`, in the tree, in-app) and the machine's (`~/.config/occam/config.toml`, external
-editor, restart). Turning on git sync meant hand-editing TOML. The "no" list permits a
-settings panel of one screen; the README currently says there is none.
+- `⌘,` opens it. Sections: Backup, AI, You, Vault, and links out to keybindings and skills.
+- Everything applies on Save except the vault folder. `SyncHolder` makes the sync backend
+  swappable, so turning backup on takes effect at once; the key, workspace and names were
+  already read from the live config on every request.
+- The API key is write-only. `GET /api/settings` reports `apiKeySet` and never the key;
+  there is a test that the key's text is absent from the response.
+- A remote is validated before it reaches git: one starting with `-` would be read as an
+  option (`--upload-pack=…` runs a command). **Check** uses `git ls-remote` for reach and
+  an anonymous request to GitHub for visibility — verified live: `notes` private, `sage`
+  public.
+- `config.update` edits values in place, so comments survive, and leaves the file mode 600.
+- With settings open the global key handler stands down; it runs in the capture phase and
+  `⌘⌫` in a text field would otherwise reach "delete this note" first.
+- Along the way: non-markdown files open as plain text (`keybindings.toml` had been a wall
+  of H1s), a saved keybindings file applies at once, and an unparseable one says so.
+
+Not seen by eye. Changing the vault folder does not move notes; with git sync on, pointing
+at a folder with a different history and the same remote will not reconcile by itself.
 
 ## Known rough edges
 

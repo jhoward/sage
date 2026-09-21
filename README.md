@@ -106,7 +106,8 @@ nothing can drift out of sync with it.
 | Rename a note, updating inbound links | `⌘K` → rename |
 | Delete a note (confirm; undoable) | `⌘⌫` |
 | Pull several tasks from the backlog | `⌘⇧P` |
-| Settings (reveal `.occam/`) | `⌘K` → settings |
+| Settings | `⌘,` |
+| Show skills and keybindings in the sidebar | `⌘K` → settings folder |
 | Quick-add from anywhere → bottom of `## This week` | `⌘T`, then `↵` |
 | Quick-add to the backlog instead | `⌘T`, then `⇧↵` |
 | Start a meeting note (live notes) | `⌘M` |
@@ -302,15 +303,28 @@ They are separate because a **file is an object and a command is an action** —
 in one list is what makes a palette useless once a vault has hundreds of notes. Both are
 the same component with different lists, so the split costs nothing.
 
-## Settings is a folder
+## Settings: one screen for values, files for everything with a body
 
-There is no settings panel. `⌘K` → Settings reveals the hidden `.occam/` directory in the
-file tree, and you edit skills and config as ordinary files in the editor you already have.
+`⌘,` opens settings — one screen, in sections, that scrolls: backup, the API key, your
+names, the vault folder. There used to be no panel at all, and the machine's settings were
+a TOML file opened in another editor and applied on restart. Turning on backup meant
+hand-editing a path and a remote, the two values where a typo costs most.
+
+The rule that keeps the screen from becoming Evernote's is about *what* goes on it. A
+setting there is a **value**. Anything with a **body** — a skill's prompt, the keybindings —
+stays a file in `<vault>/.occam/`, which the screen links to and `⌘K` → "Show the settings
+folder" reveals in the sidebar. Those are the things that multiply, and as files an unused
+one is something you delete rather than a toggle that lives forever.
+
+Everything applies on Save except the vault folder, which waits for the next launch:
+every open file hangs off it. The API key is write-only — the screen is told that one
+exists and can replace or remove it, and it is never sent back. **Check** asks git whether
+a remote answers and asks GitHub, anonymously, whether the public can see it.
 
 ```
-<vault>/.occam/skills/*.md        prompts
-<vault>/.occam/keybindings.toml   (Phase 4)
-~/.config/occam/config.toml       machine-specific
+<vault>/.occam/skills/*.md        prompts — edit in the app
+<vault>/.occam/keybindings.toml   applies as soon as it is saved
+~/.config/occam/config.toml       what the settings screen writes; still editable by hand
 ```
 
 ## Live preview
@@ -522,7 +536,9 @@ Permanent, not "later":
 - No plugin API — skills are the extension point, and they are just prompts
 - No sharing, commenting, or multiplayer
 - No mobile app
-- No feature requiring a settings panel longer than one screen
+- No settings spread over several screens, and no setting with a body: one organized
+  screen of values, and files for the rest (this was "no panel longer than one screen"
+  until the single screen proved less confusing than two kinds of settings)
 
 ## Architecture
 
