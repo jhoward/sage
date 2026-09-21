@@ -206,3 +206,16 @@ def test_every_default_round_trips_through_the_file(vault: Vault):
         if not spec["key"]:
             continue
         assert result.overrides[name]["key"] == spec["key"].lower(), name
+
+
+def test_a_file_that_cannot_be_parsed_says_so(vault):
+    vault.write_file(keys.PATH, 'palette = "mod+k"\nnewNote = "mod+')
+    result = keys.load(vault, known={"palette", "newNote"})
+
+    assert result.overrides == {}
+    assert len(result.problems) == 1
+    assert "cannot be read" in result.problems[0]
+
+
+def test_a_missing_file_is_still_not_a_problem(vault):
+    assert keys.load(vault, known={"palette"}).problems == []

@@ -70,3 +70,25 @@ describe("Editor file switching", () => {
     }
   });
 });
+
+describe("a file that is not markdown", () => {
+  const TOML = '# Keybindings for Occam Notes.\n#\npalette = "mod+k"\n';
+
+  it("is not read as markdown: a # comment is a comment, not a heading", () => {
+    const { container } = render(
+      <Editor path=".occam/keybindings.toml" content={TOML} onSave={() => {}} />,
+    );
+    // Live preview took each comment for an H1 and hid its #, so the file opened as a
+    // wall of headings with the actual settings lost between them.
+    expect(container.querySelector(".cm-md-h1")).toBeNull();
+    expect(container.textContent).toContain("# Keybindings for Occam Notes.");
+    expect(container.querySelectorAll(".cm-config-comment").length).toBe(2);
+  });
+
+  it("the same text in a note still is", () => {
+    const { container } = render(
+      <Editor path="notes/a.md" content={"intro\n\n# A heading\n"} onSave={() => {}} />,
+    );
+    expect(container.querySelector(".cm-md-h1")).not.toBeNull();
+  });
+});

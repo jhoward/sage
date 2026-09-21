@@ -146,6 +146,11 @@ body {
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
+/* A comment in a settings file: present, but not competing with the settings. */
+.cm-config-comment {
+  color: var(--ink-muted);
+}
+
 /* ---- frontmatter header ----
    The UI font rather than the editor's: this is the app describing the file, not text
    you typed, and setting it apart is what stops it reading as a heading of your own. */

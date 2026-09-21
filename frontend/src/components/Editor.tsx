@@ -1,6 +1,15 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, highlightActiveLine, drawSelection } from "@codemirror/view";
+import {
+  Decoration,
+  EditorView,
+  ViewPlugin,
+  drawSelection,
+  highlightActiveLine,
+  keymap,
+  type DecorationSet,
+  type ViewUpdate,
+} from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
@@ -16,6 +25,35 @@ import type { SkillMode } from "../backend";
 import type { FileNode } from "../backend";
 
 const AUTOSAVE_MS = 500;
+
+/**
+ * A config file (TOML, in practice): no markdown, and its comments quietened so the few
+ * lines that are settings stand out from the many that explain them.
+ */
+const commentLine = Decoration.line({ class: "cm-config-comment" });
+const plainConfig = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = this.build(view);
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.viewportChanged) this.decorations = this.build(u.view);
+    }
+    build(view: EditorView) {
+      const lines = [];
+      for (const { from, to } of view.visibleRanges) {
+        for (let pos = from; pos <= to; ) {
+          const line = view.state.doc.lineAt(pos);
+          if (/^\s*#/.test(line.text)) lines.push(commentLine.range(line.from));
+          pos = line.to + 1;
+        }
+      }
+      return Decoration.set(lines);
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
 
 interface Props {
   path: string | null;
@@ -69,6 +107,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     // *next* file — silently destroying it.
     const filePath = path;
     const loaded = content;
+    const isMarkdown = /\.(md|markdown)$/i.test(filePath);
     let timer: number | null = null;
     let dirty = false;
 
@@ -88,10 +127,14 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         history(),
         drawSelection(),
         highlightActiveLine(),
-        // GFM rather than plain CommonMark: without it ~~strikethrough~~ and tables do
-        // not parse at all, so nothing downstream can render them.
-        markdown({ base: markdownLanguage }),
-        syntaxHighlighting(inkHighlight),
+        ...(isMarkdown
+          ? [
+              // GFM rather than plain CommonMark: without it ~~strikethrough~~ and tables
+              // do not parse at all, so nothing downstream can render them.
+              markdown({ base: markdownLanguage }),
+              syntaxHighlighting(inkHighlight),
+            ]
+          : [plainConfig]),
         EditorView.lineWrapping,
         // Two spaces per level, which is what the cheat sheet documents and what markdown
         // list nesting conventionally uses.
@@ -101,14 +144,21 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         // which is what both keys already mean everywhere else on the system.
         search({ top: true }),
         highlightSelectionMatches(),
-        todoExtension(),
-        wikilinkExtension(
-          (p) => openLink.current?.(p),
-          (name) => createLink.current?.(name),
-        ),
-        livePreviewExtension(),
-        frontmatterExtension,
-        boundKeys({ bold, italic }),
+        // Everything that reads the text as markdown is for markdown. A settings file
+        // opened with these on is a wall of headings: live preview takes each
+        // `# comment` for an H1 and hides the `#`.
+        ...(isMarkdown
+          ? [
+              todoExtension(),
+              wikilinkExtension(
+                (p) => openLink.current?.(p),
+                (name) => createLink.current?.(name),
+              ),
+              livePreviewExtension(),
+              frontmatterExtension,
+              boundKeys({ bold, italic }),
+            ]
+          : []),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => (flush(), true) },
           ...searchKeymap,
@@ -136,7 +186,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     // A new editor's cursor is at offset 0, which is inside the frontmatter — and a cursor
     // in the frontmatter is what reveals it raw. Start in the note itself instead, which
     // is also where anyone would want to start typing.
-    instance.dispatch({ selection: { anchor: bodyStart(instance.state) } });
+    if (isMarkdown) instance.dispatch({ selection: { anchor: bodyStart(instance.state) } });
 
     const remembered = scrollTops.current.get(filePath);
     if (remembered) instance.scrollDOM.scrollTop = remembered;
