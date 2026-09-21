@@ -13,7 +13,7 @@ For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
 cd backend-python && uv run pytest   # 274 passed, 1 skipped
-cd frontend && npm test              # 247 passed
+cd frontend && npm test              # 248 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -181,7 +181,18 @@ Decided: **one organized, scrolling settings screen for values; files for anythi
 body.** The worry was that two kinds of settings leaves people guessing which kind they
 want. This rewords a line of the "no" list, on purpose — see the README.
 
-- `⌘,` opens it. Sections: Backup, AI, You, Vault, and links out to keybindings and skills.
+- `⌘,` opens it, and so do a gear in the sidebar footer and the backup indicator. The
+  first build had only the shortcut and the palette, so it could not be found — the same
+  mistake this whole stretch of work began with. Sections: Backup, AI, You, Vault, AI
+  skills, Keyboard.
+- Skills are listed by name with what each reads and where its result goes, in words made
+  from its frontmatter, and an Edit button that opens the file. This replaced a "Show
+  skills in the sidebar" button that revealed a folder behind a closing dialog.
+- **Unconfirmed: whether `⌘,` reaches the page inside the app.** pywebview does not take
+  it, but it could not be pressed from here. If it does not work, add a native
+  "Settings…" item to the app menu.
+- Worth a look: "Expand" has `context: note` with `mode: replace`, so with no selection it
+  replaces the whole note, while its prompt talks about the selected text.
 - Everything applies on Save except the vault folder. `SyncHolder` makes the sync backend
   swappable, so turning backup on takes effect at once; the key, workspace and names were
   already read from the live config on every request.
