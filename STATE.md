@@ -1,6 +1,6 @@
 # Where this is
 
-_Last updated: 2026-09-19 — todo discoverability: drawn checkboxes, numbered tasks, one key table._
+_Last updated: 2026-09-20 — git sync is live; the real vault is `~/occam`, backed up to a private GitHub repo._
 
 ## Running it in 30 seconds
 
@@ -66,7 +66,9 @@ Worth knowing, because each one cost time:
 - A personal key carries full account permissions. A workspace-scoped key would be
   narrower and needs no workspace ID at all — worth switching to at some point.
 
-Vault lives at `~/notes` (config: `~/.config/occam/config.toml`).
+The real vault is `~/occam` (config: `~/.config/occam/config.toml`), pushed to the private
+repo `jhoward/notes`. `~/notes` is the old generated test data, left intact as a demo vault —
+point `vault_path` at it to get 59 interlinked notes to test against.
 
 ## Done — the standard-UI pass (2026-08-29)
 
@@ -146,9 +148,9 @@ come.
 
 ## Done — git sync, Phase 4 item 1 (2026-09-20)
 
-`vault_sync/git.py`, behind the `VaultSync` protocol from Phase 1. **Built and tested, not
-yet switched on**: `~/notes` is still `sync = "local"` and still test data. Turning it on
-is `sync = "git"` (and optionally `sync_remote`) in `~/.config/occam/config.toml`.
+`vault_sync/git.py`, behind the `VaultSync` protocol from Phase 1. **Live since
+2026-09-20**: verified end to end against GitHub — the startup commit, an automatic commit
+after the quiet period, and a clean quit, all pushed without intervention.
 
 - Commits when the vault has been quiet 30s, or dirty 5 min; on startup (work done while
   closed) and on quit. Messages are derived from the change list — no model.
@@ -255,5 +257,7 @@ only if the escalation ladder in the README actually demands it.
 - **Rollover must never lose a task.** It is deterministic precisely so it can be trusted.
   `tests/test_todo_phase2.py` covers ordering, sections, rolled counts, idempotency, and
   leaving the archive untouched — keep those green.
-- **The vault is not a git repo yet.** Git-backed sync is Phase 4. Until then `~/notes` has
-  no version history — worth a manual backup if real notes accumulate.
+- **The notes repo must stay private.** `jhoward/notes` was created private and checked
+  before the first push. Adding a collaborator shares every note and the whole history.
+- `~/.config/occam/config.toml` holds the API key and is now mode 600, as is the `.bak`
+  beside it. It was world-readable before.
