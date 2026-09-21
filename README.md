@@ -63,8 +63,20 @@ What it will not do: hang (every git call has a timeout, and password and signin
 are off, so a missing SSH key is a status, not a stuck thread); write conflict markers into
 a note (a conflicting rebase is detected in advance and never started — your commits stay
 local and the indicator names the files); or commit into another repository (a vault that
-sits inside one is refused). The dot in the sidebar footer is grey when all is well, amber
-while offline, red for a conflict; hover for the detail.
+sits inside one is refused).
+
+The dot in the sidebar footer, with a word beside it:
+
+| | | |
+|---|---|---|
+| grey | backup off | files only, no history |
+| green | synced · saved | nothing is waiting — committed, and pushed if there is a remote ("saved" means this Mac only) |
+| yellow | pending · syncing · offline | it will pass by itself: edits waiting for a pause, a push under way, no network |
+| red | sync failed · conflict | it needs you: a rejected key, a missing repository, edits in two places |
+
+The line between yellow and red is whether it resolves without you. A laptop is offline a
+lot, and a red that fires on every train ride is a red nobody reads. Hover for the detail;
+click it for the backup settings.
 
 Not yet: browsing or restoring old versions from inside the app. Until then it is
 `git log -p -- notes/x.md` in the vault folder — the history is plain git on purpose.

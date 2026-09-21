@@ -15,7 +15,7 @@ import pytest
 
 from occam.vault_sync import GitSync, make
 from occam.vault_sync import git as git_mod
-from occam.vault_sync.git import describe
+from occam.vault_sync.git import GitError, describe, unreachable
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -288,7 +288,7 @@ def test_a_standing_conflict_never_touches_the_note_on_disk(vault: Path, remote:
 def test_a_failed_exchange_is_not_retried_on_every_tick(vault: Path, tmp_path: Path, monkeypatch):
     clock = Clock()
     sync = GitSync(vault, remote=str(tmp_path / "nowhere.git"), clock=clock)
-    assert sync.startup().state == "offline"
+    assert sync.startup().state == "error"
 
     calls = []
     monkeypatch.setattr(sync, "_exchange", lambda: calls.append(clock.now))
@@ -302,18 +302,66 @@ def test_a_failed_exchange_is_not_retried_on_every_tick(vault: Path, tmp_path: P
     assert len(calls) == 1
 
 
-def test_an_unreachable_remote_is_offline_and_the_commit_is_still_made(vault: Path, tmp_path: Path):
+def test_a_remote_that_is_not_there_is_an_error_and_the_commit_is_still_made(vault: Path, tmp_path: Path):
     sync = GitSync(vault, remote=str(tmp_path / "nowhere.git"), clock=Clock())
     status = sync.startup()
 
-    assert status.state == "offline"
+    # Red, not yellow: a repository that does not exist will not start existing.
+    assert status.state == "error"
     assert len(log(vault)) == 1  # the work is safe locally regardless
+
+
+def test_no_network_is_offline_but_a_refused_key_is_an_error():
+    for message in (
+        "fatal: unable to access 'https://github.com/x/y/': Could not resolve host: github.com",
+        "ssh: connect to host github.com port 22: Network is unreachable",
+        "ssh: connect to host github.com port 22: Operation timed out",
+        "git fetch timed out",
+    ):
+        assert unreachable(GitError(message, network=True))[0] == "offline", message
+
+    for message in (
+        "git@github.com: Permission denied (publickey).",
+        "ERROR: Repository not found.",
+        "fatal: '/x/nowhere.git' does not appear to be a git repository",
+    ):
+        state, detail = unreachable(GitError(message, network=True))
+        assert state == "error" and detail == message
+
+
+def test_edits_waiting_for_a_pause_are_pending_then_ok(vault: Path):
+    sync = GitSync(vault, clock=Clock())
+    sync.startup()
+    (vault / "a.md").write_text("# A\ntyping\n")
+
+    assert sync.tick().state == "pending"      # yellow while you type
+    age(vault / "a.md", git_mod.QUIET + 1)
+    assert sync.tick().state == "ok"           # green once it is committed
+    assert log(vault)[0] == "Edit a.md"
+
+
+def test_an_edit_that_is_undone_stops_being_pending(vault: Path):
+    sync = GitSync(vault, clock=Clock())
+    sync.startup()
+    (vault / "a.md").write_text("# A\ntyping\n")
+    assert sync.tick().state == "pending"
+
+    (vault / "a.md").write_text("# A\n")
+    assert sync.tick().state == "ok"
+    assert len(log(vault)) == 1
+
+
+def test_pending_does_not_paper_over_a_failure(vault: Path, tmp_path: Path):
+    sync = GitSync(vault, remote=str(tmp_path / "nowhere.git"), clock=Clock())
+    assert sync.startup().state == "error"
+    (vault / "a.md").write_text("# A\nmore\n")
+    assert sync.tick().state == "error"        # still red; yellow would be good news
 
 
 def test_coming_back_online_pushes_what_was_waiting(vault: Path, tmp_path: Path):
     gone = tmp_path / "later.git"
     sync = GitSync(vault, remote=str(gone), clock=Clock())
-    assert sync.startup().state == "offline"
+    assert sync.startup().state == "error"
 
     subprocess.run(["git", "init", "--bare", "-b", "main", str(gone)], check=True, capture_output=True)
     sync._clock.now += git_mod.RETRY_EVERY + 1
