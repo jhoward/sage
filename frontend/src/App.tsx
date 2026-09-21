@@ -10,6 +10,7 @@ import {
 import { AIReview, CopyButton } from "./components/AIReview";
 import { AskPanel } from "./components/AskPanel";
 import { Switcher } from "./components/Switcher";
+import { backlogLabel } from "./lib/todo";
 import { Editor, type EditorHandle } from "./components/Editor";
 import { FileTree } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
@@ -1313,7 +1314,7 @@ export default function App() {
         items={backlog.map((t) => ({
           id: `${t.path}:${t.line}`,
           label: t.text,
-          hint: t.rolled ? `rolled ${t.rolled}×` : t.path.replace(/^todo\//, ""),
+          hint: backlogLabel(t),
         }))}
         emptyLabel="Backlog is empty"
         confirmLabel={(n) => (n ? `Pull ${n}` : "Pull")}

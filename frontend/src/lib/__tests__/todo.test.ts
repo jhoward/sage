@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { EditorState, type TransactionSpec } from "@codemirror/state";
 import {
+  backlogLabel,
   continueList,
   indentListItem,
   outdentListItem,
@@ -558,5 +559,29 @@ describe("deleteLines", () => {
     t.dispatch({ selection: { anchor: 4 } });
     deleteLines(t);
     expect(t.state.selection.main.head).toBe(2); // clamped to the end of "xy"
+  });
+});
+
+describe("how a backlog task is labelled when pulling", () => {
+  const task = (section: string, path = "todo/backlog.md", rolled = 0) => ({ path, section, rolled });
+
+  it("by its project, which is its section", () => {
+    expect(backlogLabel(task("## Occam Features"))).toBe("Occam Features");
+    expect(backlogLabel(task("## General"))).toBe("General");
+  });
+
+  it("with how long it has been avoided", () => {
+    expect(backlogLabel(task("## Occam Features", "todo/backlog.md", 3))).toBe(
+      "Occam Features · rolled 3×",
+    );
+  });
+
+  it("by its file, once projects have files of their own", () => {
+    expect(backlogLabel(task("## General", "todo/backlog/occam.md"))).toBe("occam");
+    expect(backlogLabel(task("## Editor", "todo/backlog/occam.md"))).toBe("occam › Editor");
+  });
+
+  it("says nothing rather than something wrong for a task above any heading", () => {
+    expect(backlogLabel(task(""))).toBe("");
   });
 });

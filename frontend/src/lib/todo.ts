@@ -723,3 +723,18 @@ export function todoExtension() {
     ),
   ];
 }
+
+/**
+ * How a backlog task is labelled in the pull picker: by its project.
+ *
+ * A project is a section of the backlog ("## Occam Features"), so the section is what
+ * tells two tasks apart. The file name said nothing while there was one backlog file —
+ * every row read "backlog.md". With a file per project the file is the project, so it is
+ * named when the section alone would not say.
+ */
+export function backlogLabel(task: { path: string; section: string; rolled: number }): string {
+  const section = task.section.replace(/^#+\s*/, "").trim();
+  const file = task.path.replace(/^todo\/(backlog\/)?/, "").replace(/\.md$/, "");
+  const project = file !== "backlog" ? (section && section !== "General" ? `${file} › ${section}` : file) : section;
+  return [project, task.rolled ? `rolled ${task.rolled}×` : ""].filter(Boolean).join(" · ");
+}
