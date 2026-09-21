@@ -6,6 +6,7 @@ const api = vi.hoisted(() => ({
   settings: vi.fn(),
   saveSettings: vi.fn(),
   checkRemote: vi.fn(),
+  skills: vi.fn(),
 }));
 vi.mock("../../backend", () => ({ backend: api }));
 
@@ -27,7 +28,7 @@ const handlers = () => ({
   onClose: vi.fn(),
   onEditKeys: vi.fn(),
   onShowKeys: vi.fn(),
-  onShowSkills: vi.fn(),
+  onEditSkill: vi.fn(),
   onSaved: vi.fn(),
 });
 
@@ -40,6 +41,13 @@ async function open(h = handlers()) {
 beforeEach(() => {
   api.settings.mockResolvedValue(CURRENT);
   api.saveSettings.mockResolvedValue({ ...CURRENT, restartNeeded: false });
+  api.skills.mockResolvedValue({
+    available: true,
+    skills: [
+      { id: "cleanup", title: "Clean up", context: "selection", mode: "replace", path: ".occam/skills/cleanup.md" },
+      { id: "ask", title: "Ask about this note", context: "note-and-links", mode: "append", asks: true, path: ".occam/skills/ask.md" },
+    ],
+  });
 });
 afterEach(() => {
   cleanup();
@@ -49,7 +57,7 @@ afterEach(() => {
 describe("the settings screen", () => {
   it("has every kind of setting on the one screen", async () => {
     await open();
-    for (const section of ["Backup", "AI", "You", "Vault", "Keyboard and skills"]) {
+    for (const section of ["Backup", "AI", "You", "Vault", "AI skills", "Keyboard"]) {
       expect(screen.getByRole("heading", { name: section })).toBeTruthy();
     }
   });
@@ -129,6 +137,21 @@ describe("the settings screen", () => {
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Check" }));
     expect((await screen.findByText("Reachable, and private.")).getAttribute("data-tone")).toBe("good");
+  });
+
+  it("lists each skill by name, says what it does, and opens its file", async () => {
+    const h = await open();
+    expect(await screen.findByText("Clean up")).toBeTruthy();
+    expect(screen.getByText("reads the selected text, replaces it")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "asks you a question, reads this note and the notes it links to, adds the result to the end of the note",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    expect(h.onEditSkill).toHaveBeenCalledWith(".occam/skills/cleanup.md");
+    expect(h.onClose).toHaveBeenCalled();
   });
 
   it("explains an environment key instead of offering to remove it", async () => {

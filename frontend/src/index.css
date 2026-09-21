@@ -631,3 +631,31 @@ body {
 .side-foot-button:hover {
   color: var(--ink-fg);
 }
+
+.settings-list {
+  margin-top: 10px;
+  border: 1px solid var(--ink-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.settings-list-row {
+  display: grid;
+  grid-template-columns: 130px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 8px 7px 12px;
+}
+
+.settings-list-row + .settings-list-row {
+  border-top: 1px solid var(--ink-border);
+}
+
+.settings-list-name {
+  font-weight: 500;
+}
+
+.settings-list-what {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
