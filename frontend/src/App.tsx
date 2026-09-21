@@ -28,6 +28,7 @@ import {
   matches,
   renderKeySheet,
 } from "./lib/keybindings";
+import { KEYS_SHEET, MARKDOWN_SHEET, toggleSheet as sheetMove } from "./lib/sheets";
 import { lineLinksTo, linkNameFor, slugify } from "./lib/wikilinks";
 
 /** The note's own title: its first `# heading`, else the filename. */
@@ -83,7 +84,7 @@ function PaneHeader({
 const KEYBINDINGS_PATH = ".occam/keybindings.toml";
 // Written fresh every time ⌘/ is pressed, so listing it among the settings only invites
 // edits that will not survive.
-const GENERATED = new Set([".occam/keys.md"]);
+const GENERATED = new Set([KEYS_SHEET]);
 
 /** The tree without generated files, which are reached by their own command. */
 function withoutGenerated(nodes: FileNode[]): FileNode[] {
@@ -305,14 +306,30 @@ export default function App() {
   // The key sheet is a file like the markdown one, so it opens in the same pane with the
   // same gestures — but written fresh each time, because a shortcut list maintained by
   // hand is wrong within a month, and this one has to show the overrides in force.
-  const openKeys = useCallback(async () => {
-    try {
-      await backend.writeFile(".occam/keys.md", renderKeySheet());
-      await openSplit(".occam/keys.md");
-    } catch (e) {
-      setError(String(e));
-    }
-  }, [openSplit]);
+  // What the split pane held before a reference sheet took it over.
+  const beforeSheet = useRef<string | null>(null);
+
+  /** Show a reference sheet in the split pane, or put it away — see lib/sheets.ts. */
+  const toggleSheet = useCallback(
+    async (sheet: string, prepare?: () => Promise<void>) => {
+      try {
+        const move = sheetMove(split?.path ?? null, sheet, beforeSheet.current);
+        beforeSheet.current = move.remember;
+        if (move.show === sheet) await prepare?.();
+        if (move.show) await openSplit(move.show);
+        else setSplit(null);
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [split, openSplit],
+  );
+
+  const openKeys = useCallback(
+    () => toggleSheet(KEYS_SHEET, () => backend.writeFile(KEYS_SHEET, renderKeySheet())),
+    [toggleSheet],
+  );
+  const openCheatsheet = useCallback(() => toggleSheet(MARKDOWN_SHEET), [toggleSheet]);
 
   const runSkill = useCallback(
     async (skill: SkillInfo, instruction?: string) => {
@@ -664,7 +681,7 @@ export default function App() {
         group: "View",
         title: "Markdown cheat sheet (in split pane)",
         keywords: "help syntax reference formatting",
-        run: () => openSplit(".occam/markdown.md"),
+        run: openCheatsheet,
       },
       {
         id: "view.split",
@@ -777,7 +794,7 @@ export default function App() {
     // Files live in ⌘O, not here — see the note on the overlay state above.
     commandsRef.current = list;
     return list;
-  }, [path, backlog, split, skills, aiReady, showSettings, keysLoaded, open, openSplit, openKeys, refresh, runSkill, meetingFromClipboard]);
+  }, [path, backlog, split, skills, aiReady, showSettings, keysLoaded, open, openSplit, openKeys, openCheatsheet, refresh, runSkill, meetingFromClipboard]);
 
   const fileCommands = useMemo<Command[]>(
     () =>
@@ -852,7 +869,7 @@ export default function App() {
           });
         }
       },
-      cheatsheet: () => void openSplit(".occam/markdown.md"),
+      cheatsheet: () => void openCheatsheet(),
       keys: () => void openKeys(),
       week: () => void backend.week().then((w) => open(w.path)),
       backlog: () => {
@@ -864,7 +881,7 @@ export default function App() {
       archiveNote: () => void runCommand("note.archive"),
       undo: () => void runCommand("ai.undo"),
     }),
-    [split, meetingFromClipboard, openSplit, openKeys, open, runCommand, go],
+    [split, meetingFromClipboard, openSplit, openKeys, openCheatsheet, open, runCommand, go],
   );
 
   useEffect(() => {
@@ -1261,7 +1278,9 @@ export default function App() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onEditKeys={() => runCommand("keys.edit")}
-        onShowKeys={() => void openKeys()}
+        onShowKeys={() => {
+          if (split?.path !== KEYS_SHEET) void openKeys();
+        }}
         onEditSkill={(p) => void open(p)}
         onSaved={(message) => {
           setStatus(message);
