@@ -113,6 +113,8 @@ export default function App() {
   const [palette, setPalette] = useState(false);
   const [switcher, setSwitcher] = useState(false);
   const [newNote, setNewNote] = useState(false);
+  // Set when the note was asked for from a folder's menu; null means the default place.
+  const [newNoteFolder, setNewNoteFolder] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [showSettings, setShowSettings] = useState(false);
@@ -945,7 +947,15 @@ export default function App() {
                         setRenamingFolder(true);
                       },
                     },
-                    { label: "New note here…", run: () => setNewNote(true) },
+                    {
+                      label: "New note here…",
+                      run: () => {
+                        // "Here" has to mean here. This used to open the ordinary
+                        // prompt, which put the note in notes/ whatever was clicked.
+                        setNewNoteFolder(target.path);
+                        setNewNote(true);
+                      },
+                    },
                   ]
                 : [
                     { label: "Open in split", run: () => void openSplit(target.path) },
@@ -1177,12 +1187,20 @@ export default function App() {
       />
       <Prompt
         open={newNote}
-        label="New note — a slash makes a folder"
+        label={
+          newNoteFolder
+            ? `New note in ${newNoteFolder} — a slash makes a folder inside it`
+            : "New note — a slash makes a folder"
+        }
         placeholder="vendor-risk, or governance/vendor-risk"
-        onClose={() => setNewNote(false)}
+        onClose={() => {
+          setNewNote(false);
+          setNewNoteFolder(null);
+        }}
         onSubmit={(name) => {
           setNewNote(false);
-          void createNote(name);
+          void createNote(name, newNoteFolder ?? undefined);
+          setNewNoteFolder(null);
         }}
       />
       <MultiPicker
