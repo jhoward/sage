@@ -619,3 +619,15 @@ body {
   color: var(--ink-danger);
   font-size: 12px;
 }
+
+.side-foot-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.side-foot-button:hover {
+  color: var(--ink-fg);
+}

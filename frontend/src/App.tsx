@@ -1039,15 +1039,33 @@ export default function App() {
           className="flex shrink-0 items-center justify-between gap-2 border-t px-3 py-1.5"
           style={{ borderColor: "var(--ink-border)" }}
         >
+          {/* Visible, because a settings screen reachable only by a shortcut you have to
+              already know is not reachable. The gear is what people look for. */}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="side-foot-button"
+            title={`Settings  ${label(binding("settings"))}`}
+            aria-label="Settings"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M6.6 1h2.8l.4 1.9c.4.2.8.4 1.1.6l1.8-.6 1.4 2.4-1.4 1.3a5 5 0 0 1 0 1.3l1.4 1.3-1.4 2.4-1.8-.6c-.3.3-.7.5-1.1.6L9.4 15H6.6l-.4-1.9a5 5 0 0 1-1.1-.6l-1.8.6-1.4-2.4 1.4-1.3a5 5 0 0 1 0-1.3L1.9 5.3l1.4-2.4 1.8.6c.3-.3.7-.5 1.1-.6L6.6 1ZM8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Z"
+              />
+            </svg>
+            Settings
+          </button>
           <button
             onClick={() => void openKeys()}
-            className="min-w-0 truncate text-left text-[11px] hover:opacity-70"
-            style={{ color: "var(--ink-muted)" }}
+            className="side-foot-button min-w-0 flex-1 truncate text-left"
             title="Keyboard shortcuts"
           >
-            {label(binding("keys"))} shortcuts · {label(binding("palette"))} commands
+            {label(binding("keys"))} shortcuts
           </button>
-          <SyncIndicator status={sync} />
+          {/* The backup dot leads to the backup settings: where else would it go. */}
+          <button onClick={() => setSettingsOpen(true)} title="Backup settings">
+            <SyncIndicator status={sync} />
+          </button>
         </div>
       </aside>
       )}
