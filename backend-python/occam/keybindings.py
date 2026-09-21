@@ -93,8 +93,16 @@ def load(vault, known: set[str] | None = None) -> Bindings:
     """Read overrides. A missing file is not a problem — it means the defaults."""
     result = Bindings()
     try:
-        raw = tomllib.loads(vault.read_file(PATH))
+        text = vault.read_file(PATH)
     except Exception:
+        return result
+    try:
+        raw = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        # A file that is there but cannot be parsed is not "no overrides". Treating it so
+        # dropped every binding back to its default without a word — and now that a save
+        # applies at once, that would happen in the middle of typing a line.
+        result.problems.append(f"the file cannot be read, so defaults are in use ({exc})")
         return result
 
     seen: dict[str, str] = {}

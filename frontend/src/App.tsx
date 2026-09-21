@@ -79,6 +79,18 @@ function PaneHeader({
   );
 }
 
+const KEYBINDINGS_PATH = ".occam/keybindings.toml";
+// Written fresh every time ⌘/ is pressed, so listing it among the settings only invites
+// edits that will not survive.
+const GENERATED = new Set([".occam/keys.md"]);
+
+/** The tree without generated files, which are reached by their own command. */
+function withoutGenerated(nodes: FileNode[]): FileNode[] {
+  return nodes
+    .filter((n) => !GENERATED.has(n.path))
+    .map((n) => (n.children ? { ...n, children: withoutGenerated(n.children) } : n));
+}
+
 /** Flatten the tree so every note is reachable from the palette. */
 function flatten(nodes: FileNode[], out: FileNode[] = []): FileNode[] {
   for (const n of nodes) {
@@ -177,7 +189,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     try {
       const { files, sync } = await backend.listFiles(showSettings);
-      setFiles(files);
+      setFiles(withoutGenerated(files));
       setSync(sync);
       backend.week().then(setWeek).catch(() => {});
       setError(null);
@@ -385,6 +397,14 @@ export default function App() {
     try {
       await backend.writeFile(p, body);
       setError(null);
+      // A saved keybindings file takes effect now. It used to need a restart, which made
+      // trying a binding a thirty-second round trip and hid typos until the next launch.
+      if (p === KEYBINDINGS_PATH) {
+        const { overrides, problems } = await backend.keybindings(BINDINGS);
+        applyOverrides(overrides);
+        setKeysLoaded((n) => n + 1);
+        setStatus(problems.length ? `Keybindings: ${problems.join("; ")}` : "Keybindings applied");
+      }
     } catch (e) {
       setError(String(e));
     }
@@ -605,7 +625,7 @@ export default function App() {
             setShowSettings(true);
             await refresh();
             await open(p);
-            setStatus("Edit and restart for the new bindings to take effect");
+            setStatus("Changes apply as soon as they are saved");
           } catch (e) {
             setError(String(e));
           }

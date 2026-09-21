@@ -12,8 +12,8 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
-cd backend-python && uv run pytest   # 244 passed, 1 skipped
-cd frontend && npm test              # 235 passed
+cd backend-python && uv run pytest   # 246 passed, 1 skipped
+cd frontend && npm test              # 237 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -174,6 +174,20 @@ Known gaps, deliberately left:
 **Watch out:** `Config` is constructed positionally in tests. A field added mid-order
 shifts every later argument — `sync_remote` went in after `sync` at first, and the API key
 landed in it, one step from being passed to git as a remote URL. New fields go last.
+
+## Settings — three fixes done, the shape still open (2026-09-21)
+
+Done, because they were wrong whatever settings becomes:
+- Non-markdown files open as plain text. `keybindings.toml` was getting live preview, so
+  every `# comment` rendered as an H1 with its `#` hidden — a wall of headings.
+- A saved `keybindings.toml` applies at once (no restart), and a file that cannot be
+  parsed now reports itself instead of silently meaning "no overrides".
+- The generated `.occam/keys.md` is left out of the tree; `⌘/` is how it is reached.
+
+Open — ask before building: settings live in two places by two mechanisms. The vault's
+(`.occam/`, in the tree, in-app) and the machine's (`~/.config/occam/config.toml`, external
+editor, restart). Turning on git sync meant hand-editing TOML. The "no" list permits a
+settings panel of one screen; the README currently says there is none.
 
 ## Known rough edges
 
