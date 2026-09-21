@@ -27,7 +27,17 @@ export function ContextMenu({
   useEffect(() => {
     if (!at) return;
     const dismiss = () => onClose();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return onClose();
+      // Arrows walk the items, as they do in every native menu; Enter is then the
+      // focused button's own behaviour and needs no code.
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      const buttons = [...(menu.current?.querySelectorAll("button") ?? [])];
+      const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      buttons[(at + step + buttons.length) % buttons.length]?.focus();
+    };
 
     // Any click, scroll or Escape closes it — a menu that outlives its context is worse
     // than no menu.
@@ -43,37 +53,43 @@ export function ContextMenu({
 
   if (!at) return null;
 
+  // Destructive items are set apart by a rule, so "Delete" is never one slip of the
+  // pointer below "Archive" with nothing in between.
+  const firstDanger = items.findIndex((i) => i.danger);
+  const ruled = firstDanger > 0;
+
   // Keep it on screen when opened near an edge.
-  const width = 190;
-  const height = items.length * 30 + 8;
+  const width = 200;
+  const height = items.length * 28 + 10 + (ruled ? 9 : 0);
   const x = Math.min(at.x, window.innerWidth - width - 8);
   const y = Math.min(at.y, window.innerHeight - height - 8);
 
   return (
     <div
       ref={menu}
-      className="fixed z-50 overflow-hidden rounded-md border py-1 shadow-xl"
-      style={{
-        left: x,
-        top: y,
-        width,
-        background: "var(--ink-panel)",
-        borderColor: "var(--ink-border)",
-      }}
+      role="menu"
+      className="ctx-menu"
+      style={{ left: x, top: y, width }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {items.map((item) => (
-        <button
-          key={item.label}
-          onClick={() => {
-            onClose();
-            item.run();
-          }}
-          className="block w-full px-3 py-1 text-left text-xs hover:opacity-70"
-          style={{ color: item.danger ? "var(--ink-danger)" : "var(--ink-fg)" }}
-        >
-          {item.label}
-        </button>
+      {items.map((item, i) => (
+        <div key={item.label} role="none">
+          {ruled && i === firstDanger && <div className="ctx-rule" role="separator" />}
+          <button
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              item.run();
+            }}
+            // Hovering moves focus, so the pointer and the arrow keys share one
+            // highlight instead of showing two.
+            onMouseEnter={(e) => e.currentTarget.focus()}
+            className="ctx-item"
+            data-danger={item.danger || undefined}
+          >
+            {item.label}
+          </button>
+        </div>
       ))}
     </div>
   );
