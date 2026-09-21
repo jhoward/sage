@@ -13,7 +13,7 @@ For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
 cd backend-python && uv run pytest   # 278 passed, 1 skipped
-cd frontend && npm test              # 254 passed
+cd frontend && npm test              # 257 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -195,9 +195,9 @@ want. This rewords a line of the "no" list, on purpose — see the README.
 - Skills are listed by name with what each reads and where its result goes, in words made
   from its frontmatter, and an Edit button that opens the file. This replaced a "Show
   skills in the sidebar" button that revealed a folder behind a closing dialog.
-- **Unconfirmed: whether `⌘,` reaches the page inside the app.** pywebview does not take
-  it, but it could not be pressed from here. If it does not work, add a native
-  "Settings…" item to the app menu.
+- `⌘,` is confirmed working inside the app (2026-09-21), as is Escape to close. Escape
+  needed a window-level listener: a key only reaches an element holding focus, and on
+  opening, focus was still in the editor — so typing also went into the note behind it.
 - Worth a look: "Expand" has `context: note` with `mode: replace`, so with no selection it
   replaces the whole note, while its prompt talks about the selected text.
 - Everything applies on Save except the vault folder. `SyncHolder` makes the sync backend
