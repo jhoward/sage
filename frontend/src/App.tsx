@@ -904,6 +904,22 @@ export default function App() {
             selected={path}
             onOpen={open}
             onOpenAlt={openSplit}
+            onMove={async (from, to) => {
+              // The same call as the "Move…" prompt, so links are rewritten either way.
+              try {
+                const r = await backend.rename(from, to);
+                await refresh();
+                // Follow the note if it is the one on screen; otherwise leave the
+                // editor alone — filing something away should not change what you see.
+                if (from === path) await open(r.newPath);
+                // An editor saves to the path it was opened with. Left pointing at the
+                // old one, the split pane's next edit would bring the old file back.
+                if (split?.path === from) await openSplit(r.newPath);
+                setStatus(`Moved to ${r.newPath}`);
+              } catch (e) {
+                setError(String(e));
+              }
+            }}
             onRename={async (target, name) => {
               try {
                 if (target.isDir) {

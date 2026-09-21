@@ -111,7 +111,7 @@ nothing can drift out of sync with it.
 | Quick-add to the backlog instead | `⌘T`, then `⇧↵` |
 | Start a meeting note (live notes) | `⌘M` |
 | Paste a recap — into this meeting, or a new one | `⌘⇧V` |
-| Move a note to another folder | `⌘K` → move |
+| Move a note to another folder | drag it there, or `⌘K` → move |
 | Every shortcut, in the split pane | `⌘/` |
 | Make a line a task, then check it off | `⌘⏎` |
 | Turn a task back into an ordinary line | `⌘⇧⏎` |
