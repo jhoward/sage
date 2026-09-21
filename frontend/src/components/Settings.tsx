@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { backend } from "../backend";
+import { describeSync } from "./SyncIndicator";
 import type {
   RemoteCheck,
   Settings as SettingsData,
@@ -180,10 +181,8 @@ export function Settings({
               </label>
               {check && check !== "checking" && <CheckResult check={check} />}
               {saved?.syncStatus && draft.sync === saved.sync && (
-                <p className="settings-hint">
-                  Now: {saved.syncStatus.backend} · {saved.syncStatus.state}
-                  {saved.syncStatus.detail ? ` — ${saved.syncStatus.detail}` : ""}
-                </p>
+                // The same words as the dot in the sidebar, so the two never disagree.
+                <p className="settings-hint">Now: {describeSync(saved.syncStatus).title}</p>
               )}
             </section>
 

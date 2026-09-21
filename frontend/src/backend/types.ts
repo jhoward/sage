@@ -23,7 +23,7 @@ export interface SearchHit {
   text: string;
 }
 
-export type SyncState = "ok" | "syncing" | "conflict" | "offline" | "error";
+export type SyncState = "ok" | "pending" | "syncing" | "conflict" | "offline" | "error";
 
 export interface SyncStatus {
   backend: string; // "local" now; "git" / "drive" later

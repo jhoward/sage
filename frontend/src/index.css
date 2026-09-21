@@ -15,6 +15,8 @@
   --ink-danger: #dc2626;
   /* Text on an accent fill. The dark accent is a light blue, where white would wash out. */
   --ink-on-accent: #ffffff;
+  --ink-ok: #16a34a;
+  --ink-warn: #d97706;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +33,8 @@
     --ink-code: #e0a16b;
     --ink-danger: #f87171;
     --ink-on-accent: #0c1a2e;
+    --ink-ok: #4ade80;
+    --ink-warn: #fbbf24;
   }
 }
 
@@ -658,4 +662,39 @@ body {
 .settings-list-what {
   color: var(--ink-muted);
   font-size: 12px;
+}
+
+/* ---- backup indicator ---- */
+
+.sync-indicator {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-muted);
+}
+
+.sync-indicator[data-tone="good"] .sync-dot {
+  background: var(--ink-ok);
+}
+
+.sync-indicator[data-tone="waiting"] .sync-dot {
+  background: var(--ink-warn);
+}
+
+/* Only red colours the word too: it is the one state asking for something. */
+.sync-indicator[data-tone="bad"] {
+  color: var(--ink-danger);
+}
+
+.sync-indicator[data-tone="bad"] .sync-dot {
+  background: var(--ink-danger);
 }

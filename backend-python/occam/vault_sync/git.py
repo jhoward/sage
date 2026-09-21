@@ -155,15 +155,25 @@ class GitSync:
             return self._status
         with self._lock:
             try:
-                committed = self._commit_when_settled()
+                outcome = self._commit_when_settled()
+                committed = outcome == "committed"
                 waited = self._clock() - self._last_fetch
-                retry = self._status.state != "ok" and waited >= RETRY_EVERY
+                failing = self._status.state in ("offline", "error", "conflict")
+                retry = failing and waited >= RETRY_EVERY
                 if self.remote and (committed or retry or waited >= FETCH_EVERY):
                     self._exchange()
                 elif not self.remote and (committed or self._status.state == "error"):
                     # With a remote, only a successful exchange may clear a bad state:
                     # calling an unreachable remote "ok" between retries would be a lie.
                     self._set("ok", "local history only")
+
+                # Edits waiting for a pause. Shown only over a healthy state: a failure
+                # is the more important thing to be told, and is already not green.
+                if outcome == "waiting" and self._status.state == "ok":
+                    self._set("pending", "changes will be committed when you pause")
+                elif outcome == "clean" and self._status.state == "pending":
+                    # Changed and changed back, so there was nothing to commit after all.
+                    self._set("ok", "" if self.remote else "local history only")
             except GitError as exc:
                 self._fail(exc)
             return self._status
@@ -224,11 +234,12 @@ class GitSync:
             changes.append((code, path))
         return changes
 
-    def _commit_when_settled(self) -> bool:
+    def _commit_when_settled(self) -> str:
+        """"clean", "waiting" (dirty, but too fresh to commit) or "committed"."""
         changes = self._changes()
         if not changes:
             self._dirty_since = None
-            return False
+            return "clean"
 
         now = self._clock()
         if self._dirty_since is None:
@@ -243,8 +254,8 @@ class GitSync:
         still = time.time() - newest >= QUIET
         overdue = now - self._dirty_since >= MAX_WAIT
         if not (still or overdue):
-            return False
-        return self._commit(changes)
+            return "waiting"
+        return "committed" if self._commit(changes) else "clean"
 
     def _commit(self, changes: list[tuple[str, str]] | None = None) -> bool:
         changes = self._changes() if changes is None else changes
@@ -266,9 +277,7 @@ class GitSync:
         try:
             self._git("fetch", "origin", network=True)
         except GitError as exc:
-            # Unreachable is a normal state for a laptop, not a failure: the commits are
-            # safe locally and go out on a later tick.
-            self._set("offline", str(exc))
+            self._set(*unreachable(exc))
             return
 
         branch = self._git("rev-parse", "--abbrev-ref", "HEAD").strip()
@@ -306,7 +315,7 @@ class GitSync:
             try:
                 self._git("push", "-u", "origin", branch, network=True)
             except GitError as exc:
-                self._set("offline" if exc.network else "error", str(exc))
+                self._set(*unreachable(exc))
                 return
         self._set("ok", "")
 
@@ -335,7 +344,33 @@ class GitSync:
         self._status = SyncStatus(backend=self.backend, state=state, detail=detail)
 
     def _fail(self, exc: GitError) -> None:
-        self._set("offline" if exc.network else "error", str(exc))
+        self._set(*(unreachable(exc) if exc.network else ("error", str(exc))))
+
+
+# What git says when there is simply no network. Anything else that stops an exchange —
+# a rejected key, a repository that is not there — will still be wrong tomorrow.
+_NO_NETWORK = (
+    "could not resolve host",
+    "network is unreachable",
+    "no route to host",
+    "connection timed out",
+    "operation timed out",
+    "connection refused",
+    "timed out",
+    "temporary failure in name resolution",
+)
+
+
+def unreachable(exc: GitError) -> tuple[str, str]:
+    """(state, detail) for an exchange that failed: offline if it will pass, error if not.
+
+    Offline is a normal state for a laptop — the commits are safe here and go out on a
+    later tick — so it must not look like a fault. A key GitHub refuses is a fault.
+    """
+    message = str(exc)
+    if any(sign in message.lower() for sign in _NO_NETWORK):
+        return "offline", "no network; commits are safe here and will be pushed later"
+    return "error", message
 
 
 def describe(changes: list[tuple[str, str]]) -> str:

@@ -12,8 +12,8 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
-cd backend-python && uv run pytest   # 274 passed, 1 skipped
-cd frontend && npm test              # 248 passed
+cd backend-python && uv run pytest   # 278 passed, 1 skipped
+cd frontend && npm test              # 254 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
@@ -161,6 +161,13 @@ after the quiet period, and a clean quit, all pushed without intervention.
 - The frontend polls `/api/sync` every 15s; it used to learn the status only when the
   file tree refreshed.
 - Tests run real git against a bare repository on disk. Nothing is mocked.
+- **The indicator is four colours** (2026-09-21): grey off, green nothing waiting, yellow
+  will pass by itself (`pending` edits, `syncing`, `offline`), red needs you (`error`,
+  `conflict`). Grey used to mean "fine", which made a healthy backup look switched off, and
+  the word beside it was "git". `unreachable()` sorts a failed exchange by git's message:
+  no network is yellow, a refused key or missing repository is red. Jim proposed red for
+  any failed connection; yellow-for-offline was my counter, to keep red rare — revisit if
+  he finds a dead network going unnoticed.
 
 Known gaps, deliberately left:
 - **No history or restore UI.** The payoff feature — "this note last Tuesday" in the split

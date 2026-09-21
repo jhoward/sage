@@ -14,7 +14,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Protocol, runtime_checkable
 
-State = Literal["ok", "syncing", "conflict", "offline", "error"]
+# What the indicator shows, as colours:
+#   green   ok        nothing is waiting: committed, and pushed if there is a remote
+#   yellow  pending   edits not yet committed — it commits when you pause
+#           syncing   an exchange with the remote is under way
+#           offline   no network; the commits are safe here and go out by themselves
+#   red     conflict  edited here and elsewhere
+#           error     it will not fix itself: a rejected key, a missing repository
+# Grey is the local backend, which has nothing to report. The line between yellow and red
+# is "will this resolve without you". A laptop is offline a lot; red has to stay rare
+# enough to mean something.
+State = Literal["ok", "pending", "syncing", "conflict", "offline", "error"]
 
 
 @dataclass
