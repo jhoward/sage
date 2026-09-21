@@ -12,7 +12,7 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
-cd backend-python && uv run pytest   # 220 passed, 1 skipped
+cd backend-python && uv run pytest   # 244 passed, 1 skipped
 cd frontend && npm test              # 219 passed
 ```
 
@@ -144,6 +144,35 @@ come.
 - A new editor puts the cursor at the start of the note body, not offset 0: a cursor in
   the frontmatter is what reveals it. An external reload now keeps the cursor in place.
 
+## Done — git sync, Phase 4 item 1 (2026-09-20)
+
+`vault_sync/git.py`, behind the `VaultSync` protocol from Phase 1. **Built and tested, not
+yet switched on**: `~/notes` is still `sync = "local"` and still test data. Turning it on
+is `sync = "git"` (and optionally `sync_remote`) in `~/.config/occam/config.toml`.
+
+- Commits when the vault has been quiet 30s, or dirty 5 min; on startup (work done while
+  closed) and on quit. Messages are derived from the change list — no model.
+- `run_ticker` drives `tick()` every 15s. The protocol always had `tick`; nothing called it.
+- Conflicts are detected with `git merge-tree` *before* rebasing. The first version
+  started the rebase and aborted it, which rewrote the open note on disk on every retry.
+- Failed exchanges wait 60s before retrying, and only a successful one clears "offline".
+- The frontend polls `/api/sync` every 15s; it used to learn the status only when the
+  file tree refreshed.
+- Tests run real git against a bare repository on disk. Nothing is mocked.
+
+Known gaps, deliberately left:
+- **No history or restore UI.** The payoff feature — "this note last Tuesday" in the split
+  pane — is the natural next step. Until then, `git log -p` in the vault.
+- **A pull does not reload the open note.** Commits arriving from another machine change
+  files under the editor, and the next autosave would overwrite them (history keeps both).
+  Irrelevant on one machine; must be fixed before using two.
+- Commits are authored as "Occam Notes" because this machine has no global git identity.
+  `git config --global user.name/user.email` changes that.
+
+**Watch out:** `Config` is constructed positionally in tests. A field added mid-order
+shifts every later argument — `sync_remote` went in after `sync` at first, and the API key
+landed in it, one step from being passed to git as a remote URL. New fields go last.
+
 ## Known rough edges
 
 The user's words: "there are a ton of other things." Not yet enumerated — ask before
@@ -158,7 +187,7 @@ Already known:
 
 ## Next — Phase 4
 
-1. **Git-backed sync** (`sage/vault_sync/git.py`) — `pull --rebase` / commit / push on a
+1. ~~Git-backed sync~~ — built, see above; needs switching on and a history UI. Was: (`sage/vault_sync/git.py`) — `pull --rebase` / commit / push on a
    timer, behind the `VaultSync` protocol that has been in place since Phase 1. This is
    the biggest outstanding gap: the vault still has no version history, and it doubles as
    the undo layer for AI edits.

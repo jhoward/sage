@@ -114,7 +114,7 @@ def create_app(
     if vault is None:
         vault = Vault(cfg.vault_path)
         vault.ensure()
-    sync = sync or vault_sync.make(cfg.sync, vault.root)
+    sync = sync or vault_sync.make(cfg.sync, vault.root, remote=getattr(cfg, "sync_remote", None))
     skills_mod.migrate_legacy_settings(vault)
     skills_mod.ensure_default_skills(vault)
     todo.migrate_week_files(vault)

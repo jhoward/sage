@@ -49,8 +49,18 @@ vault_path = "{vault_path}"
     (
         "sync",
         """
-# Sync backend. "local" does nothing; "git" arrives in a later phase.
+# Sync backend. "local" does nothing. "git" keeps the vault as a git repository: every
+# pause in your editing becomes a commit, which is both the history and the undo.
 sync = "{sync}"
+""",
+    ),
+    (
+        "sync_remote",
+        """
+# Where "git" sync pushes, for an offsite copy — a PRIVATE repository, since these are
+# your notes. Leave empty for local history only.
+#   sync_remote = "git@github.com:you/notes.git"
+sync_remote = "{sync_remote}"
 """,
     ),
     (
@@ -108,11 +118,16 @@ class Config:
     anthropic_workspace_id: str | None = None
     # Names to match when pulling your commitments out of a meeting note.
     me: list[str] = field(default_factory=list)
+    # Last, and it has to stay last: Config is built positionally in places, and a field
+    # added mid-order shifts every argument after it — which once put an API key here,
+    # one step from being handed to git as a remote URL.
+    sync_remote: str | None = None
 
     def _values(self) -> dict[str, str]:
         return {
             "vault_path": _escape(str(self.vault_path)),
             "sync": _escape(self.sync),
+            "sync_remote": _escape(self.sync_remote or ""),
             "anthropic_api_key": _escape(self.anthropic_api_key or ""),
             "anthropic_workspace_id": _escape(self.anthropic_workspace_id or ""),
             "me": "[" + ", ".join(f'"{_escape(n)}"' for n in self.me) + "]",
@@ -207,6 +222,7 @@ def load(path: Path | None = None) -> Config:
     cfg = Config(
         vault_path=Path(raw.get("vault_path", DEFAULT_VAULT)).expanduser(),
         sync=raw.get("sync", DEFAULT_SYNC),
+        sync_remote=raw.get("sync_remote") or None,
         anthropic_api_key=raw.get("anthropic_api_key") or None,
         anthropic_workspace_id=raw.get("anthropic_workspace_id") or None,
         me=[str(n) for n in raw.get("me", []) if str(n).strip()],

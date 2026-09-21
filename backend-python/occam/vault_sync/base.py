@@ -4,8 +4,9 @@ Sync operates on the folder *underneath* the vault API — read_file and write_f
 know it exists. That is what keeps this seam clean: LocalSync is a genuine no-op rather
 than a stub pretending to do something.
 
-Later implementations: git.py (pull --rebase / commit / push), drive.py (rclone bisync).
-Selected by the `sync` key in ~/.config/sage/config.toml.
+git.py is the second implementation (commit when you pause; fetch, rebase, push). A
+drive.py over rclone bisync was considered and not built. Selected by the `sync` key in
+~/.config/occam/config.toml.
 """
 
 from __future__ import annotations
