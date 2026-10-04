@@ -143,11 +143,12 @@ def test_archive_before_today_leaves_todays_work_on_screen(vault: Vault):
     assert "Set up the repo" not in now
     assert "Ticked somewhere else" not in now  # undated counts as old
     archive = body[body.index("## Archive") :]
+    # Newest first; the undated one last.
     assert archive.splitlines()[1:] == [
-        "- [x] Long ago <!-- done:2026-09-01 -->",
         "- [x] Set up the repo <!-- done:2026-10-01 -->",
-        "- [x] Ticked somewhere else",
         "- [x] Review the PR <!-- done:2026-09-30 -->",
+        "- [x] Long ago <!-- done:2026-09-01 -->",
+        "- [x] Ticked somewhere else",
     ]
 
 
@@ -174,6 +175,45 @@ def test_archive_takes_children_along(vault: Vault):
     assert body == (
         "## Now\n- [ ] Next\n\n## Archive\n"
         "- [x] Parent <!-- done:2026-10-01 -->\n  - note under it\n  - [ ] child\n"
+    )
+
+
+def test_archive_puts_newest_on_top_and_sorts_what_was_there(vault: Vault):
+    """An archive written oldest-first is put right the next time the list is swept."""
+    vault.write_file(
+        "todo/general.md",
+        "## Now\n- [x] Today <!-- done:2026-10-04 -->\n\n## Archive\n"
+        "- [x] Old <!-- done:2026-09-01 -->\n  - its note\n- [x] Undated\n- [x] Newer <!-- done:2026-09-20 -->\n",
+    )
+    assert todo.archive_done(vault, "todo/general.md") == 1
+    assert vault.read_file("todo/general.md") == (
+        "## Now\n\n## Archive\n"
+        "- [x] Today <!-- done:2026-10-04 -->\n"
+        "- [x] Newer <!-- done:2026-09-20 -->\n"
+        "- [x] Old <!-- done:2026-09-01 -->\n  - its note\n"
+        "- [x] Undated\n"
+    )
+
+
+def test_sweep_with_nothing_to_move_still_sorts_the_archive(vault: Vault):
+    vault.write_file(
+        "todo/general.md",
+        "## Now\n- [ ] Open\n\n## Archive\n- [x] A <!-- done:2026-09-01 -->\n- [x] B <!-- done:2026-09-02 -->\n",
+    )
+    assert todo.archive_done(vault, "todo/general.md", before=TODAY) == 0
+    assert vault.read_file("todo/general.md").endswith(
+        "## Archive\n- [x] B <!-- done:2026-09-02 -->\n- [x] A <!-- done:2026-09-01 -->\n"
+    )
+
+
+def test_same_day_finishes_keep_their_order(vault: Vault):
+    vault.write_file(
+        "todo/general.md",
+        "## Now\n- [x] First <!-- done:2026-10-01 -->\n- [x] Second <!-- done:2026-10-01 -->\n\n## Archive\n",
+    )
+    todo.archive_done(vault, "todo/general.md")
+    assert vault.read_file("todo/general.md").endswith(
+        "## Archive\n- [x] First <!-- done:2026-10-01 -->\n- [x] Second <!-- done:2026-10-01 -->\n"
     )
 
 
@@ -349,9 +389,9 @@ def test_migration_folds_weeks_and_backlog_into_lists(vault: Vault):
 ## Backlog
 
 ## Archive
+- [x] Done this week <!-- done:2026-09-20 -->
 - [x] Shipped early <!-- done:2026-09-13 -->
 - [x] Shipped late <!-- done:2026-09-13 -->
-- [x] Done this week <!-- done:2026-09-20 -->
 """
 
     assert vault.read_file("todo/occam-features.md") == """# Occam Features

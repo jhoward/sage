@@ -14,7 +14,8 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { indentUnit, syntaxHighlighting } from "@codemirror/language";
-import { todoCommands, todoExtension } from "../lib/todo";
+import { isList, todoCommands, todoExtension } from "../lib/todo";
+import { initialFolds, sectionFolding } from "../lib/sections";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
 import { livePreviewExtension } from "../lib/livePreview";
 import { bold, italic } from "../lib/markdownKeys";
@@ -156,6 +157,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
               ),
               livePreviewExtension(),
               frontmatterExtension,
+              sectionFolding(filePath),
               boundKeys({ bold, italic }),
             ]
           : []),
@@ -187,6 +189,12 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     // in the frontmatter is what reveals it raw. Start in the note itself instead, which
     // is also where anyone would want to start typing.
     if (isMarkdown) instance.dispatch({ selection: { anchor: bodyStart(instance.state) } });
+    // A list's Archive starts folded: it is the section that grows, and the one you read
+    // least. Anything folded or unfolded by hand is remembered for the file.
+    if (isMarkdown) {
+      const folds = initialFolds(instance.state, filePath, isList(filePath) ? ["## Archive"] : []);
+      if (folds.length) instance.dispatch({ effects: folds });
+    }
 
     const remembered = scrollTops.current.get(filePath);
     if (remembered) instance.scrollDOM.scrollTop = remembered;

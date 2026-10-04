@@ -53,6 +53,12 @@ mattered — dating finished work — is now a stamp.
   finished → Archive stamped with the file's Sunday, plain lines kept), each `## Section`
   of the old backlog became a list, the three were pinned, the old files removed. Counts
   checked before and after on the real vault: 54 open, 35 finished, both unchanged.
+- **Archive order and folding** (later the same day). The sweep puts moved tasks on top
+  and sorts the whole Archive newest-first, stable, undated last — which also put right
+  the archives the migration had written oldest-first. `lib/sections.ts` folds any `##`
+  section (never the `#` title) via CodeMirror's fold service: a chevron after the
+  heading, a placeholder with the task count, `foldKeymap`, and a per-file memory of
+  what is folded for the life of the app. A list opens with its Archive folded.
 - Rollover, the `rolled:` counter and the stale flag are gone. Old `rolled:` comments in
   files are harmless and hidden; the migration drops them from what it moves.
 - The chat tool `add_task` now targets `now` / `backlog` of the general list.

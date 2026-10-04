@@ -200,8 +200,11 @@ def append_line(vault, path: str, task: str, heading: str) -> str:
     return path
 
 
-def _insert_in_section(lines: list[str], block: list[str], heading: str) -> list[str]:
-    """`lines` with `block` appended to the end of `heading`'s section. Pure."""
+def _insert_in_section(
+    lines: list[str], block: list[str], heading: str, top: bool = False
+) -> list[str]:
+    """`lines` with `block` added to `heading`'s section — at its end, or with `top` at
+    its start. Pure."""
     lines = list(lines)
     try:
         idx = next(i for i, line in enumerate(lines) if line.strip() == heading)
@@ -209,6 +212,10 @@ def _insert_in_section(lines: list[str], block: list[str], heading: str) -> list
         while lines and not lines[-1].strip():
             lines.pop()
         lines.extend(["", heading, *block])
+        return lines
+
+    if top:
+        lines[idx + 1 : idx + 1] = block
         return lines
 
     # Insert after the last existing item in the section, so order is append.
@@ -219,6 +226,51 @@ def _insert_in_section(lines: list[str], block: list[str], heading: str) -> list
         end -= 1
     lines[end:end] = block
     return lines
+
+
+def _done_key(line: str) -> str:
+    """Sort key for an archive block: its done date, or '' for an undated one."""
+    m = TASK_RE.match(line)
+    return parse_meta(m.group(4)).get("done", "") if m else ""
+
+
+def _sort_archive(lines: list[str]) -> list[str]:
+    """The Archive with its newest finished work first. Pure, and stable.
+
+    An archive is read from the top — "what did I just finish" — so the order is by
+    `done:` date, latest first. Tasks finished on the same day keep their order; undated
+    ones go last, in the order they were. Each task keeps its nested lines with it. Lines
+    that are not tasks, and whatever precedes the first task, stay where they are.
+    """
+    try:
+        idx = next(i for i, line in enumerate(lines) if line.strip() == ARCHIVE)
+    except StopIteration:
+        return lines
+    end = idx + 1
+    while end < len(lines) and not lines[end].startswith("## "):
+        end += 1
+    tail = end
+    while tail > idx + 1 and not lines[tail - 1].strip():
+        tail -= 1
+
+    blocks: list[list[str]] = []
+    i = idx + 1
+    while i < tail:
+        m = TASK_RE.match(lines[i])
+        if m and not m.group(1)[0].isspace():
+            j = _block_end(lines, i)
+            blocks.append(lines[i:j])
+            i = j
+        else:
+            # Not a task: stays attached to whatever came before it.
+            if blocks:
+                blocks[-1].append(lines[i])
+            else:
+                blocks.append([lines[i]])
+            i += 1
+
+    ordered = sorted(blocks, key=lambda b: _done_key(b[0]), reverse=True)
+    return lines[: idx + 1] + [l for b in ordered for l in b] + lines[tail:end] + lines[end:]
 
 
 # ---- moving ----------------------------------------------------------
@@ -386,16 +438,19 @@ def archive_done(vault, path: str, before: date | None = None) -> int:
                 continue
         i += 1
 
-    if not found:
-        return 0
-
     out = list(lines)
     for start, end, _block in reversed(found):
         _remove_block(out, start, end)
-    out = renumber(out)
-    for _start, _end, block in found:
-        out = _insert_in_section(out, block, ARCHIVE)
-    vault.write_file(path, "\n".join(out).rstrip() + "\n")
+    if found:
+        out = renumber(out)
+    # Newest first: the moved blocks go on top (in file order among themselves), then the
+    # archive is sorted by date, which also puts an archive written oldest-first right.
+    moved = [line for _s, _e, block in found for line in block]
+    if moved:
+        out = _insert_in_section(out, moved, ARCHIVE, top=True)
+    out = _sort_archive(out)
+    if out != lines:
+        vault.write_file(path, "\n".join(out).rstrip() + "\n")
     return len(found)
 
 
@@ -537,6 +592,7 @@ def migrate_to_lists(vault) -> list[str]:
             vault.write_file(path, "\n".join(lines).rstrip() + "\n")
         else:
             vault.write_file(path, _render_list(title, now, backlog, archive))
+        vault.write_file(path, "\n".join(_sort_archive(vault.read_file(path).splitlines())) + "\n")
         written.append(path)
 
     for week in weeks:

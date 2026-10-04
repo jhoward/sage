@@ -200,8 +200,11 @@ Moving a task to the other section of its list is an editor command (`⌘K` → 
 this involves a model: it is instant, and it cannot silently drop a task.
 
 Lists of finished work grow, and that is fine: a thousand tasks is sixty kilobytes, and
-the editor renders only what is on screen. A command to sweep older years into a sibling
-file can come when someone wants it.
+the editor renders only what is on screen. The Archive keeps its newest work on top and
+opens **folded** — a chevron after any `##` heading collapses its section, the placeholder
+says how many tasks are under it, and what you fold is remembered for the file while the
+app runs. A command to sweep older years into a sibling file can come when someone wants
+it.
 
 ## Keybindings
 

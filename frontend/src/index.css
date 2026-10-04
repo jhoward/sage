@@ -109,6 +109,59 @@ body {
   text-decoration-thickness: 1px;
 }
 
+/* Section folding: a chevron after a heading that has something under it, and the
+   placeholder standing in for the folded lines. The chevron is the same rotating one the
+   sidebar uses, so collapsing reads the same everywhere. */
+.cm-section-toggle {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  vertical-align: middle;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms, transform 120ms;
+}
+
+.cm-section-toggle::before {
+  content: "";
+  display: block;
+  width: 5px;
+  height: 5px;
+  margin: 4px auto;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.cm-section-toggle[aria-expanded="false"]::before {
+  transform: rotate(-45deg);
+}
+
+.cm-line:hover .cm-section-toggle,
+.cm-section-toggle[aria-expanded="false"],
+.cm-section-toggle:focus-visible {
+  opacity: 1;
+}
+
+.cm-section-folded {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  color: var(--ink-muted);
+  background: color-mix(in srgb, var(--ink-fg) 6%, transparent);
+  cursor: pointer;
+}
+
+.cm-section-folded:hover {
+  color: var(--ink-fg);
+}
+
 /* The day a task was finished, drawn where its comment is. Dim, and no strikethrough:
    it is about the task, not part of it. */
 .cm-task-date {
