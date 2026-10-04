@@ -67,12 +67,8 @@ body {
   padding: 1.5rem 0;
 }
 
-/* A left margin wide enough for the section chevrons to sit in, beside the headings
-   rather than in the text. */
 .cm-content {
   caret-color: var(--ink-fg);
-  padding-left: 28px;
-  padding-right: 16px;
 }
 
 /* The editor draws its own caret and selection, and its defaults assume a white page:
@@ -113,24 +109,21 @@ body {
   text-decoration-thickness: 1px;
 }
 
-/* Section folding: a chevron in the margin before a heading that has something under it,
-   and the placeholder standing in for the folded lines. The chevron takes no horizontal
-   room of its own — a negative margin hangs it in the content padding — so headings stay
-   aligned with the text beneath them. Always visible, a little muted; full strength on
-   hover and when its section is folded. */
+/* Section folding: a chevron before a heading that has something under it, standing
+   where the hidden `##` marker is, and the placeholder standing in for the folded lines.
+   Always visible, a little muted; full strength on hover and when its section is folded. */
 .cm-section-toggle {
   display: inline-block;
   width: 18px;
   height: 18px;
-  margin-left: -24px;
   margin-right: 6px;
-  vertical-align: middle;
+  vertical-align: -3px;
   border: 0;
   padding: 0;
   background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
-  opacity: 0.55;
+  opacity: 0.6;
   transition: opacity 120ms;
 }
 

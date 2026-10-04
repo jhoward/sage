@@ -3,14 +3,13 @@
  * chevron, the placeholder's count, the Archive starting folded, and the memory of it.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { foldedRanges } from "@codemirror/language";
 import {
+  defaultFolds,
   foldedHeadings,
-  forgetFolds,
-  initialFolds,
   isFolded,
   sectionFolding,
   sectionRange,
@@ -32,17 +31,16 @@ const LIST = `# General
 
 let view: EditorView | null = null;
 
-function mount(doc: string, path = "todo/general.md", defaults = ["## Archive"]) {
+function mount(doc: string, isList = true, cursor = 0) {
   view = new EditorView({
-    state: EditorState.create({ doc, extensions: [sectionFolding(path)] }),
+    state: EditorState.create({ doc, selection: { anchor: cursor }, extensions: [sectionFolding()] }),
     parent: document.body,
   });
-  const folds = initialFolds(view.state, path, defaults);
+  const folds = defaultFolds(view.state, isList);
   if (folds.length) view.dispatch({ effects: folds });
   return view;
 }
 
-beforeEach(forgetFolds);
 afterEach(() => {
   view?.destroy();
   view = null;
@@ -90,9 +88,18 @@ describe("in the editor", () => {
     expect(v.contentDOM.textContent).not.toContain("a note under b");
   });
 
-  it("a note opens with nothing folded", () => {
-    const v = mount("# Note\n\n## Part\n- x\n", "notes/a.md", []);
+  it("a note opens with nothing folded, but its headings still fold", () => {
+    const v = mount("# Note\n\n## Part\n- x\n", false);
     expect(foldedHeadings(v.state)).toEqual([]);
+    expect(v.contentDOM.querySelectorAll(".cm-section-toggle").length).toBe(1);
+  });
+
+  it("the chevron steps aside while the cursor is on its heading", () => {
+    const v = mount(LIST, true, 12); // inside "## Now"
+    const toggles = v.contentDOM.querySelectorAll(".cm-section-toggle");
+    expect(toggles.length).toBe(1); // Archive's only
+    v.dispatch({ selection: { anchor: 0 } });
+    expect(v.contentDOM.querySelectorAll(".cm-section-toggle").length).toBe(2);
   });
 
   it("the chevron toggles its section, and the placeholder unfolds it", () => {
@@ -111,7 +118,7 @@ describe("in the editor", () => {
     expect(foldedHeadings(v.state)).toEqual(["## Now"]);
   });
 
-  it("remembers what was folded for the file, across opens, while the app runs", () => {
+  it("opens with the default every time — there is no memory of folds", () => {
     const v = mount(LIST);
     v.dispatch({ effects: toggleEffect(v.state, 8)! }); // unfold Archive
     expect(foldedRanges(v.state).size).toBe(0);
@@ -119,9 +126,6 @@ describe("in the editor", () => {
     view = null;
 
     const again = mount(LIST);
-    expect(foldedHeadings(again.state)).toEqual([]);
-
-    const other = mount(LIST, "todo/house.md");
-    expect(foldedHeadings(other.state)).toEqual(["## Archive"]);
+    expect(foldedHeadings(again.state)).toEqual(["## Archive"]);
   });
 });

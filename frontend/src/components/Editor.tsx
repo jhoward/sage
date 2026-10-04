@@ -15,7 +15,7 @@ import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/sea
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { isList, todoCommands, todoExtension } from "../lib/todo";
-import { initialFolds, sectionFolding } from "../lib/sections";
+import { defaultFolds, sectionFolding } from "../lib/sections";
 import { setLinkFiles, wikilinkExtension } from "../lib/wikilinkExtension";
 import { livePreviewExtension } from "../lib/livePreview";
 import { bold, italic } from "../lib/markdownKeys";
@@ -157,7 +157,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
               ),
               livePreviewExtension(),
               frontmatterExtension,
-              sectionFolding(filePath),
+              sectionFolding(),
               boundKeys({ bold, italic }),
             ]
           : []),
@@ -190,9 +190,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     // is also where anyone would want to start typing.
     if (isMarkdown) instance.dispatch({ selection: { anchor: bodyStart(instance.state) } });
     // A list's Archive starts folded: it is the section that grows, and the one you read
-    // least. Anything folded or unfolded by hand is remembered for the file.
+    // least. Everything else starts open. That is the whole rule.
     if (isMarkdown) {
-      const folds = initialFolds(instance.state, filePath, isList(filePath) ? ["## Archive"] : []);
+      const folds = defaultFolds(instance.state, isList(filePath));
       if (folds.length) instance.dispatch({ effects: folds });
     }
 

@@ -5,12 +5,15 @@
  * part that grows. Folding is how a single file stays a single file and still fits on a
  * screen: CodeMirror's fold machinery replaces a range with a placeholder, the text is
  * untouched, and nothing about the file changes. The Archive of a list starts folded;
- * every other section starts open; what you fold or unfold is remembered for that file
- * while the app runs.
+ * every other section starts open; and that is the whole rule — no memory of what was
+ * folded, because a rule you can predict beats a state you have to reason about, and the
+ * one section that matters is a click away.
  *
- * The toggle is a chevron in the margin before the heading — where every outliner puts
- * it — and the placeholder says how many tasks are under it, so a folded Archive still
- * answers "how much is in there".
+ * The toggle is a chevron before the heading text, standing where the hidden `##` marker
+ * is, the way a toggle heading works in an outliner. It needs no margin of its own. With
+ * the cursor on the line the raw `##` comes back and the chevron steps aside — the same
+ * rule as every other piece of live preview. The placeholder says how many tasks are
+ * under a folded heading, so a folded Archive still answers "how much is in there".
  */
 
 import {
@@ -103,19 +106,9 @@ export function foldedHeadings(state: EditorState): string[] {
   return out;
 }
 
-// ---- memory across opens ---------------------------------------------
-
-/** Per file, the headings left folded. Lives as long as the app does. */
-const remembered = new Map<string, string[]>();
-
-/** What to fold when `path` opens: what was folded last time, else the defaults. */
-export function initialFolds(state: EditorState, path: string, defaults: string[]): StateEffect<unknown>[] {
-  return foldEffectsFor(state, remembered.get(path) ?? defaults);
-}
-
-/** For tests, and for a vault switch. */
-export function forgetFolds(): void {
-  remembered.clear();
+/** What a list opens with folded; a note, nothing. */
+export function defaultFolds(state: EditorState, isList: boolean): StateEffect<unknown>[] {
+  return foldEffectsFor(state, isList ? ["## Archive"] : []);
 }
 
 // ---- the chevron ------------------------------------------------------
@@ -154,6 +147,9 @@ function buildToggles(view: EditorView): DecorationSet {
       const line = state.doc.lineAt(pos);
       pos = line.to + 1;
       if (!FOLDABLE.test(line.text) || !sectionRange(state, line.number)) continue;
+      // The cursor on the heading shows its raw markdown, and the chevron steps aside.
+      const onLine = state.selection.ranges.some((r) => r.to >= line.from && r.from <= line.to);
+      if (onLine) continue;
       out.push(
         Decoration.widget({
           widget: new ToggleWidget(isFolded(state, line.number), line.number),
@@ -175,6 +171,7 @@ const toggles = ViewPlugin.fromClass(
       if (
         u.docChanged ||
         u.viewportChanged ||
+        u.selectionSet ||
         foldedRanges(u.startState) !== foldedRanges(u.state)
       ) {
         this.decorations = buildToggles(u.view);
@@ -198,10 +195,7 @@ const clickToggle = EditorView.domEventHandlers({
 
 // ---- assembly ----------------------------------------------------------
 
-/**
- * @param path  the file, so its folds can be remembered across opens
- */
-export function sectionFolding(path: string): Extension {
+export function sectionFolding(): Extension {
   return [
     foldService.of((state, lineStart) => sectionRange(state, state.doc.lineAt(lineStart).number)),
     codeFolding({
@@ -224,10 +218,5 @@ export function sectionFolding(path: string): Extension {
     toggles,
     clickToggle,
     keymap.of(foldKeymap),
-    EditorView.updateListener.of((u) => {
-      if (foldedRanges(u.startState) !== foldedRanges(u.state)) {
-        remembered.set(path, foldedHeadings(u.state));
-      }
-    }),
   ];
 }
