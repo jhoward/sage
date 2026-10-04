@@ -107,7 +107,6 @@ class Vault:
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "notes").mkdir(exist_ok=True)
         (self.root / "todo").mkdir(exist_ok=True)
-        (self.root / ".sage" / "skills").mkdir(parents=True, exist_ok=True)
 
     # ---- path safety -------------------------------------------------
 

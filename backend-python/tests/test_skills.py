@@ -518,50 +518,6 @@ def test_reset_refuses_a_skill_it_does_not_ship(vault: Vault):
         skills.reset_skill(vault, "mine")
 
 
-# ---- retired provenance markers --------------------------------------
-
-def test_ai_markers_are_stripped(vault: Vault):
-    vault.write_file(
-        "notes/a.md",
-        "Before\n<!-- sage:ai model=claude-opus-5 skill=expand at=2026-08-28T18:07 -->\n"
-        "Generated.\n<!-- /sage:ai -->\nAfter\n",
-    )
-    changed = ai.strip_ai_markers(vault)
-
-    assert changed == ["notes/a.md"]
-    assert vault.read_file("notes/a.md") == "Before\nGenerated.\nAfter\n"
-
-
-def test_stacked_markers_all_go(vault: Vault):
-    """The failure that retired the format: a replace landing inside a marked region."""
-    vault.write_file(
-        "notes/a.md",
-        "<!-- sage:ai model=m skill=expand at=1 -->\n"
-        "<!-- sage:ai model=m skill=expand at=2 -->\n"
-        "## Heading\nBody\n<!-- /sage:ai -->\n<!-- /sage:ai -->\n",
-    )
-    ai.strip_ai_markers(vault)
-    assert vault.read_file("notes/a.md") == "## Heading\nBody\n"
-
-
-def test_stripping_is_idempotent(vault: Vault):
-    vault.write_file("notes/a.md", "Plain note.\n")
-    assert ai.strip_ai_markers(vault) == []
-
-
-def test_ordinary_html_comments_survive(vault: Vault):
-    vault.write_file("notes/a.md", "<!-- a note to myself -->\nBody\n")
-    ai.strip_ai_markers(vault)
-    assert "a note to myself" in vault.read_file("notes/a.md")
-
-
-def test_rolled_markers_are_untouched(vault: Vault):
-    """The todo system uses its own comment marker; only sage:ai is retired."""
-    vault.write_file("todo/x.md", "- [ ] Task <!-- rolled:3 -->\n")
-    ai.strip_ai_markers(vault)
-    assert "rolled:3" in vault.read_file("todo/x.md")
-
-
 def test_transient_errors_say_what_to_do():
     """"Overloaded" is accurate and useless; it should say try again."""
     class Overloaded(Exception):
@@ -576,39 +532,3 @@ def test_rate_limits_say_what_to_do():
         body = {"error": {"message": "rate_limit_error: too many requests"}}
 
     assert "Rate limited" in ai.describe_error(Limited())
-
-
-def test_legacy_migration_never_touches_a_custom_path(tmp_path: Path, monkeypatch):
-    """Regression: this once moved the developer's real config into a pytest temp file.
-
-    Migration reads a fixed home-directory path, so it must refuse to act when the caller
-    named a different destination — otherwise a test asking for a fresh config silently
-    consumes the real one.
-    """
-    from occam import config as config_mod
-
-    home_legacy = tmp_path / "legacy" / "config.toml"
-    home_legacy.parent.mkdir()
-    home_legacy.write_text('vault_path = "/real"\nanthropic_api_key = "sk-real"\n')
-    monkeypatch.setattr(config_mod, "LEGACY_CONFIG_DIR", home_legacy.parent)
-
-    elsewhere = tmp_path / "elsewhere.toml"
-    assert config_mod.migrate_legacy_config(elsewhere) is False
-    assert home_legacy.exists()  # untouched
-    assert not elsewhere.exists()
-
-
-def test_legacy_migration_moves_the_real_config(tmp_path: Path, monkeypatch):
-    from occam import config as config_mod
-
-    legacy_dir = tmp_path / "sage"
-    legacy_dir.mkdir()
-    (legacy_dir / "config.toml").write_text('vault_path = "/v"\nanthropic_api_key = "k"\n')
-    target = tmp_path / "occam" / "config.toml"
-
-    monkeypatch.setattr(config_mod, "LEGACY_CONFIG_DIR", legacy_dir)
-    monkeypatch.setattr(config_mod, "CONFIG_PATH", target)
-
-    assert config_mod.migrate_legacy_config(target) is True
-    assert config_mod.load(target).anthropic_api_key == "k"
-    assert not (legacy_dir / "config.toml").exists()

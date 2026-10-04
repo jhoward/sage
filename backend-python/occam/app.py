@@ -139,16 +139,11 @@ def create_app(
     # Held rather than used directly, so settings can change the backend while running.
     if not isinstance(sync, vault_sync.SyncHolder):
         sync = vault_sync.SyncHolder(sync)
-    skills_mod.migrate_legacy_settings(vault)
+    # Seeding only. One-time migrations used to run here too (week files into lists,
+    # retired markers, the Sage-era paths); they were deleted once every vault had been
+    # through them, because code that rewrites files on every launch is a standing risk.
     skills_mod.ensure_default_skills(vault)
-    migrated = todo.migrate_to_lists(vault)
-    todo.strip_added_dates(vault)
     todo.ensure_lists(vault)
-    # The new lists take the place the week and backlog had at the top of the sidebar.
-    if migrated and not pins_mod.read(vault):
-        pins_mod.write(vault, migrated)
-    meetings_mod.migrate_legacy_meetings(vault)
-    ai.strip_ai_markers(vault)
     skills_mod.ensure_reference_notes(vault)
 
     app = FastAPI(title="occam", docs_url=None, redoc_url=None)

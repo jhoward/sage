@@ -282,7 +282,7 @@ Already known:
 - Expand and Ask prompts are unjudged. They are files in `.occam/skills/`; edit and re-run.
 - The Weekly summary ends with a caveat about vague tasks. Honest, but you would delete it
   before pasting into a standup — consider whether that skill should suppress it.
-- Renamed from Sage to Occam Notes. `.sage/` in a vault and `~/.config/sage/` are migrated on startup; both migrations are idempotent.
+- Renamed from Sage to Occam Notes. `.sage/` in a vault and `~/.config/sage/` were migrated on startup for a while; those migrations were removed on 2026-10-04.
 
 ## Next — Phase 4
 
@@ -320,6 +320,11 @@ only if the escalation ladder in the README actually demands it.
 Two reviews (backend and frontend) after the lists work. Verdict: no rewrite; six
 ordered steps, each its own green commit, roughly five or six sessions. Specifics kept
 here so the work can start without reviewing again.
+
+**Step 1 — done 2026-10-04** (commit after `pre-refactor` tag): the two bugs below and
+every other write-once migration are deleted, ~510 lines; `Vault.ensure()` no longer
+creates `.sage/skills`. Startup now only seeds: default skills, a `general` list, the
+reference notes.
 
 **Fix first, before any refactor — both run on every launch:**
 

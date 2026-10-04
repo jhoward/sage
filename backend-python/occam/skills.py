@@ -332,20 +332,3 @@ def ensure_reference_notes(vault) -> list[str]:
             vault.write_file(path, body)
             written.append(path)
     return written
-
-
-LEGACY_SETTINGS_DIR = ".sage"
-
-
-def migrate_legacy_settings(vault) -> bool:
-    """Move a vault's `.sage/` to `.occam/`. Returns True if one was moved.
-
-    Renaming the app must not orphan someone's skills, which are their prompts and the
-    thing they are most likely to have edited.
-    """
-    legacy = vault.root / LEGACY_SETTINGS_DIR
-    target = vault.root / ".occam"
-    if target.exists() or not legacy.is_dir():
-        return False
-    legacy.rename(target)
-    return True
