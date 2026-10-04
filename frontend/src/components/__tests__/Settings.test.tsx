@@ -21,6 +21,7 @@ const CURRENT: SettingsData = {
   apiKeyFromEnv: false,
   workspaceId: "",
   me: ["Jim"],
+  archiveAfterDays: 1,
   syncStatus: { backend: "git", state: "ok", detail: "", conflicts: [] },
 };
 
@@ -57,7 +58,7 @@ afterEach(() => {
 describe("the settings screen", () => {
   it("has every kind of setting on the one screen", async () => {
     await open();
-    for (const section of ["Backup", "AI", "You", "Vault", "AI skills", "Keyboard"]) {
+    for (const section of ["Backup", "AI", "Todo", "You", "Vault", "AI skills", "Keyboard"]) {
       expect(screen.getByRole("heading", { name: section })).toBeTruthy();
     }
   });

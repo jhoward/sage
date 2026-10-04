@@ -103,6 +103,8 @@ export function Settings({
     if (draft.syncRemote !== saved.syncRemote) changes.syncRemote = draft.syncRemote;
     if (draft.workspaceId !== saved.workspaceId) changes.workspaceId = draft.workspaceId;
     if (me.join("\n") !== saved.me.join("\n")) changes.me = me;
+    if (draft.archiveAfterDays !== saved.archiveAfterDays)
+      changes.archiveAfterDays = draft.archiveAfterDays;
     if (clearKey) changes.clearApiKey = true;
     else if (apiKey.trim()) changes.apiKey = apiKey.trim();
   }
@@ -255,6 +257,29 @@ export function Settings({
                   onChange={(e) => set({ workspaceId: e.target.value })}
                 />
               </label>
+            </section>
+
+            <section>
+              <h2>Todo</h2>
+              <label className="settings-row">
+                <span>Days to archive</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={3650}
+                  step={1}
+                  value={draft.archiveAfterDays}
+                  onChange={(e) => set({ archiveAfterDays: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                />
+              </label>
+              <p className="settings-hint">
+                {draft.archiveAfterDays === 0
+                  ? "Finished tasks are filed under Archive as soon as the list opens."
+                  : draft.archiveAfterDays === 1
+                    ? "Today's finished tasks stay on screen; yesterday's are filed under Archive when the list opens."
+                    : `Finished tasks stay on screen for ${draft.archiveAfterDays} days, then are filed under Archive when the list opens.`}
+                {" "}The palette's "File every finished task" files them all regardless.
+              </p>
             </section>
 
             <section>

@@ -30,6 +30,9 @@ LEGACY_CONFIG_DIR = Path.home() / ".config" / "sage"
 
 DEFAULT_VAULT = Path.home() / "notes"
 DEFAULT_SYNC = "local"
+DEFAULT_ARCHIVE_AFTER_DAYS = 1
+# Settings written as bare TOML values rather than quoted strings.
+UNQUOTED = {"me", "archive_after_days"}
 
 HEADER = """\
 # Occam Notes configuration.
@@ -89,6 +92,15 @@ me = {me}
 """,
     ),
     (
+        "archive_after_days",
+        """
+# How many days a finished task stays in its list before it is filed under Archive, the
+# next time the list opens. 1 keeps today's finished work on screen and files yesterday's;
+# 0 files everything finished, at once; 7 keeps a week in view.
+archive_after_days = {archive_after_days}
+""",
+    ),
+    (
         "anthropic_workspace_id",
         """
 # Workspace ID, required only if the key above is an identity-linked key. Those keys act
@@ -119,6 +131,8 @@ class Config:
     anthropic_workspace_id: str | None = None
     # Names to match when pulling your commitments out of a meeting note.
     me: list[str] = field(default_factory=list)
+    # Days a finished task stays in its list before the archive sweep files it.
+    archive_after_days: int = DEFAULT_ARCHIVE_AFTER_DAYS
     # Last, and it has to stay last: Config is built positionally in places, and a field
     # added mid-order shifts every argument after it — which once put an API key here,
     # one step from being handed to git as a remote URL.
@@ -132,6 +146,7 @@ class Config:
             "anthropic_api_key": _escape(self.anthropic_api_key or ""),
             "anthropic_workspace_id": _escape(self.anthropic_workspace_id or ""),
             "me": "[" + ", ".join(f'"{_escape(n)}"' for n in self.me) + "]",
+            "archive_after_days": str(int(self.archive_after_days)),
         }
 
     def block(self, name: str) -> str:
@@ -176,7 +191,7 @@ def update(cfg: Config, changes: dict[str, object], path: Path | None = None) ->
     values = cfg._values()
     text = path.read_text(encoding="utf-8")
     for name in changes:
-        rendered = values[name] if name == "me" else f'"{values[name]}"'
+        rendered = values[name] if name in UNQUOTED else f'"{values[name]}"'
         line = re.compile(rf"(?m)^{re.escape(name)}\s*=.*$")
         if not line.search(text):
             raise ValueError(f"{name} is not in {path}")
@@ -264,6 +279,16 @@ def load(path: Path | None = None) -> Config:
         anthropic_api_key=raw.get("anthropic_api_key") or None,
         anthropic_workspace_id=raw.get("anthropic_workspace_id") or None,
         me=[str(n) for n in raw.get("me", []) if str(n).strip()],
+        archive_after_days=_days(raw.get("archive_after_days")),
     )
     add_missing_settings(path, cfg)
     return cfg
+
+
+def _days(value: object) -> int:
+    """A non-negative whole number of days, or the default for anything else."""
+    try:
+        days = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return DEFAULT_ARCHIVE_AFTER_DAYS
+    return days if days >= 0 else DEFAULT_ARCHIVE_AFTER_DAYS

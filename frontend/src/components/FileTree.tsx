@@ -14,11 +14,21 @@ const dragging = new Set<(on: boolean) => void>();
 /** How long a drag must rest on a closed folder before it opens. */
 const SPRING_MS = 600;
 
+/** Where a drop on a pinned row would put the dragged note. */
+type Slot = { path: string; after: boolean } | null;
+
+/** Whether the pointer is in the lower half of the row: drop after it, not before. */
+function lowerHalf(e: React.DragEvent<HTMLElement>): boolean {
+  const rect = e.currentTarget.getBoundingClientRect();
+  return (e.clientY || 0) > rect.top + rect.height / 2;
+}
+
 /**
  * The pinned notes, above the tree.
  *
  * No hierarchy up here: a flat list of whatever you want within reach, in the order the
- * pins file has them. Any note can be dropped on it to pin it. This replaced two fixed
+ * pins file has them — which is also the order you drag them into. Any note can be
+ * dropped on it to pin it, at the row it lands on or at the end. This replaced two fixed
  * rows, "This week" and "Backlog", which were pins the app had chosen for you.
  */
 export function PinnedList({
@@ -27,47 +37,66 @@ export function PinnedList({
   onOpen,
   onOpenAlt,
   onContext,
-  onPin,
+  onReorder,
 }: {
   pins: PinInfo[];
   selected: string | null;
   onOpen: (path: string) => void;
   onOpenAlt?: (path: string) => void;
   onContext?: (target: { path: string; isDir: boolean }, at: { x: number; y: number }) => void;
-  /** A note was dropped here. */
-  onPin?: (path: string) => void;
+  /** The pins in their new order. A path not pinned before is now pinned, there. */
+  onReorder?: (paths: string[]) => void;
 }) {
   const [isDragging, setDragging] = useState(false);
   const [over, setOver] = useState(false);
+  const [slot, setSlot] = useState<Slot>(null);
   useEffect(() => {
     dragging.add(setDragging);
     return () => void dragging.delete(setDragging);
   }, []);
 
+  const paths = pins.map((p) => p.path);
+  // A pin can always be dropped here (to move); a note, only if it is not pinned yet.
+  const accepts = (source: string) => paths.includes(source) || canPin(source, paths);
+
   // With nothing pinned the area is not there — until a drag begins, when it has to be,
   // or there would be no way to pin the first note by hand.
-  if (!pins.length && !(isDragging && onPin)) return null;
-  const paths = pins.map((p) => p.path);
+  if (!pins.length && !(isDragging && onReorder)) return null;
+
+  const finish = (from: string | null, at: Slot) => {
+    dragged = null;
+    setOver(false);
+    setSlot(null);
+    if (!from || !onReorder || !accepts(from)) return;
+    const rest = paths.filter((p) => p !== from);
+    let index = rest.length;
+    if (at) {
+      const i = rest.indexOf(at.path);
+      if (i >= 0) index = i + (at.after ? 1 : 0);
+    }
+    const next = [...rest.slice(0, index), from, ...rest.slice(index)];
+    if (next.join("\n") !== paths.join("\n")) onReorder(next);
+  };
 
   return (
     <div
       className="side-pins"
-      data-drop={over || undefined}
+      data-drop={(over && !slot) || undefined}
       onDragOver={(e) => {
-        if (!onPin || !dragged || !canPin(dragged, paths)) return;
+        if (!onReorder || !dragged || !accepts(dragged)) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
         setOver(true);
       }}
       onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setOver(false);
+          setSlot(null);
+        }
       }}
       onDrop={(e) => {
         e.preventDefault();
-        const from = dragged;
-        dragged = null;
-        setOver(false);
-        if (from && onPin && canPin(from, paths)) onPin(from);
+        finish(dragged, null);
       }}
     >
       {pins.map((pin) => (
@@ -80,8 +109,35 @@ export function PinnedList({
           }}
           aria-current={pin.path === selected ? "true" : undefined}
           className="side-row"
+          data-insert={slot?.path === pin.path ? (slot.after ? "after" : "before") : undefined}
           style={{ paddingLeft: 8 }}
           title={pin.path}
+          draggable={!!onReorder}
+          onDragStart={(e) => {
+            dragged = pin.path;
+            dragging.forEach((fn) => fn(true));
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", pin.title);
+          }}
+          onDragEnd={() => {
+            dragged = null;
+            dragging.forEach((fn) => fn(false));
+            setOver(false);
+            setSlot(null);
+          }}
+          onDragOver={(e) => {
+            if (!onReorder || !dragged || !accepts(dragged) || dragged === pin.path) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "move";
+            setOver(true);
+            setSlot({ path: pin.path, after: lowerHalf(e) });
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            finish(dragged, { path: pin.path, after: lowerHalf(e) });
+          }}
         >
           <span className="side-row-label">{pin.title}</span>
         </button>

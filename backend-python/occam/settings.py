@@ -54,6 +54,7 @@ def describe(cfg, sync_status: dict | None = None) -> dict:
         "apiKeyFromEnv": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "workspaceId": cfg.anthropic_workspace_id or "",
         "me": list(cfg.me),
+        "archiveAfterDays": int(getattr(cfg, "archive_after_days", 1)),
         "syncStatus": sync_status,
     }
 
@@ -117,6 +118,16 @@ def validate(changes: dict) -> dict[str, object]:
         if not isinstance(names, list):
             raise SettingsError("Names should be a list.")
         out["me"] = [str(n).strip() for n in names if str(n).strip()]
+
+    if "archiveAfterDays" in changes:
+        raw = changes["archiveAfterDays"]
+        try:
+            days = int(str(raw).strip())
+        except ValueError:
+            raise SettingsError("Days to archive should be a whole number.") from None
+        if not 0 <= days <= 3650:
+            raise SettingsError("Days to archive should be between 0 and 3650.")
+        out["archive_after_days"] = days
 
     return out
 

@@ -61,6 +61,12 @@ mattered — dating finished work — is now a stamp.
   line; a placeholder with the task count; `foldKeymap`. A list opens with its Archive
   folded and everything else open, every time — a memory of folds was built and removed
   the same day in favour of a rule you can predict.
+- **Days to archive** is a setting (`archive_after_days` in the config, a Todo section
+  in the settings screen): how many days a finished task stays in its list before the
+  sweep on open files it. 1 is the default and the old behaviour; 0 files at once.
+- **Pins reorder by drag.** Order is the order of `.occam/pins.md`; dragging a pinned
+  row above or below another rewrites it through `PUT /api/pins`, and a note from the
+  tree dropped on a row lands at that row rather than at the end.
 - Rollover, the `rolled:` counter and the stale flag are gone. Old `rolled:` comments in
   files are harmless and hidden; the migration drops them from what it moves.
 - The chat tool `add_task` now targets `now` / `backlog` of the general list.

@@ -14,7 +14,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -60,6 +60,11 @@ class ArchiveDoneRequest(BaseModel):
 class PinRequest(BaseModel):
     path: str
     pinned: bool = True
+
+
+class PinOrderRequest(BaseModel):
+    # The pins, in the order they should appear. A path not pinned before is pinned.
+    paths: list[str]
 
 
 class ChatRequest(BaseModel):
@@ -284,8 +289,13 @@ def create_app(
 
     @app.post("/api/todo/archive-done")
     def archive_done(req: ArchiveDoneRequest):
-        """File finished tasks under Archive — all of them, or only those before today."""
-        before = None if req.all else date.today()
+        """File finished tasks under Archive — all of them, or only those old enough.
+
+        "Old enough" is the archive_after_days setting: 1 files what was finished before
+        today, 0 files today's too, 7 keeps a week in view.
+        """
+        days = int(getattr(cfg, "archive_after_days", 1))
+        before = None if req.all else date.today() - timedelta(days=days - 1)
         return {"archived": guard(todo.archive_done, vault, req.path, before)}
 
     @app.get("/api/pins")
@@ -295,6 +305,17 @@ def create_app(
                 {"path": p, "title": todo.list_title(vault, p)} for p in pins_mod.read(vault)
             ]
         }
+
+    @app.put("/api/pins")
+    def set_pin_order(req: PinOrderRequest):
+        """The pinned list, reordered — what dragging a pin does."""
+        paths: list[str] = []
+        for p in req.paths:
+            guard(vault.read_file, p)  # must exist
+            if p not in paths:
+                paths.append(p)
+        pins_mod.write(vault, paths)
+        return {"ok": True}
 
     @app.post("/api/pins")
     def set_pin(req: PinRequest):

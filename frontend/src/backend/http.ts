@@ -137,6 +137,10 @@ export const httpBackend: VaultBackend = {
     await request("/api/pins", { method: "POST", body: JSON.stringify({ path, pinned }) });
   },
 
+  async reorderPins(paths) {
+    await request("/api/pins", { method: "PUT", body: JSON.stringify({ paths }) });
+  },
+
   async config() {
     return request<{ path: string; hasKey: boolean; keyFromEnv: boolean }>(
       "/api/config",

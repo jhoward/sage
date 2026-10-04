@@ -111,6 +111,52 @@ def test_names_and_workspace_apply_without_a_restart(env):
     assert cfg.me == ["Jim H"] and cfg.anthropic_workspace_id == "wrkspc_x"
 
 
+def test_days_to_archive_is_a_setting(env):
+    client, cfg, path, vault = env
+    assert client.get("/api/settings").json()["archiveAfterDays"] == 1
+
+    r = client.put("/api/settings", json={"archiveAfterDays": "7"})
+    assert r.status_code == 200 and r.json()["archiveAfterDays"] == 7
+    assert cfg.archive_after_days == 7
+    assert "archive_after_days = 7" in path.read_text()
+    # It is read back as a number, not a string.
+    assert config_mod.load(path).archive_after_days == 7
+
+
+@pytest.mark.parametrize("bad", ["-1", "soon", "99999"])
+def test_days_to_archive_is_checked(env, bad):
+    client, cfg, *_ = env
+    r = client.put("/api/settings", json={"archiveAfterDays": bad})
+    assert r.status_code == 400
+    assert cfg.archive_after_days == 1
+
+
+def test_the_sweep_honours_days_to_archive(env):
+    from datetime import date, timedelta
+
+    client, cfg, path, vault = env
+    today = date.today()
+    d = lambda n: (today - timedelta(days=n)).isoformat()  # noqa: E731
+    body = (
+        "## Now\n"
+        f"- [x] today <!-- done:{d(0)} -->\n"
+        f"- [x] yesterday <!-- done:{d(1)} -->\n"
+        f"- [x] last week <!-- done:{d(8)} -->\n\n## Archive\n"
+    )
+    sweep = lambda: client.post("/api/todo/archive-done", json={"path": "todo/general.md"}).json()["archived"]  # noqa: E731
+
+    vault.write_file("todo/general.md", body)
+    assert sweep() == 2  # the default: before today
+
+    client.put("/api/settings", json={"archiveAfterDays": 7})
+    vault.write_file("todo/general.md", body)
+    assert sweep() == 1  # only last week's
+
+    client.put("/api/settings", json={"archiveAfterDays": 0})
+    vault.write_file("todo/general.md", body)
+    assert sweep() == 3  # at once
+
+
 def test_only_the_vault_folder_needs_a_restart(env, tmp_path: Path):
     client, *_ = env
     r = client.put("/api/settings", json={"vaultPath": str(tmp_path / "elsewhere")})

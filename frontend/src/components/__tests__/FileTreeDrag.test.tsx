@@ -114,7 +114,7 @@ describe("the pinned area", () => {
     const onPin = vi.fn();
     render(
       <>
-        <PinnedList pins={[]} selected={null} onOpen={() => {}} onPin={onPin} />
+        <PinnedList pins={[]} selected={null} onOpen={() => {}} onReorder={onPin} />
         <FileTree nodes={TREE} selected={null} onOpen={() => {}} onMove={() => {}} />
       </>,
     );
@@ -125,10 +125,10 @@ describe("the pinned area", () => {
     const zone = screen.getByText("Drop to pin").parentElement!;
     expect(fireEvent.dragOver(zone, { dataTransfer: transfer() })).toBe(false);
     fireEvent.drop(zone, { dataTransfer: transfer() });
-    expect(onPin).toHaveBeenCalledWith("notes/alpha.md");
+    expect(onPin).toHaveBeenCalledWith(["notes/alpha.md"]);
   });
 
-  it("lists what is pinned, by title, and refuses a note already there", () => {
+  it("lists what is pinned, by title; a note already there can only be moved", () => {
     const onPin = vi.fn();
     const onOpen = vi.fn();
     render(
@@ -137,7 +137,7 @@ describe("the pinned area", () => {
           pins={[{ path: "todo/general.md", title: "General" }]}
           selected={null}
           onOpen={onOpen}
-          onPin={onPin}
+          onReorder={onPin}
         />
         <FileTree nodes={TREE} selected={null} onOpen={() => {}} onMove={() => {}} />
       </>,
@@ -145,10 +145,11 @@ describe("the pinned area", () => {
     fireEvent.click(screen.getByText("General"));
     expect(onOpen).toHaveBeenCalledWith("todo/general.md");
 
+    // The same list, picked up in the tree, dropped at the end of the pins: it is
+    // already last, so nothing changes and nothing is reported.
     const list = screen.getByText("general").closest("button")!;
     fireEvent.dragStart(list, { dataTransfer: transfer() });
     const zone = screen.getByText("General").closest(".side-pins")!;
-    expect(fireEvent.dragOver(zone, { dataTransfer: transfer() })).toBe(true);
     fireEvent.drop(zone, { dataTransfer: transfer() });
     expect(onPin).not.toHaveBeenCalled();
   });
@@ -166,5 +167,61 @@ describe("what a row is called", () => {
     expect(screen.getByText("AISE Class")).toBeTruthy();
     expect(screen.queryByText("aise-class")).toBeNull();
     expect(screen.getByText("house")).toBeTruthy();
+  });
+});
+
+describe("reordering pins", () => {
+  const PINS = [
+    { path: "todo/a.md", title: "A" },
+    { path: "todo/b.md", title: "B" },
+    { path: "todo/c.md", title: "C" },
+  ];
+
+  function setupPins() {
+    const onReorder = vi.fn();
+    render(
+      <>
+        <PinnedList pins={PINS} selected={null} onOpen={() => {}} onReorder={onReorder} />
+        <FileTree nodes={TREE} selected={null} onOpen={() => {}} onMove={() => {}} />
+      </>,
+    );
+    const row = (name: string) => screen.getByText(name).closest("button")!;
+    return { onReorder, row };
+  }
+
+  it("drags a pin below another and reports the new order", () => {
+    const { onReorder, row } = setupPins();
+    fireEvent.dragStart(row("A"), { dataTransfer: transfer() });
+    // jsdom lays nothing out and drops clientY on the floor, so the row is placed above
+    // the pointer by hand: a midpoint below zero means the pointer is in its lower half.
+    row("C").getBoundingClientRect = () =>
+      ({ top: -20, height: 10, bottom: -10, left: 0, right: 0, width: 0, x: 0, y: -20, toJSON() {} }) as DOMRect;
+    expect(fireEvent.dragOver(row("C"), { dataTransfer: transfer() })).toBe(false);
+    expect(row("C").getAttribute("data-insert")).toBe("after");
+    fireEvent.drop(row("C"), { dataTransfer: transfer() });
+    expect(onReorder).toHaveBeenCalledWith(["todo/b.md", "todo/c.md", "todo/a.md"]);
+  });
+
+  it("drags a pin above another", () => {
+    const { onReorder, row } = setupPins();
+    fireEvent.dragStart(row("C"), { dataTransfer: transfer() });
+    fireEvent.dragOver(row("A"), { dataTransfer: transfer(), clientY: 0 });
+    expect(row("A").getAttribute("data-insert")).toBe("before");
+    fireEvent.drop(row("A"), { dataTransfer: transfer(), clientY: 0 });
+    expect(onReorder).toHaveBeenCalledWith(["todo/c.md", "todo/a.md", "todo/b.md"]);
+  });
+
+  it("a note from the tree dropped on a row lands at that row", () => {
+    const { onReorder, row } = setupPins();
+    fireEvent.dragStart(row("alpha"), { dataTransfer: transfer() });
+    fireEvent.drop(row("B"), { dataTransfer: transfer(), clientY: 0 });
+    expect(onReorder).toHaveBeenCalledWith(["todo/a.md", "notes/alpha.md", "todo/b.md", "todo/c.md"]);
+  });
+
+  it("dropping a pin where it already is changes nothing", () => {
+    const { onReorder, row } = setupPins();
+    fireEvent.dragStart(row("A"), { dataTransfer: transfer() });
+    fireEvent.drop(row("B"), { dataTransfer: transfer(), clientY: 0 });
+    expect(onReorder).not.toHaveBeenCalled();
   });
 });

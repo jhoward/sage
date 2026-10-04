@@ -482,6 +482,16 @@ export default function App() {
     [pins],
   );
 
+  /** The pins in a new order — a drag within the pinned area, or a note dropped into it. */
+  const reorderPins = useCallback(async (paths: string[]) => {
+    try {
+      await backend.reorderPins(paths);
+      setPins(await backend.pins());
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
   // Backlinks ride on search() — no index to rebuild, nothing to go stale. The literal
   // search over-matches (`[[cloud` also hits `[[cloud-old]]`), so each hit is re-parsed.
   useEffect(() => {
@@ -1004,7 +1014,7 @@ export default function App() {
           onOpen={open}
           onOpenAlt={openSplit}
           onContext={contextMenuFor}
-          onPin={(p) => void togglePin(p)}
+          onReorder={(paths) => void reorderPins(paths)}
         />
         <div className="flex-1 overflow-auto">
           <FileTree

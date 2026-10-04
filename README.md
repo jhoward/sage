@@ -109,12 +109,13 @@ not doing yet, and `## Archive` is what you finished. Checking a task off stamps
 into a trailing comment — `- [x] Ship it <!-- done:2026-10-04 -->` — which you never type
 and never see as text: finished tasks show a dim date instead, and open ones show nothing.
 When a list opens, anything finished before today is filed under Archive, so Now shows
-today's ticks and not last week's. The explicit version, `⌘K` → "File every finished task
+today's ticks and not last week's — "before today" is a setting, *Days to archive*, so a
+week in view is one number away. The explicit version, `⌘K` → "File every finished task
 under Archive", takes today's too.
 
 Any note can be **pinned** to the top of the sidebar: right-click it, drag it onto the
-pinned area, or `⌘K` → pin. The pins are a file, `.occam/pins.md`, so they follow the vault
-and can be reordered by hand. There is no hierarchy up there; it is the handful of files
+pinned area, or `⌘K` → pin. Drag a pin above or below another to reorder them. The pins
+are a file, `.occam/pins.md`, in that order, so they follow the vault. There is no hierarchy up there; it is the handful of files
 you want within reach, which is usually your lists.
 
 | Action | Key |

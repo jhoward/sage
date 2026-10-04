@@ -474,3 +474,22 @@ def test_pins_follow_a_rename_and_a_folder_rename(vault: Vault):
 
 def test_no_pins_file_means_no_pins(vault: Vault):
     assert pins.read(vault) == []
+
+
+def test_pins_can_be_reordered_through_the_api(vault: Vault):
+    from fastapi.testclient import TestClient
+    from occam.app import create_app
+    from occam import config as config_mod
+
+    vault.write_file("todo/a.md", "x")
+    vault.write_file("todo/b.md", "x")
+    vault.write_file("notes/c.md", "x")
+    pins.write(vault, ["todo/a.md", "todo/b.md"])
+    client = TestClient(create_app(vault, cfg=config_mod.Config(vault_path=vault.root)))
+
+    r = client.put("/api/pins", json={"paths": ["todo/b.md", "notes/c.md", "todo/a.md", "todo/a.md"]})
+    assert r.status_code == 200
+    assert pins.read(vault) == ["todo/b.md", "notes/c.md", "todo/a.md"]
+
+    r = client.put("/api/pins", json={"paths": ["todo/missing.md"]})
+    assert r.status_code == 400

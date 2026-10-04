@@ -44,12 +44,14 @@ export interface Settings {
   apiKeyFromEnv: boolean;
   workspaceId: string;
   me: string[];
+  /** Days a finished task stays in its list before the sweep files it under Archive. */
+  archiveAfterDays: number;
   syncStatus: SyncStatus | null;
 }
 
 /** Only what changed is sent. `apiKey` is write-only: empty means "leave it alone". */
 export type SettingsChanges = Partial<
-  Pick<Settings, "vaultPath" | "sync" | "syncRemote" | "workspaceId" | "me">
+  Pick<Settings, "vaultPath" | "sync" | "syncRemote" | "workspaceId" | "me" | "archiveAfterDays">
 > & { apiKey?: string; clearApiKey?: boolean };
 
 export interface RemoteCheck {
@@ -132,6 +134,8 @@ export interface VaultBackend {
   /** The notes pinned to the top of the sidebar, in order. */
   pins(): Promise<PinInfo[]>;
   setPin(path: string, pinned: boolean): Promise<void>;
+  /** The pins in a new order; a path not yet pinned becomes pinned at that position. */
+  reorderPins(paths: string[]): Promise<void>;
 
   /** Delete a note. Confirmation is the caller's job. */
   deleteFile(path: string): Promise<void>;
