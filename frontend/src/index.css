@@ -156,13 +156,16 @@ body {
 /* Three classes deep on purpose: CodeMirror's own `.cm-foldPlaceholder` rule sets margin
    and padding from a stylesheet injected after this one, and a plain class loses to it. */
 .cm-editor .cm-content .cm-section-folded {
-  /* Two heading characters of air; the box is 0.8em, so 1ch of the heading is 1.25ch here. */
-  margin-left: 2.5ch;
+  /* One heading character of air; the box is 0.75em, so 1ch of the heading is 1.33ch here. */
+  margin-left: 1.33ch;
   padding: 0 0.6em;
   border: 0;
   border-radius: 4px;
-  font-size: 0.8em;
-  vertical-align: middle;
+  font-size: 0.75em;
+  /* A tight line box, raised off the baseline, so the rectangle sits inside the heading's
+     cap height rather than dropping below it the way a baseline-aligned box does. */
+  line-height: 1.15;
+  vertical-align: 0.14em;
   color: var(--ink-muted);
   background: color-mix(in srgb, var(--ink-fg) 6%, transparent);
   cursor: pointer;
