@@ -67,8 +67,12 @@ body {
   padding: 1.5rem 0;
 }
 
+/* A left margin wide enough for the section chevrons to sit in, beside the headings
+   rather than in the text. */
 .cm-content {
   caret-color: var(--ink-fg);
+  padding-left: 28px;
+  padding-right: 16px;
 }
 
 /* The editor draws its own caret and selection, and its defaults assume a white page:
@@ -109,43 +113,48 @@ body {
   text-decoration-thickness: 1px;
 }
 
-/* Section folding: a chevron after a heading that has something under it, and the
-   placeholder standing in for the folded lines. The chevron is the same rotating one the
-   sidebar uses, so collapsing reads the same everywhere. */
+/* Section folding: a chevron in the margin before a heading that has something under it,
+   and the placeholder standing in for the folded lines. The chevron takes no horizontal
+   room of its own — a negative margin hangs it in the content padding — so headings stay
+   aligned with the text beneath them. Always visible, a little muted; full strength on
+   hover and when its section is folded. */
 .cm-section-toggle {
   display: inline-block;
-  width: 14px;
-  height: 14px;
-  margin-left: 8px;
+  width: 18px;
+  height: 18px;
+  margin-left: -24px;
+  margin-right: 6px;
   vertical-align: middle;
   border: 0;
   padding: 0;
   background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 120ms, transform 120ms;
+  opacity: 0.55;
+  transition: opacity 120ms;
 }
 
 .cm-section-toggle::before {
   content: "";
   display: block;
-  width: 5px;
-  height: 5px;
-  margin: 4px auto;
+  width: 7px;
+  height: 7px;
+  margin: 4px auto 0;
   border: solid currentColor;
-  border-width: 0 1.5px 1.5px 0;
+  border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 
 .cm-section-toggle[aria-expanded="false"]::before {
+  margin-left: 7px;
   transform: rotate(-45deg);
 }
 
-.cm-line:hover .cm-section-toggle,
+.cm-section-toggle:hover,
 .cm-section-toggle[aria-expanded="false"],
 .cm-section-toggle:focus-visible {
   opacity: 1;
+  color: var(--ink-fg);
 }
 
 .cm-section-folded {

@@ -8,8 +8,9 @@
  * every other section starts open; what you fold or unfold is remembered for that file
  * while the app runs.
  *
- * The toggle is a chevron at the end of the heading line, and the placeholder says how
- * many tasks are under it, so a folded Archive still answers "how much is in there".
+ * The toggle is a chevron in the margin before the heading — where every outliner puts
+ * it — and the placeholder says how many tasks are under it, so a folded Archive still
+ * answers "how much is in there".
  */
 
 import {
@@ -156,8 +157,8 @@ function buildToggles(view: EditorView): DecorationSet {
       out.push(
         Decoration.widget({
           widget: new ToggleWidget(isFolded(state, line.number), line.number),
-          side: 1,
-        }).range(line.to),
+          side: -1,
+        }).range(line.from),
       );
     }
   }
