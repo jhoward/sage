@@ -153,3 +153,18 @@ describe("the pinned area", () => {
     expect(onPin).not.toHaveBeenCalled();
   });
 });
+
+describe("what a row is called", () => {
+  it("is the note's title when it has one, else the file name — as the pinned rows do", () => {
+    const nodes: FileNode[] = [
+      folder("todo", [
+        { ...file("todo/aise-class.md"), title: "AISE Class" },
+        file("todo/house.md"),
+      ]),
+    ];
+    render(<FileTree nodes={nodes} selected={null} onOpen={() => {}} />);
+    expect(screen.getByText("AISE Class")).toBeTruthy();
+    expect(screen.queryByText("aise-class")).toBeNull();
+    expect(screen.getByText("house")).toBeTruthy();
+  });
+});

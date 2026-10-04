@@ -191,3 +191,23 @@ def test_pruning_walks_up_nested_empties(vault: Vault):
     vault.write_file("notes/a/b/c/deep.md", "x")
     vault.delete_file("notes/a/b/c/deep.md")
     assert not (vault.root / "notes/a").exists()
+
+
+def test_list_files_carries_a_notes_title(vault: Vault):
+    """The sidebar shows the heading, as the pinned rows do, so the two agree."""
+    vault.write_file("todo/aise-class.md", "# AISE Class\n\n## Now\n")
+    vault.write_file("notes/fm.md", "---\ntags: x\n---\n\n# With frontmatter\n")
+    vault.write_file("notes/plain.md", "No heading here.\n\n# Not a title\n")
+    by_path = {}
+
+    def walk(nodes):
+        for n in nodes:
+            by_path[n.path] = n
+            walk(n.children)
+
+    walk(vault.list_files())
+    assert by_path["todo/aise-class.md"].title == "AISE Class"
+    assert by_path["notes/fm.md"].title == "With frontmatter"
+    assert by_path["notes/plain.md"].title is None
+    assert "title" not in by_path["notes/plain.md"].to_dict()
+    assert by_path["todo/aise-class.md"].to_dict()["title"] == "AISE Class"

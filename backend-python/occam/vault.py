@@ -46,12 +46,37 @@ class FileNode:
     path: str  # vault-relative, POSIX separators
     is_dir: bool
     children: list["FileNode"] = field(default_factory=list)
+    # A note's `# heading`, when it has one. The sidebar shows this, so a note reads the
+    # same way in the tree as it does pinned and in its own title bar.
+    title: str | None = None
 
     def to_dict(self) -> dict:
         out = {"name": self.name, "path": self.path, "isDir": self.is_dir}
         if self.is_dir:
             out["children"] = [c.to_dict() for c in self.children]
+        if self.title:
+            out["title"] = self.title
         return out
+
+
+def read_title(path: Path) -> str | None:
+    """The first `# heading` near the top of a note, else None.
+
+    Only the first kilobyte is read: a title is at the top or it is not a title, and the
+    tree is listed often enough that reading whole files would be felt.
+    """
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            head = fh.read(1024)
+    except OSError:
+        return None
+    for line in head.splitlines():
+        if line.startswith("# "):
+            return line[2:].strip() or None
+        # Frontmatter and blank lines may precede the heading; a paragraph may not.
+        if line.strip() and not line.startswith("---") and ":" not in line:
+            return None
+    return None
 
 
 @dataclass
@@ -129,7 +154,11 @@ class Vault:
                         dirs.append(
                             FileNode(entry.name, self._rel(entry), True, children)
                         )
-                elif entry.suffix.lower() in MARKDOWN_SUFFIXES or entry.suffix == ".toml":
+                elif entry.suffix.lower() in MARKDOWN_SUFFIXES:
+                    files.append(
+                        FileNode(entry.name, self._rel(entry), False, title=read_title(entry))
+                    )
+                elif entry.suffix == ".toml":
                     files.append(FileNode(entry.name, self._rel(entry), False))
 
             if directory == self.root:

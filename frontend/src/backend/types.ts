@@ -15,6 +15,8 @@ export interface FileNode {
   path: string; // vault-relative, POSIX separators
   isDir: boolean;
   children?: FileNode[];
+  /** The note's `# heading`, when it has one; what the sidebar shows. */
+  title?: string;
 }
 
 export interface SearchHit {

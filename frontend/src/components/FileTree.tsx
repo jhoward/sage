@@ -182,9 +182,13 @@ function dropHandlers(node: FileNode, drag: DragProps | undefined) {
   };
 }
 
-/** The name shown for a node, without its extension. */
+/**
+ * The name shown for a node: a note's title when it has one, else its file name without
+ * the extension. Pinned rows show titles, so the tree does too — one note, one name.
+ */
 function displayName(node: FileNode): string {
-  return node.isDir ? node.name : node.name.replace(/\.md$/, "");
+  if (node.isDir) return node.name;
+  return node.title || node.name.replace(/\.md$/, "");
 }
 
 /**
