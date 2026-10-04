@@ -1,6 +1,6 @@
 # Where this is
 
-_Last updated: 2026-10-04 — todo lists replaced the week files; the real vault is `~/occam`, backed up to a private GitHub repo._
+_Last updated: 2026-10-04 — todo lists replaced the week files; a refactor is planned under Next; the real vault is `~/occam`, backed up to a private GitHub repo._
 
 ## Running it in 30 seconds
 
@@ -314,6 +314,110 @@ only if the escalation ladder in the README actually demands it.
   under a resting drag. It calls the same `rename` as the Move prompt, so links follow.
   **Not yet confirmed in the real webview** — the tests drive jsdom, and pywebview's
   WKWebView is where HTML5 drag-and-drop would misbehave if it is going to.
+
+## Next — the refactor (planned 2026-10-04, not started)
+
+Two reviews (backend and frontend) after the lists work. Verdict: no rewrite; six
+ordered steps, each its own green commit, roughly five or six sessions. Specifics kept
+here so the work can start without reviewing again.
+
+**Fix first, before any refactor — both run on every launch:**
+
+- `todo.migrate_to_lists` (todo.py ~477-603) treats any `todo/backlog.md` or
+  `todo/YYYY-MM-DD.md` as legacy input: it folds the file into other lists and deletes
+  it. Lists are user files, so a list named "backlog" or after a date is destroyed on the
+  next launch. `~/occam` has migrated. Delete the migration, the pin seeding in
+  `create_app` that depends on it, and its tests (test_todo_lists.py migration section).
+- `todo.strip_added_dates` (todo.py ~606-628): `\s*added:\S+` over every note in the
+  vault, not scoped to comments — prose containing `added:v2` loses words. Delete.
+
+**Step 1 — delete write-once code.** The two above, plus `ai.strip_ai_markers`,
+`skills.migrate_legacy_settings`, `meetings.migrate_legacy_meetings`,
+`config.migrate_legacy_config`, and `Vault.ensure()` creating `.sage/skills` (vault.py
+~110; `~/occam/.sage` is an empty stray). Keep `ensure_default_skills` and
+`add_missing_frontmatter`. ~300 lines. Half a day, low risk.
+
+**Step 2 — one rule set for tasks, enforced by a parity test.** The editor
+(`lib/todo.ts moveToSection`, `renumberChanges`) and the backend (`todo.py move_task`,
+`archive_done`, `renumber`, `_block_end`, `_insert_in_section`) implement the same block
+lifting, section bounds and renumbering, and already disagree: nested lists restart at 1
+in the editor but keep their first number in the backend; the editor's `sectionOf` and
+the backend's `_insert_in_section`/`_sort_archive` end a section only at `## ` while
+`parse_tasks`, `archive_done` and `sections.ts` end it at any heading; the editor creates
+a missing heading without a trailing newline, the backend with one. Decide: backend owns
+file operations (sweep, pull, cross-file move), editor owns in-document commands; both
+follow one written rule (proposal: any heading ends a section, `##` starts one; nested
+lists restart at 1; outermost keeps its start). Add a JSON fixture both suites read and
+compare outputs on. Fix `wikilinks.ts:4-6` / `types.ts:8-11` comments claiming the
+backend has no markdown intelligence. One day, medium risk, most value.
+
+**Step 3 — consolidate the backend.**
+- todo.py: one `_lift_block(lines, i)` for the three copies (move_task, archive_done,
+  _sort_blocks); one `_section_bounds(lines, heading)` for the two; rebuild
+  `archive_done` on `parse_tasks` (it re-implements it inline, 57 lines); `pins.read` as
+  a filter over `pins._raw`; `default_list_path()` without the write side effect so
+  chat.py stops duplicating it.
+- One `vault.markdown_files()` replacing six walkers with three hidden-dir rules (ai.py,
+  todo.py, context.py, chat.py, links.py, vault.py); `context._resolve` re-walks the
+  vault per link. One `vault.title(path)` replacing `read_title`, `todo.list_title` and
+  `links.H1_RE` (they disagree; a pin can show a different name than the tree).
+- app.py: `VaultError` already has an exception handler, so `guard()` and every inline
+  `except VaultError` are redundant; add one `ValueError → 400` handler (quick_add and
+  start_meeting currently let it through as 500). Move route logic into modules:
+  `backlog_tasks` shaping, the `archive_after_days` cutoff arithmetic, `set_pin_order`
+  dedup. Replace `getattr(cfg, …, default)` with `cfg.x`. One `ai.client(cfg)` for the
+  three copies of Anthropic client construction (ai.py, chat.py, meetings.py).
+  One day, low risk.
+
+**Step 4 — split the editor library.** `lib/todo.ts` (953 lines) into `tasks.ts`
+(parse, meta, done stamps, clock), `listStructure.ts` (renumbering, selection lines,
+block walk), `taskCommands.ts`, `taskDecorations.ts`, `todoExtension.ts` assembly;
+`listLabel` out to a `paths.ts` with `isList`, `LOCKED`, and the todo-stem logic that is
+copied three times. A `lib/cm.ts` with `selectionTouches`, `forEachVisibleLine`,
+`decorationsWithAtomic` for the idioms copied across todo, sections, livePreview,
+frontmatter and wikilinkExtension; a `markdownLines.ts` for the heading/task/bullet
+regexes copied five times. Fix `label()` returning "⌘" for an unbound key (palette shows
+it on pin / toNow / toBacklog / archiveDone). Cache `sectionRange` per build in
+sections.ts (it is O(section) per heading per cursor move; a long Archive pays per
+keystroke). Move the CSS that fights CodeMirror's injected stylesheet by selector length
+(`.cm-editor .cm-content .cm-section-folded`, `.cm-fm-raw !important`) into
+`EditorView.theme` beside the extensions that own it. One day, low risk.
+
+**Step 5 — break up App.tsx (1491 lines; 38 state hooks, 15 overlay booleans, a 315-line
+command list, 26 `setError(String(e))`, 20 refresh-then-open sequences).**
+- `useVault()`: files, pins, lists, refresh, open, history, save, sync polling.
+- One command table. BINDINGS, SHEET, `actions` and the palette list are four parallel
+  descriptions of the same commands and have drifted (toggleTask / untask wording).
+  BINDINGS carries title and keywords; sheet and palette derive; `actions satisfies
+  Record<Exclude<BindingName, EditorBindingName>, () => void>` replaces the source-text
+  wiring test. Fold `boundKeys({bold, italic})` into one `editorCommands` record so
+  `EditorHandle.run` covers everything.
+- One overlay state (`{kind: "rename"} | {kind: "move"} | …`) replacing fifteen booleans,
+  and one `Overlay` shell for Prompt, Confirm, Switcher, MultiPicker, QuickAdd (the
+  scrim is copy-pasted five times; Switcher honours ⌃N/⌃P, MultiPicker does not).
+- `request()` throws a typed `BackendError {status, detail}`; one `report(e)` helper;
+  delete `Settings.reason()`.
+- FileTree: one `Row` for pins, folders and notes (drag start, context menu, alt-click,
+  label are copied); fewer write sites for the module-level `dragged`.
+  Target ≈ 500 lines. Two days, highest risk — last, with DOM tests added first.
+
+**Step 6 — test gaps.** Route tests for `GET/POST /api/pins`, quick-add (empty → 400,
+non-list path falls back, missing list created), archive-done with `all`, backlog, move,
+lists; a rename of a pinned note through the API; hide-completed (never exercised);
+checkbox click in raw text; `###` under `##` folding; the parity fixture from step 2.
+Convert `wiring.test.tsx` (asserts on source text) to DOM tests. Fixture line numbers in
+test_todo_lists.py (13, 4, 8) should be looked up by text.
+
+**Leave alone** (both reviews agreed): separate ViewPlugins per feature; the module-level
+`dragged` in FileTree; the `renumbering()` stand-in dispatch; keybinding matching at
+event time; Settings.tsx as one screen; the config block template; `SyncHolder` and
+`vault_sync/git.py`; `chat.apply_proposals` snapshot ordering.
+
+**Low, do in passing:** "Sage" in user-visible text (config.py HEADER and template,
+ai.py error, `SAGE_DEV`); meetings.py follow-up prompt still says "a task for this
+week"; `context._DONE_RE`, `links.stem`, `chat.allow_writes` dead; `foldedHeadings`
+exported for tests only; Confirm.tsx hard-codes `#dc2626`; `@codemirror/theme-one-dark`
+and `codemirror` in package.json unused; tests misfiled in test_skills.py.
 
 ## Open questions
 
