@@ -113,11 +113,12 @@ body {
    where the hidden `##` marker is, and the placeholder standing in for the folded lines.
    Always visible, a little muted; full strength on hover and when its section is folded. */
 .cm-section-toggle {
+  position: relative;
   display: inline-block;
-  width: 18px;
-  height: 18px;
-  margin-right: 6px;
-  vertical-align: -3px;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.35em;
+  vertical-align: middle;
   border: 0;
   padding: 0;
   background: transparent;
@@ -127,20 +128,22 @@ body {
   transition: opacity 120ms;
 }
 
+/* The glyph is centred in its box by transform, so it sits on the text's middle at any
+   heading size — the box is in em, so it scales with the heading it belongs to. */
 .cm-section-toggle::before {
   content: "";
-  display: block;
-  width: 7px;
-  height: 7px;
-  margin: 4px auto 0;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.42em;
+  height: 0.42em;
   border: solid currentColor;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  border-width: 0 0.13em 0.13em 0;
+  transform: translate(-50%, -70%) rotate(45deg);
 }
 
 .cm-section-toggle[aria-expanded="false"]::before {
-  margin-left: 7px;
-  transform: rotate(-45deg);
+  transform: translate(-70%, -50%) rotate(-45deg);
 }
 
 .cm-section-toggle:hover,
@@ -151,10 +154,12 @@ body {
 }
 
 .cm-section-folded {
-  margin-left: 6px;
+  /* One heading character of air; the box is 0.8em, so 1ch of the heading is 1.25ch here. */
+  margin-left: 1.25ch;
   padding: 0 6px;
   border-radius: 4px;
   font-size: 0.8em;
+  vertical-align: middle;
   color: var(--ink-muted);
   background: color-mix(in srgb, var(--ink-fg) 6%, transparent);
   cursor: pointer;
