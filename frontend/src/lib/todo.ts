@@ -6,8 +6,13 @@
  * todo system: decorations plus a handful of commands.
  *
  * One rule worth preserving: hide-completed is a *view* filter. Completed tasks stay in
- * the file because they are the raw material for weekly summaries; they just leave the
- * active view so the week still fits on one screen.
+ * the file because they are the raw material for summaries; they just leave the active
+ * view so Now still fits on one screen.
+ *
+ * A finished task carries the day it was finished, in a trailing comment the checkbox
+ * writes: `- [x] Ship it <!-- done:2026-10-04 -->`. Never typed, invisible in every
+ * renderer, and drawn here only beside finished tasks, as a dim date. It is what lets a
+ * list file outlive the week: "what did I finish this week" is a question about dates.
  */
 
 import {
@@ -43,6 +48,14 @@ import type { BindingName } from "./keybindings";
 // list you numbered is the one you are most likely to want to tick off in order.
 const TASK = /^(\s*(?:[-*]|\d+[.)])\s+\[)([ xX])(\]\s?)(.*)$/;
 const HEADING = /^#{1,6}\s/;
+// One trailing comment carries a task's metadata: <!-- done:2026-10-04 -->. The leading
+// whitespace is part of the match so that removing the comment removes its gap too.
+const META = /\s*<!--\s*((?:\w+:\S+\s*)+)-->\s*$/;
+
+/** A list is a markdown file directly in todo/. */
+export function isList(path: string | null | undefined): boolean {
+  return !!path && /^todo\/[^/]+\.md$/.test(path);
+}
 
 export interface TaskLine {
   line: Line;
@@ -56,12 +69,25 @@ export interface TaskLine {
    */
   boxFrom: number;
   boxTo: number;
+  /** The metadata comment, as key → value; empty when there is none. */
+  meta: Record<string, string>;
+  /** Where the comment (and the space before it) sits; `metaFrom` is `line.to` without one. */
+  metaFrom: number;
 }
 
 export function parseTask(line: Line): TaskLine | null {
   const m = TASK.exec(line.text);
   if (!m) return null;
   const markPos = line.from + m[1].length;
+  const meta: Record<string, string> = {};
+  const metaMatch = META.exec(m[4]);
+  if (metaMatch) {
+    for (const pair of metaMatch[1].split(/\s+/)) {
+      const [key, ...rest] = pair.split(":");
+      if (key && rest.length) meta[key] = rest.join(":");
+    }
+  }
+  const metaFrom = metaMatch ? line.to - (m[4].length - metaMatch.index) : line.to;
   const indent = m[1].length - m[1].trimStart().length;
   const ordered = /\d/.test(m[1][indent]);
   return {
@@ -71,7 +97,52 @@ export function parseTask(line: Line): TaskLine | null {
     text: m[4],
     boxFrom: ordered ? markPos - 1 : line.from + indent,
     boxTo: markPos + 2,
+    meta,
+    metaFrom,
   };
+}
+
+// ---- done stamps -----------------------------------------------------
+
+/** Today as the stamp is written. Swappable so tests do not depend on the calendar. */
+let today = () => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+export function setClock(fn: () => string): void {
+  today = fn;
+}
+
+function renderMeta(meta: Record<string, string>): string {
+  const pairs = Object.entries(meta).map(([k, v]) => `${k}:${v}`);
+  return pairs.length ? ` <!-- ${pairs.join(" ")} -->` : "";
+}
+
+/**
+ * The edits that check or uncheck a task: the mark, and the `done:` stamp with it.
+ *
+ * Checking writes today's date; unchecking removes it, so a task ticked by mistake leaves
+ * no trace of having been. Other keys in the comment are kept.
+ */
+export function setDoneChanges(task: TaskLine, done: boolean): ChangeSpec[] {
+  const meta = { ...task.meta };
+  if (done) meta.done = today();
+  else delete meta.done;
+  return [
+    { from: task.markPos, to: task.markPos + 1, insert: done ? "x" : " " },
+    { from: task.metaFrom, to: task.line.to, insert: renderMeta(meta) },
+  ];
+}
+
+/** "Oct 4", or "Oct 4, 2025" once it is not this year. */
+export function shortDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const label = `${months[Number(m[2]) - 1]} ${Number(m[3])}`;
+  return m[1] === today().slice(0, 4) ? label : `${label}, ${m[1]}`;
 }
 
 // ---- hide completed (view-only) --------------------------------------
@@ -125,6 +196,26 @@ const boxes = {
   done: Decoration.replace({ widget: new CheckboxWidget(true) }),
 };
 
+/** The day a task was finished, drawn where its comment is. */
+class DateWidget extends WidgetType {
+  readonly iso: string;
+  constructor(iso: string) {
+    super();
+    this.iso = iso;
+  }
+  eq(other: DateWidget) {
+    return other.iso === this.iso;
+  }
+  toDOM() {
+    const el = document.createElement("span");
+    el.className = "cm-task-date";
+    el.textContent = shortDate(this.iso);
+    return el;
+  }
+}
+
+const hiddenMeta = Decoration.replace({});
+
 interface Built {
   all: DecorationSet;
   /** The drawn boxes alone, so the cursor steps over one rather than into it. */
@@ -158,6 +249,19 @@ function buildDecorations(view: EditorView): Built {
         const box = (task.done ? boxes.done : boxes.open).range(task.boxFrom, task.boxTo);
         all.push(box);
         atomic.push(box);
+      }
+
+      // The metadata comment is never shown as text unless the cursor is on the line.
+      // On a finished task it becomes the date; on an open one it is simply not there.
+      if (task.metaFrom < line.to) {
+        const onLine = state.selection.ranges.some((r) => r.to >= line.from && r.from <= line.to);
+        if (!onLine) {
+          const deco =
+            task.done && task.meta.done
+              ? Decoration.replace({ widget: new DateWidget(task.meta.done) })
+              : hiddenMeta;
+          all.push(deco.range(task.metaFrom, line.to));
+        }
       }
     }
   }
@@ -425,7 +529,7 @@ export function toggleTask(view: CommandTarget): boolean {
 
     const changes = tasks
       .filter((t) => (t.done ? "x" : " ") !== target)
-      .map((t) => ({ from: t.markPos, to: t.markPos + 1, insert: target }));
+      .flatMap((t) => setDoneChanges(t, !done));
 
     if (!changes.length) return true; // already uniform
     view.dispatch({ changes, userEvent: "input.toggleTask" });
@@ -529,6 +633,122 @@ export function promoteToTop(view: CommandTarget): boolean {
     scrollIntoView: true,
   });
   return true;
+}
+
+/** The `## ` heading the line sits under, or null above any heading. */
+function sectionOf(state: EditorState, lineNumber: number): string | null {
+  for (let n = lineNumber; n >= 1; n--) {
+    const text = state.doc.line(n).text;
+    if (/^## /.test(text)) return text.trim();
+  }
+  return null;
+}
+
+/**
+ * Move the selected tasks to the end of another section of the same file.
+ *
+ * The second of the two real moves, after "to the top": Now ↔ Backlog, in one keystroke,
+ * one undo. Children go with their parent. A moved task is re-rendered as a bullet, as
+ * every move does, so a number never lands in a list it does not belong to. The heading
+ * is created at the end of the file if it is missing — headings are not a schema.
+ */
+export function moveToSection(heading: string) {
+  return (view: CommandTarget): boolean => {
+    const { state } = view;
+    const { doc } = state;
+    const lines = selectedLineNumbers(state);
+    const first = doc.line(lines[0]);
+    const task = parseTask(first);
+    if (!task) return false;
+    if (sectionOf(state, first.number) === heading) return true; // already there
+
+    // The block: the selected lines, then anything nested under the last of them.
+    const indent = first.text.match(/^\s*/)![0].length;
+    let lastNumber = lines[lines.length - 1];
+    while (lastNumber < doc.lines) {
+      const next = doc.line(lastNumber + 1);
+      if (!next.text.trim() || next.text.match(/^\s*/)![0].length <= indent) break;
+      lastNumber += 1;
+    }
+    const last = doc.line(lastNumber);
+
+    // Siblings at the block's indent become bullets; anything deeper is a child and keeps
+    // its nesting relative to the shallowest child, under a parent now at column 0.
+    const lead = (text: string) => text.match(/^\s*/)![0].length;
+    let childMin = Infinity;
+    for (let n = first.number; n <= lastNumber; n++) {
+      const text = doc.line(n).text;
+      if (lead(text) > indent) childMin = Math.min(childMin, lead(text));
+    }
+    const block: string[] = [];
+    for (let n = first.number; n <= lastNumber; n++) {
+      const text = doc.line(n).text;
+      const m = BULLET.exec(text);
+      if (lead(text) <= indent && m) {
+        block.push(`- ${m[4] ?? ""}${m[5]}`.replace(/\s+$/, ""));
+      } else if (lead(text) <= indent) {
+        block.push(text.trim());
+      } else {
+        block.push("  " + text.slice(childMin));
+      }
+    }
+    const moved = block.join("\n");
+
+    const cut = {
+      from: first.from,
+      to: last.to < doc.length ? last.to + 1 : last.to,
+      insert: "",
+    };
+    if (last.to >= doc.length && first.from > 0) cut.from -= 1;
+
+    // Where it lands: after the last non-blank line of the section, or — with no such
+    // heading — at the end of the file, a blank line apart from what is already there.
+    let headingLine: Line | null = null;
+    for (let n = 1; n <= doc.lines; n++) {
+      if (doc.line(n).text.trim() === heading) {
+        headingLine = doc.line(n);
+        break;
+      }
+    }
+    let insert: { from: number; insert: string };
+    if (!headingLine) {
+      const kept = cut.to === doc.length ? doc.sliceString(0, cut.from) : doc.sliceString(0);
+      const trailing = kept.length - kept.replace(/\n+$/, "").length;
+      insert = {
+        from: doc.length,
+        insert: `${"\n".repeat(Math.max(0, 2 - trailing))}${heading}\n${moved}`,
+      };
+    } else {
+      let end = headingLine.number;
+      for (let n = headingLine.number + 1; n <= doc.lines; n++) {
+        const text = doc.line(n).text;
+        if (/^## /.test(text)) break;
+        if (text.trim()) end = n;
+      }
+      insert = { from: doc.line(end).to, insert: `\n${moved}` };
+    }
+
+    // The list left behind is renumbered in the same transaction: the item that moves up
+    // into the gap takes the list's starting number if the moved one had it.
+    const start = listStart(state, first.number);
+    const tr = state.update({ changes: [cut, insert] });
+    const gap = tr.state.doc.lineAt(Math.min(tr.changes.mapPos(cut.from, 1), tr.state.doc.length));
+    const fix = tr.state.changes(renumberChanges(tr.state, gap.number, start));
+
+    // Land on the moved task: the insert position, mapped through the cut, plus whatever
+    // precedes the task in the inserted text (a newline, or a heading).
+    const at = tr.changes.mapPos(insert.from, -1);
+    const landed = tr.state.doc.lineAt(
+      Math.min(at + insert.insert.length - moved.length, tr.state.doc.length),
+    );
+    view.dispatch({
+      changes: tr.changes.compose(fix),
+      selection: { anchor: fix.mapPos(landed.from) },
+      userEvent: "move.section",
+      scrollIntoView: true,
+    });
+    return true;
+  };
 }
 
 /**
@@ -642,11 +862,7 @@ const clickCheckbox = EditorView.domEventHandlers({
     if (!box && (pos < task.markPos - 1 || pos > task.markPos + 1)) return false;
 
     view.dispatch({
-      changes: {
-        from: task.markPos,
-        to: task.markPos + 1,
-        insert: task.done ? " " : "x",
-      },
+      changes: setDoneChanges(task, !task.done),
       userEvent: "input.toggleTask",
     });
     event.preventDefault();
@@ -703,6 +919,8 @@ export const todoCommands = {
   lineDown: renumbering(moveLineDown),
   deleteLine: renumbering(deleteLines),
   hideDone: hideCompleted,
+  toNow: moveToSection("## Now"),
+  toBacklog: moveToSection("## Backlog"),
 } satisfies Partial<Record<BindingName, EditorCommand>>;
 
 export function todoExtension() {
@@ -725,16 +943,11 @@ export function todoExtension() {
 }
 
 /**
- * How a backlog task is labelled in the pull picker: by its project.
- *
- * A project is a section of the backlog ("## Occam Features"), so the section is what
- * tells two tasks apart. The file name said nothing while there was one backlog file —
- * every row read "backlog.md". With a file per project the file is the project, so it is
- * named when the section alone would not say.
+ * How a task is labelled in the pull picker: by its list, and by its section when that
+ * is not the ordinary Backlog — a list someone has given extra sections should say so.
  */
-export function backlogLabel(task: { path: string; section: string; rolled: number }): string {
+export function listLabel(task: { path: string; section: string; list?: string }): string {
   const section = task.section.replace(/^#+\s*/, "").trim();
-  const file = task.path.replace(/^todo\/(backlog\/)?/, "").replace(/\.md$/, "");
-  const project = file !== "backlog" ? (section && section !== "General" ? `${file} › ${section}` : file) : section;
-  return [project, task.rolled ? `rolled ${task.rolled}×` : ""].filter(Boolean).join(" · ");
+  const list = task.list || task.path.replace(/^todo\//, "").replace(/\.md$/, "");
+  return section && section !== "Backlog" ? `${list} › ${section}` : list;
 }

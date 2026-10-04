@@ -9,8 +9,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { defaultKeymap } from "@codemirror/commands";
-import { todoExtension } from "../todo";
+import { setClock, todoExtension } from "../todo";
 import { applyOverrides, isMac } from "../keybindings";
+
+setClock(() => "2026-10-04");
 
 let view: EditorView | null = null;
 
@@ -55,7 +57,7 @@ describe("task keys reach the editor", () => {
     expect(event.defaultPrevented).toBe(true);
 
     press(v, "Enter", { mod: true });
-    expect(v.state.doc.toString()).toBe("- [x] Buy milk");
+    expect(v.state.doc.toString()).toBe("- [x] Buy milk <!-- done:2026-10-04 -->");
   });
 
   it("shift-mod-Enter takes the box away again", () => {
@@ -95,6 +97,30 @@ describe("the drawn checkbox", () => {
     const v = mount("- [ ] Buy milk", 14);
     const drawn = v.contentDOM.querySelector(".cm-task-checkbox")!;
     drawn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
-    expect(v.state.doc.toString()).toBe("- [x] Buy milk");
+    expect(v.state.doc.toString()).toBe("- [x] Buy milk <!-- done:2026-10-04 -->");
+  });
+});
+
+describe("the done stamp", () => {
+  it("is drawn as a date when the cursor is elsewhere, and raw when it is on the line", () => {
+    const v = mount("- [x] Shipped <!-- done:2026-10-01 -->\nnext", 42);
+    const date = v.contentDOM.querySelector(".cm-task-date");
+    expect(date?.textContent).toBe("Oct 1");
+    expect(v.contentDOM.textContent).not.toContain("<!--");
+
+    v.dispatch({ selection: { anchor: 3 } });
+    expect(v.contentDOM.querySelector(".cm-task-date")).toBeNull();
+    expect(v.contentDOM.textContent).toContain("<!-- done:2026-10-01 -->");
+  });
+
+  it("hides other metadata on an open task altogether", () => {
+    const v = mount("- [ ] Old <!-- rolled:3 -->\nnext", 32);
+    expect(v.contentDOM.textContent).not.toContain("rolled");
+    expect(v.contentDOM.querySelector(".cm-task-date")).toBeNull();
+  });
+
+  it("names the year once it is not this one", () => {
+    const v = mount("- [x] Shipped <!-- done:2025-12-24 -->\nnext", 42);
+    expect(v.contentDOM.querySelector(".cm-task-date")?.textContent).toBe("Dec 24, 2025");
   });
 });

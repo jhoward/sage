@@ -3,16 +3,16 @@ import {
   backend,
   type FileNode,
   type SyncStatus,
-  type WeekInfo,
+  type PinInfo,
   type TaskRef,
-  type TaskTarget,
+  type TaskSection,
 } from "./backend";
 import { AIReview, CopyButton } from "./components/AIReview";
 import { AskPanel } from "./components/AskPanel";
 import { Switcher } from "./components/Switcher";
-import { backlogLabel } from "./lib/todo";
+import { isList, listLabel } from "./lib/todo";
 import { Editor, type EditorHandle } from "./components/Editor";
-import { FileTree } from "./components/FileTree";
+import { FileTree, PinnedList } from "./components/FileTree";
 import { QuickAdd } from "./components/QuickAdd";
 import { Prompt } from "./components/Prompt";
 import { Confirm } from "./components/Confirm";
@@ -160,7 +160,9 @@ export default function App() {
   // A skill with `asks: true` needs a question before it can run.
   const [asking, setAsking] = useState<SkillInfo | null>(null);
   const [pulling, setPulling] = useState(false);
-  const [week, setWeek] = useState<WeekInfo | null>(null);
+  // The notes pinned above the tree, and every list in todo/ — what capture targets.
+  const [pins, setPins] = useState<PinInfo[]>([]);
+  const [lists, setLists] = useState<string[]>([]);
   const [asking2, setAsking2] = useState(false);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [showBacklinks, setShowBacklinks] = useState(false);
@@ -170,7 +172,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [backlog, setBacklog] = useState<TaskRef[]>([]);
   const [backlinks, setBacklinks] = useState<SearchHit[]>([]);
-  // The split pane holds its own document, so planning (week + backlog) needs no
+  // The split pane holds its own document, so two lists side by side needs no
   // special-casing — it is just two editors.
   const [split, setSplit] = useState<{ path: string; content: string } | null>(null);
   const line = useRef(1);
@@ -195,7 +197,8 @@ export default function App() {
       const { files, sync } = await backend.listFiles(showSettings);
       setFiles(withoutGenerated(files));
       setSync(sync);
-      backend.week().then(setWeek).catch(() => {});
+      backend.pins().then(setPins).catch(() => {});
+      backend.lists().then(setLists).catch(() => {});
       setError(null);
     } catch (e) {
       setError(String(e));
@@ -204,6 +207,9 @@ export default function App() {
 
   const open = useCallback(async (p: string) => {
     try {
+      // Opening a list files what was finished before today under Archive first, so Now
+      // shows today's ticks and not last week's.
+      if (isList(p)) await backend.archiveDone(p).catch(() => {});
       const content = await backend.readFile(p);
       setDoc({ path: p, content });
       setRecent((r) => [p, ...r.filter((x) => x !== p)].slice(0, 50));
@@ -222,19 +228,25 @@ export default function App() {
     }
   }, []);
 
-  // On first load, open this week's todo file — the daily starting point.
+  /** The first pinned note, else the first list: the daily starting point. */
+  const home = useCallback(async (): Promise<string | null> => {
+    const [pinned, all] = await Promise.all([backend.pins(), backend.lists()]);
+    return pinned[0]?.path ?? all[0] ?? null;
+  }, []);
+
+  // On first load, open the first pinned note.
   useEffect(() => {
     (async () => {
       await refresh();
       try {
-        const week = await backend.week();
-        await open(week.path);
-        await refresh(); // the week file may have just been created
+        const first = await home();
+        if (first) await open(first);
+        await refresh(); // a list may have just been created
       } catch (e) {
         setError(String(e));
       }
     })();
-  }, [refresh, open]);
+  }, [refresh, open, home]);
 
   /**
    * Create a note and open it. Shared by ⌘N and by ⌘-clicking an unresolved [[link]] —
@@ -430,10 +442,19 @@ export default function App() {
     }
   }, []);
 
+  // Where a captured task goes: the list you have open, else the first pinned list, else
+  // the first list. Named in the quick-add footer so it is never a guess.
+  const captureList = useMemo(() => {
+    if (isList(path)) return path!;
+    return pins.find((p) => isList(p.path))?.path ?? lists[0] ?? "todo/general.md";
+  }, [path, pins, lists]);
+  const captureTitle = pins.find((p) => p.path === captureList)?.title
+    ?? captureList.replace(/^todo\//, "").replace(/\.md$/, "");
+
   const addTask = useCallback(
-    async (text: string, target: TaskTarget) => {
+    async (text: string, section: TaskSection) => {
       try {
-        const { path: written } = await backend.quickAdd(text, target);
+        const { path: written } = await backend.quickAdd(text, section, captureList);
         await refresh();
         // Reload if the file being edited is the one that just changed.
         if (written === path) {
@@ -443,7 +464,22 @@ export default function App() {
         setError(String(e));
       }
     },
-    [path, refresh],
+    [path, refresh, captureList],
+  );
+
+  /** Pin or unpin a note; the sidebar follows. */
+  const togglePin = useCallback(
+    async (target: string) => {
+      try {
+        const pinned = pins.some((p) => p.path === target);
+        await backend.setPin(target, !pinned);
+        setPins(await backend.pins());
+        setStatus(pinned ? "Unpinned" : "Pinned");
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [pins],
   );
 
   // Backlinks ride on search() — no index to rebuild, nothing to go stale. The literal
@@ -478,40 +514,6 @@ export default function App() {
 
   const commands = useMemo<Command[]>(() => {
     const list: Command[] = [
-      {
-        id: "todo.week",
-        group: "Todo",
-        title: "Open this week",
-        keywords: "todo current",
-        hint: `${label(binding("quickAdd"))} adds`,
-        run: async () => open((await backend.week()).path),
-      },
-      {
-        id: "todo.rollover",
-        group: "Todo",
-        title: "Roll unfinished work into this week",
-        keywords: "new week rollover carry forward",
-        run: async () => {
-          try {
-            const r = await backend.rollover();
-            await refresh();
-            if (r.target === path) await open(r.target);
-
-            if (!r.source) setStatus("No earlier week to roll from");
-            else if (!r.moved.length && r.skipped)
-              setStatus(`Already up to date (${r.skipped} already here)`);
-            else if (!r.moved.length) setStatus("Nothing unfinished to carry");
-            else {
-              const stale = r.stale.length
-                ? ` · ${r.stale.length} rolled 5+ times: ${r.stale.join(", ")}`
-                : "";
-              setStatus(`Carried ${r.moved.length} from ${r.source}${stale}`);
-            }
-          } catch (e) {
-            setError(String(e));
-          }
-        },
-      },
       {
         id: "ask.panel",
         group: "AI",
@@ -583,18 +585,28 @@ export default function App() {
         run: () => setSearching(true),
       },
       {
+        id: "note.pin",
+        group: "Notes",
+        title: pins.some((p) => p.path === path) ? "Unpin this note" : "Pin this note to the top",
+        keywords: "pin unpin sidebar top favourite",
+        hint: label(binding("pin")),
+        run: () => {
+          if (path) void togglePin(path);
+        },
+      },
+      {
         id: "note.archive",
         group: "Notes",
         title: "Archive this note",
-        keywords: "move away done finished old week",
+        keywords: "move away done finished old",
         run: async () => {
           if (!path) return;
           try {
             const { path: target } = await backend.archiveNote(path);
             setDoc({ path: null, content: "" });
             await refresh();
-            const week = await backend.week();
-            await open(week.path);
+            const next = await home();
+            if (next) await open(next);
             setStatus(`Archived to ${target} — ⌘K → undo to restore`);
           } catch (e) {
             setError(String(e));
@@ -687,13 +699,14 @@ export default function App() {
       {
         id: "view.split",
         group: "View",
-        title: split ? "Close split pane" : "Open backlog in a split pane",
+        title: split ? "Close split pane" : "Open a split pane",
         keywords: "side by side planning two panes",
         hint: "⌘\\",
         run: async () => {
           if (split) return setSplit(null);
-          const { backlogs } = await backend.week();
-          if (backlogs[0]) await openSplit(backlogs[0]);
+          // The next pinned note, so two lists sit side by side with one key.
+          const next = pins.find((p) => p.path !== path)?.path ?? lists[0] ?? path;
+          if (next) await openSplit(next);
         },
       },
       // The editor's own commands, listed so that typing "task" into the palette finds the
@@ -703,6 +716,8 @@ export default function App() {
           ["toggleTask", "Make this line a task, or check it off", "todo done complete checkbox tick"],
           ["untask", "Turn this task back into an ordinary line", "remove checkbox undo not a todo"],
           ["promote", "Move this line to the top of its section", "prioritise first"],
+          ["toNow", "Move this task to Now", "start pull current active"],
+          ["toBacklog", "Move this task to the Backlog", "defer later park someday"],
           ["hideDone", "Hide or show completed tasks", "done finished filter"],
         ] as const
       ).map(([name, title, keywords]) => ({
@@ -716,17 +731,17 @@ export default function App() {
       {
         id: "todo.send",
         group: "Todo",
-        title: "Send this task to the backlog",
-        keywords: "move defer not this week",
+        title: `Send this task to ${captureTitle}'s Backlog`,
+        keywords: "move defer not now list",
         run: async () => {
           if (!path) return;
+          // Inside a list it is the editor's own move — one undo, no round trip.
+          if (isList(path)) return editor.current?.run("toBacklog");
           try {
-            const { backlogs } = await backend.week();
-            if (!backlogs[0]) return setError("No backlog file");
-            await backend.moveTask(path, line.current, backlogs[0]);
+            await backend.moveTask(path, line.current, captureList, "## Backlog");
             await open(path);
             await refresh();
-            setStatus(`Moved to ${backlogs[0]}`);
+            setStatus(`Moved to ${captureTitle}`);
           } catch (e) {
             setError(String(e));
           }
@@ -735,21 +750,37 @@ export default function App() {
       {
         id: "todo.pull",
         group: "Todo",
-        title: "Pull tasks from the backlog…",
-        keywords: "backlog take plan week multiple",
+        title: `Pull tasks into ${captureTitle}…`,
+        keywords: "backlog take plan multiple lists",
         hint: backlog.length ? `${backlog.length} waiting` : undefined,
         run: () => setPulling(true),
       },
       {
-        id: "todo.backlog",
+        id: "todo.archiveDone",
         group: "Todo",
-        title: "Open backlog",
-        keywords: "todo someday",
+        title: "File every finished task under Archive",
+        keywords: "archive done completed sweep clean",
+        hint: label(binding("archiveDone")),
         run: async () => {
-          const { backlogs } = await backend.week();
-          if (backlogs[0]) await open(backlogs[0]);
+          if (!isList(path)) return setStatus("Not a list");
+          try {
+            const { archived } = await backend.archiveDone(path!, true);
+            await open(path!);
+            setStatus(archived ? `Archived ${archived}` : "Nothing finished to file");
+          } catch (e) {
+            setError(String(e));
+          }
         },
       },
+      ...lists
+        .filter((l) => !pins.some((p) => p.path === l))
+        .map((l) => ({
+          id: `todo.open:${l}`,
+          group: "Todo",
+          title: `Open ${l.replace(/^todo\//, "").replace(/\.md$/, "")}`,
+          keywords: "list todo open",
+          run: () => open(l),
+        })),
     ];
 
     for (const sk of skills) {
@@ -795,7 +826,7 @@ export default function App() {
     // Files live in ⌘O, not here — see the note on the overlay state above.
     commandsRef.current = list;
     return list;
-  }, [path, backlog, split, skills, aiReady, showSettings, keysLoaded, open, openSplit, openKeys, openCheatsheet, refresh, runSkill, meetingFromClipboard]);
+  }, [path, backlog, split, skills, aiReady, showSettings, keysLoaded, open, openSplit, openKeys, openCheatsheet, refresh, runSkill, meetingFromClipboard, pins, lists, captureList, captureTitle, togglePin, home]);
 
   const fileCommands = useMemo<Command[]>(
     () =>
@@ -862,27 +893,68 @@ export default function App() {
         backend.backlogTasks().then(setBacklog).catch(() => setBacklog([]));
         setPulling(true);
       },
-      split: () => {
-        if (split) setSplit(null);
-        else {
-          backend.week().then((w) => {
-            if (w.backlogs[0]) void openSplit(w.backlogs[0]);
-          });
-        }
-      },
+      split: () => void runCommand("view.split"),
       cheatsheet: () => void openCheatsheet(),
       keys: () => void openKeys(),
-      week: () => void backend.week().then((w) => open(w.path)),
-      backlog: () => {
-        void backend.week().then((w) => {
-          if (w.backlogs[0]) void open(w.backlogs[0]);
-        });
-      },
-      rollover: () => void runCommand("todo.rollover"),
+      archiveDone: () => void runCommand("todo.archiveDone"),
+      pin: () => void runCommand("note.pin"),
       archiveNote: () => void runCommand("note.archive"),
       undo: () => void runCommand("ai.undo"),
     }),
-    [split, meetingFromClipboard, openSplit, openKeys, openCheatsheet, open, runCommand, go],
+    [meetingFromClipboard, openKeys, openCheatsheet, runCommand, go],
+  );
+
+  /**
+   * The right-click menu for a note or folder in the sidebar. Acting on the right-clicked
+   * note rather than the open one, which is what a context menu means; so it is opened
+   * first and the command follows.
+   */
+  const contextMenuFor = useCallback(
+    (target: { path: string; isDir: boolean }, at: { x: number; y: number }) => {
+      const pinned = pins.some((p) => p.path === target.path);
+      const items: MenuItem[] = target.isDir
+        ? [
+            {
+              label: "Rename folder…",
+              run: () => {
+                setFolderTarget(target.path);
+                setRenamingFolder(true);
+              },
+            },
+            {
+              label: "New note here…",
+              run: () => {
+                // "Here" has to mean here. This used to open the ordinary prompt, which
+                // put the note in notes/ whatever was clicked.
+                setNewNoteFolder(target.path);
+                setNewNote(true);
+              },
+            },
+          ]
+        : [
+            { label: pinned ? "Unpin" : "Pin to top", run: () => void togglePin(target.path) },
+            { label: "Open in split", run: () => void openSplit(target.path) },
+            {
+              label: "Rename…",
+              run: () => void open(target.path).then(() => setRenaming(true)),
+            },
+            {
+              label: "Move…",
+              run: () => void open(target.path).then(() => setMoving(true)),
+            },
+            {
+              label: "Archive",
+              run: () => void open(target.path).then(() => runCommand("note.archive")),
+            },
+            {
+              label: "Delete…",
+              danger: true,
+              run: () => void open(target.path).then(() => setConfirmDelete(true)),
+            },
+          ];
+      setMenu({ at, items });
+    },
+    [pins, togglePin, openSplit, open, runCommand],
   );
 
   useEffect(() => {
@@ -925,35 +997,15 @@ export default function App() {
         }}
       >
         {/* No header: the window's title bar already says what this is, and the space is
-            better spent putting the week within reach at the very top. */}
-        {week && (
-          <div
-            className="shrink-0 border-b py-1.5"
-            style={{ borderColor: "var(--ink-border)" }}
-          >
-            {[
-              { path: week.path, label: "This week", sub: week.label },
-              ...(week.backlogs[0]
-                ? [{ path: week.backlogs[0], label: "Backlog", sub: "" }]
-                : []),
-            ].map((row) => (
-              <button
-                key={row.path}
-                onClick={() => open(row.path)}
-                aria-current={row.path === path ? "true" : undefined}
-                className="side-row"
-                style={{ paddingLeft: 8 }}
-              >
-                <span className="side-row-label">{row.label}</span>
-                {row.sub && (
-                  <span className="shrink-0 text-[11px]" style={{ color: "var(--ink-muted)" }}>
-                    {row.sub}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+            better spent putting the pinned notes within reach at the very top. */}
+        <PinnedList
+          pins={pins}
+          selected={path}
+          onOpen={open}
+          onOpenAlt={openSplit}
+          onContext={contextMenuFor}
+          onPin={(p) => void togglePin(p)}
+        />
         <div className="flex-1 overflow-auto">
           <FileTree
             nodes={files}
@@ -1007,50 +1059,7 @@ export default function App() {
                 setError(String(e));
               }
             }}
-            onContext={(target, at) => {
-              // Acting on the right-clicked note rather than the open one, which is what
-              // a context menu means; so it is opened first and the command follows.
-              const items: MenuItem[] = target.isDir
-                ? [
-                    {
-                      label: "Rename folder…",
-                      run: () => {
-                        setFolderTarget(target.path);
-                        setRenamingFolder(true);
-                      },
-                    },
-                    {
-                      label: "New note here…",
-                      run: () => {
-                        // "Here" has to mean here. This used to open the ordinary
-                        // prompt, which put the note in notes/ whatever was clicked.
-                        setNewNoteFolder(target.path);
-                        setNewNote(true);
-                      },
-                    },
-                  ]
-                : [
-                    { label: "Open in split", run: () => void openSplit(target.path) },
-                    {
-                      label: "Rename…",
-                      run: () => void open(target.path).then(() => setRenaming(true)),
-                    },
-                    {
-                      label: "Move…",
-                      run: () => void open(target.path).then(() => setMoving(true)),
-                    },
-                    {
-                      label: "Archive",
-                      run: () => void open(target.path).then(() => runCommand("note.archive")),
-                    },
-                    {
-                      label: "Delete…",
-                      danger: true,
-                      run: () => void open(target.path).then(() => setConfirmDelete(true)),
-                    },
-                  ];
-              setMenu({ at, items });
-            }}
+            onContext={contextMenuFor}
           />
         </div>
         <div
@@ -1216,7 +1225,7 @@ export default function App() {
         items={menu?.items ?? []}
         onClose={() => setMenu(null)}
       />
-      <QuickAdd open={quickAdd} onClose={() => setQuickAdd(false)} onSubmit={addTask} />
+      <QuickAdd open={quickAdd} list={captureTitle} onClose={() => setQuickAdd(false)} onSubmit={addTask} />
       <Switcher
         open={palette}
         items={commands}
@@ -1310,18 +1319,20 @@ export default function App() {
       />
       <MultiPicker
         open={pulling}
-        title="Pull into this week"
-        items={backlog.map((t) => ({
-          id: `${t.path}:${t.line}`,
-          label: t.text,
-          hint: backlogLabel(t),
-        }))}
-        emptyLabel="Backlog is empty"
+        title={`Pull into ${captureTitle}`}
+        items={backlog
+          .filter((t) => t.path !== captureList)
+          .map((t) => ({
+            id: `${t.path}:${t.line}`,
+            label: t.text,
+            hint: listLabel(t),
+          }))}
+        emptyLabel="No other list has anything in its Backlog"
         confirmLabel={(n) => (n ? `Pull ${n}` : "Pull")}
         onClose={() => setPulling(false)}
         onConfirm={async (ids) => {
           try {
-            const week = (await backend.week()).path;
+            const target = captureList;
             // Highest line first: removing a line shifts everything below it, so
             // descending order keeps the remaining line numbers valid.
             const chosen = ids
@@ -1329,12 +1340,12 @@ export default function App() {
               .filter(Boolean)
               .sort((a, b) => b.line - a.line);
 
-            for (const t of chosen) await backend.moveTask(t.path, t.line, week);
+            for (const t of chosen) await backend.moveTask(t.path, t.line, target, "## Now");
 
-            await open(week);
+            await open(target);
             await refresh();
             setBacklog(await backend.backlogTasks());
-            setStatus(`Pulled ${chosen.length} into this week`);
+            setStatus(`Pulled ${chosen.length} into ${captureTitle}`);
           } catch (e) {
             setError(String(e));
           }
@@ -1364,8 +1375,8 @@ export default function App() {
             setDoc({ path: null, content: "" });
             setRecent((r) => r.filter((x) => x !== path));
             await refresh();
-            const week = await backend.week();
-            await open(week.path);
+            const next = await home();
+            if (next) await open(next);
             setStatus(`Deleted ${path} — ⌘K → undo to restore`);
           } catch (e) {
             setError(String(e));

@@ -7,12 +7,10 @@ VaultBackend must pass these same cases.
 from __future__ import annotations
 
 import shutil
-from datetime import date
 from pathlib import Path
 
 import pytest
 
-from occam import todo
 from occam.vault import Vault, VaultError
 
 
@@ -127,103 +125,6 @@ def test_search_backends_agree(vault: Vault):
     rg = vault._search_ripgrep("VPC")
     py = vault._search_python("VPC")
     assert [(h.path, h.line) for h in rg] == [(h.path, h.line) for h in py]
-
-
-# ---- todo ------------------------------------------------------------
-
-def test_week_id_is_the_sunday_that_starts_the_week():
-    assert todo.week_id(date(2026, 8, 27)) == "2026-08-23"
-
-
-def test_ensure_week_files_seeds_both(vault: Vault):
-    path = todo.ensure_week_files(vault)
-    body = vault.read_file(path)
-    assert path == todo.week_path()
-    assert "## Now" in body and "## This week" in body
-    assert "## Inbox" not in body
-    assert todo.backlog_paths(vault.root) == ["todo/backlog.md"]
-
-
-def test_ensure_week_files_is_idempotent(vault: Vault):
-    path = todo.ensure_week_files(vault)
-    vault.write_file(path, "edited by hand")
-    todo.ensure_week_files(vault)
-    assert vault.read_file(path) == "edited by hand"
-
-
-def test_backlog_lookup_accepts_folder_layout(vault: Vault):
-    """Moving to per-project backlogs must need no code change."""
-    (vault.root / "todo" / "backlog.md").unlink(missing_ok=True)
-    vault.write_file("todo/backlog/general.md", "# General\n")
-    vault.write_file("todo/backlog/sage.md", "# Sage\n")
-
-    assert todo.backlog_paths(vault.root) == [
-        "todo/backlog/general.md",
-        "todo/backlog/sage.md",
-    ]
-
-
-def test_quick_add_appends_in_order(vault: Vault):
-    path = todo.append_task(vault, "Write the sync layer")
-    assert "- [ ] Write the sync layer" in vault.read_file(path)
-
-    todo.append_task(vault, "Second task")
-    texts = [t.text for t in todo.parse_tasks(vault.read_file(path))]
-    assert texts == ["Write the sync layer", "Second task"]
-
-
-def test_quick_add_lands_under_this_week(vault: Vault):
-    """Capture goes to the bottom of the week, not a separate inbox."""
-    path = todo.append_task(vault, "Draft the doc")
-    lines = vault.read_file(path).splitlines()
-
-    assert "## Inbox" not in lines
-    heading = lines.index(todo.WEEK_CAPTURE)
-    # The line now carries a date comment, so assert on the parsed task.
-    assert todo.parse_tasks(lines[heading + 1])[0].text == "Draft the doc"
-    # "## Now" stays empty — capture never jumps the commitment line.
-    now = lines.index("## Now")
-    assert not lines[now + 1].startswith("- [ ]")
-
-
-def test_backlog_capture_lands_under_general(vault: Vault):
-    todo.ensure_week_files(vault)
-    path = todo.append_task(vault, "Look into caching", target="backlog")
-    lines = vault.read_file(path).splitlines()
-
-    assert "## Inbox" not in lines
-    heading = lines.index(todo.BACKLOG_CAPTURE)
-    assert todo.parse_tasks(lines[heading + 1])[0].text == "Look into caching"
-
-
-def test_append_creates_missing_heading(vault: Vault):
-    """Headings are not a schema — a renamed or deleted section must not break capture."""
-    vault.write_file("todo/scratch.md", "# Scratch\n")
-    todo.append_to_heading(vault, "Task", "todo/scratch.md", "## Someday")
-    body = vault.read_file("todo/scratch.md")
-    assert "## Someday" in body and "- [ ] Task" in body
-
-
-def test_append_task_targets_backlog(vault: Vault):
-    todo.ensure_week_files(vault)
-    path = todo.append_task(vault, "Look into caching", target="backlog")
-
-    assert path == "todo/backlog.md"
-    assert "- [ ] Look into caching" in vault.read_file(path)
-    # The week file is untouched.
-    assert "Look into caching" not in vault.read_file(todo.week_path())
-
-
-def test_append_task_defaults_to_week(vault: Vault):
-    path = todo.append_task(vault, "Ship it")
-    assert path == todo.week_path()
-    assert "- [ ] Ship it" in vault.read_file(path)
-
-
-def test_backlog_target_prefers_existing_project_file(vault: Vault):
-    (vault.root / "todo" / "backlog.md").unlink(missing_ok=True)
-    vault.write_file("todo/backlog/general.md", "## Inbox\n")
-    assert todo.backlog_target(vault) == "todo/backlog/general.md"
 
 
 def test_delete_file(vault: Vault):

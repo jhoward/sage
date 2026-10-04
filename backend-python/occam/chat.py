@@ -91,14 +91,14 @@ WRITE_TOOLS = [
     {
         "name": "add_task",
         "description": (
-            "Propose adding a task. Use target 'week' for this week's list or 'backlog' "
-            "for the backlog."
+            "Propose adding a task to the general list. Use target 'now' for work that "
+            "is live and 'backlog' for work that is not yet."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "text": {"type": "string"},
-                "target": {"type": "string", "enum": ["week", "backlog"]},
+                "target": {"type": "string", "enum": ["now", "backlog"]},
                 "why": {"type": "string", "description": "One line: why this task."},
             },
             "required": ["text", "target"],
@@ -342,20 +342,16 @@ def apply_proposals(vault: Vault, proposals: list[dict]) -> tuple[list[str], dic
 
         if tool == "add_task":
             target = args.get("target", "backlog")
-            # Snapshot *before* anything can create the file. ensure_week_files() and
-            # backlog_target() both write when the file is missing, so computing the path
-            # through them first would capture a freshly-created template as the "before"
-            # state — and undo would then restore an empty file instead of removing it.
-            path = (
-                todo.week_path()
-                if target == "week"
-                else f"{todo.TODO_DIR}/backlog.md"
-            )
-            existing = todo.backlog_paths(vault.root)
-            if target == "backlog" and existing:
-                path = existing[0]
+            if target == "week":  # an older model prompt
+                target = "now"
+            # Snapshot *before* anything can create the file. default_list() writes when
+            # there is no list, so computing the path through it first would capture a
+            # freshly-created template as the "before" state — and undo would then restore
+            # an empty file instead of removing it.
+            existing = todo.list_paths(vault.root)
+            path = existing[0] if existing else todo.DEFAULT_LIST
             remember(path)
-            todo.append_task(vault, args["text"], target)
+            todo.append_task(vault, args["text"], path, target)
             changed.append(f"{path}: + {args['text']}")
 
         elif tool == "append_to_note":

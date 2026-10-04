@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canDrag, dropFolder, moveTarget } from "../treeDrag";
+import { canDrag, canPin, dropFolder, moveTarget } from "../treeDrag";
 
 const note = (path: string) => ({ path, isDir: false });
 const dir = (path: string) => ({ path, isDir: true });
@@ -14,10 +14,18 @@ describe("what can be dragged", () => {
     expect(canDrag(dir("notes/governance"))).toBe(false);
   });
 
-  it("week files and settings cannot: the app finds them by path", () => {
-    expect(canDrag(note("todo/2026-09-20.md"))).toBe(false);
-    expect(canDrag(note("todo/backlog.md"))).toBe(false);
-    expect(canDrag(note(".occam/skills/cleanup.md"))).toBe(false);
+  it("lists and settings can be picked up too — to be pinned, not moved", () => {
+    expect(canDrag(note("todo/general.md"))).toBe(true);
+    expect(canDrag(note(".occam/skills/cleanup.md"))).toBe(true);
+    expect(moveTarget("todo/general.md", dir("notes"))).toBeNull();
+    expect(moveTarget(".occam/skills/cleanup.md", dir("notes"))).toBeNull();
+  });
+});
+
+describe("pinning by drop", () => {
+  it("accepts any note that is not already pinned", () => {
+    expect(canPin("notes/a.md", ["todo/general.md"])).toBe(true);
+    expect(canPin("todo/general.md", ["todo/general.md"])).toBe(false);
   });
 });
 
@@ -48,7 +56,7 @@ describe("where a drop lands", () => {
 
   it("never into todo or settings", () => {
     expect(moveTarget("notes/a.md", dir("todo"))).toBeNull();
-    expect(moveTarget("notes/a.md", note("todo/backlog.md"))).toBeNull();
+    expect(moveTarget("notes/a.md", note("todo/general.md"))).toBeNull();
     expect(moveTarget("notes/a.md", dir(".occam/skills"))).toBeNull();
   });
 

@@ -56,30 +56,22 @@ export interface RemoteCheck {
   detail: string;
 }
 
-export type TaskTarget = "week" | "backlog";
+/** Where a captured task lands in its list. */
+export type TaskSection = "now" | "backlog";
 
 export interface TaskRef {
   path: string;
   line: number;
   text: string;
   section: string;
-  rolled: number;
+  /** The list's title, for labelling. */
+  list: string;
 }
 
-export interface RolloverResult {
-  source: string | null;
-  target: string;
-  moved: string[];
-  /** Rolled STALE_AFTER times or more — worth a do/delegate/drop decision. */
-  stale: string[];
-  skipped: number;
-}
-
-export interface WeekInfo {
+/** A note pinned to the top of the sidebar. */
+export interface PinInfo {
   path: string;
-  week: string; // the Sunday that starts it, e.g. "2026-08-23"
-  label: string; // human form, e.g. "Aug 23 – 29"
-  backlogs: string[]; // one now, one per project later
+  title: string;
 }
 
 export type SkillContext = "selection" | "note" | "note-and-links" | "week-done";
@@ -125,16 +117,19 @@ export interface VaultBackend {
   search(query: string): Promise<SearchHit[]>;
   syncStatus(): Promise<SyncStatus>;
 
-  /** This week's todo file, created on first access. */
-  week(): Promise<WeekInfo>;
-  /** Append a task. Target is the week by default. */
-  quickAdd(text: string, target?: TaskTarget): Promise<{ path: string }>;
-  /** Open tasks across every backlog file. */
+  /** Every list in todo/, creating `general` on first run. */
+  lists(): Promise<string[]>;
+  /** Append a task to a list's Now (the default) or Backlog. The first list when none is given. */
+  quickAdd(text: string, section?: TaskSection, list?: string): Promise<{ path: string }>;
+  /** Open tasks in every list's Backlog. */
   backlogTasks(): Promise<TaskRef[]>;
-  /** Carry unfinished work into this week. Deterministic — no model involved. */
-  rollover(): Promise<RolloverResult>;
-  /** Lift a task out of one file and append it to another. */
-  moveTask(source: string, line: number, target: string): Promise<void>;
+  /** Lift a task out of one file and append it to a section of another (Now by default). */
+  moveTask(source: string, line: number, target: string, heading?: string): Promise<void>;
+  /** File finished tasks under Archive: every one, or only those finished before today. */
+  archiveDone(path: string, all?: boolean): Promise<{ archived: number }>;
+  /** The notes pinned to the top of the sidebar, in order. */
+  pins(): Promise<PinInfo[]>;
+  setPin(path: string, pinned: boolean): Promise<void>;
 
   /** Delete a note. Confirmation is the caller's job. */
   deleteFile(path: string): Promise<void>;

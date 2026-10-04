@@ -109,8 +109,8 @@ def test_write_tools_are_collected_not_executed(vault: Vault):
     assert len(answer.proposals) == 2
     # Nothing on disk changed.
     assert vault.read_file("notes/oversight.md") == before
-    # The backlog was never even created, let alone written to.
-    assert not (vault.root / "todo/backlog.md").exists()
+    # The list was never even created, let alone written to.
+    assert not (vault.root / "todo/general.md").exists()
 
 
 def test_replacements_are_flagged_destructive(vault: Vault):
@@ -152,7 +152,8 @@ def test_apply_add_task(vault: Vault):
     changed, snapshot = chat.apply_proposals(
         vault, [{"tool": "add_task", "args": {"text": "Do it", "target": "backlog"}}]
     )
-    assert "Do it" in vault.read_file("todo/backlog.md")
+    body = vault.read_file("todo/general.md")
+    assert "Do it" in body.split("## Backlog")[1]
     assert changed and snapshot
 
 
@@ -209,11 +210,10 @@ def test_undo_restores_every_touched_file(vault: Vault):
 
 def test_undo_removes_a_file_that_did_not_exist(vault: Vault):
     _, snapshot = chat.apply_proposals(
-        vault, [{"tool": "add_task", "args": {"text": "New", "target": "week"}}]
+        vault, [{"tool": "add_task", "args": {"text": "New", "target": "now"}}]
     )
     chat.undo(vault, snapshot)
-    from occam import todo
-    assert not (vault.root / todo.week_path()).exists()
+    assert not (vault.root / "todo/general.md").exists()
 
 
 def test_unknown_proposal_is_refused(vault: Vault):

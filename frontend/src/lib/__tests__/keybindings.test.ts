@@ -146,10 +146,10 @@ describe("the tiering rule", () => {
   });
 
   it("unbound commands match nothing until given a key", () => {
-    expect(BINDINGS.rollover.key).toBe("");
-    expect(matches(ev("r", { metaKey: true }), BINDINGS.rollover)).toBe(false);
+    expect(BINDINGS.archiveDone.key).toBe("");
+    expect(matches(ev("r", { metaKey: true }), BINDINGS.archiveDone)).toBe(false);
     // Not even a bare modifier press.
-    expect(matches(ev("", { metaKey: true }), BINDINGS.rollover)).toBe(false);
+    expect(matches(ev("", { metaKey: true }), BINDINGS.archiveDone)).toBe(false);
   });
 
   it("keeps macOS bindings where the platform already has one", () => {
@@ -197,7 +197,7 @@ describe("the key sheet", () => {
     expect(sheet).toContain("- `⌘⏎` Make this line a task");
     expect(sheet).toContain("- `⌘⇧⏎` Turn a task back");
     expect(sheet.indexOf("## No key yet")).toBeGreaterThan(sheet.indexOf("## View"));
-    expect(sheet).toContain("`rollover`");
+    expect(sheet).toContain("`archiveDone`");
   });
 
   it("shows the override in force, not the default", () => {

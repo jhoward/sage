@@ -7,18 +7,28 @@
  */
 
 /**
- * Folders the app finds things in by path. A week file dragged out of `todo/` would not
- * error — rollover would simply never see it again — so these are closed in both
- * directions rather than trusted to be left alone.
+ * Folders the app finds things in by path. A list dragged out of `todo/` would not error —
+ * capture would simply never see it again — so these are closed in both directions
+ * rather than trusted to be left alone.
  */
 const LOCKED = ["todo", ".occam", ".sage"];
 
 const folderOf = (path: string) => path.split("/").slice(0, -1).join("/");
 const locked = (path: string) => LOCKED.includes(path.split("/")[0]);
 
-/** Only notes drag. A folder dropped into a folder is how a tree gets deep. */
+/**
+ * Only notes drag. A folder dropped into a folder is how a tree gets deep.
+ *
+ * A note in a locked folder can still be picked up: it cannot be *moved* (moveTarget
+ * refuses), but it can be pinned, and a list is the thing most worth pinning.
+ */
 export function canDrag(node: { path: string; isDir: boolean }): boolean {
-  return !node.isDir && !locked(node.path);
+  return !node.isDir;
+}
+
+/** Whether a dragged note can be dropped on the pinned area: any note not already there. */
+export function canPin(source: string, pinned: string[]): boolean {
+  return !pinned.includes(source);
 }
 
 /**

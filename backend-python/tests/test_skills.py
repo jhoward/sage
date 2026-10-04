@@ -125,15 +125,23 @@ def test_note_and_links_skips_ambiguous_names(vault: Vault):
     assert "First" not in out and "Second" not in out
 
 
-def test_week_done_sends_only_completed_tasks(vault: Vault):
-    vault.write_file(
-        "todo/2026-08-23.md",
-        "## Now\n- [x] Shipped it\n- [ ] Still open\n- [X] Also done\n",
-    )
-    out = context.get("week-done").build(vault, "todo/2026-08-23.md", None)
+def test_week_done_sends_recently_finished_tasks_from_every_list(vault: Vault):
+    from datetime import date, timedelta
 
-    assert "Shipped it" in out and "Also done" in out
+    today = date.today().isoformat()
+    old = (date.today() - timedelta(days=30)).isoformat()
+    vault.write_file(
+        "todo/general.md",
+        f"# General\n\n## Now\n- [x] Shipped it <!-- done:{today} -->\n- [ ] Still open\n"
+        f"\n## Archive\n- [X] Also done <!-- done:{today} -->\n- [x] Ancient <!-- done:{old} -->\n",
+    )
+    vault.write_file("todo/house.md", f"# House\n\n## Archive\n- [x] Fixed the gate <!-- done:{today} -->\n")
+    out = context.get("week-done").build(vault, "notes/anything.md", None)
+
+    assert "Shipped it" in out and "Also done" in out and "Fixed the gate" in out
     assert "Still open" not in out  # intentions must not drift into a report of the week
+    assert "Ancient" not in out
+    assert "# Completed in House" in out
 
 
 # ---- prompt assembly -------------------------------------------------

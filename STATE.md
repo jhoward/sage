@@ -1,6 +1,6 @@
 # Where this is
 
-_Last updated: 2026-09-20 — git sync is live; the real vault is `~/occam`, backed up to a private GitHub repo._
+_Last updated: 2026-10-04 — todo lists replaced the week files; the real vault is `~/occam`, backed up to a private GitHub repo._
 
 ## Running it in 30 seconds
 
@@ -12,13 +12,53 @@ Everything is installed. If the frontend changed, `cd frontend && npm run build`
 For hot-reload: `npm run dev` in `frontend/`, then `SAGE_DEV=1 uv run notes`.
 
 ```bash
-cd backend-python && uv run pytest   # 278 passed, 1 skipped
-cd frontend && npm test              # 265 passed
+cd backend-python && uv run pytest   # 277 passed, 1 skipped
+cd frontend && npm test              # 280 passed
 ```
 
 The skip is a ripgrep-vs-Python search comparison; `rg` is not installed on this machine,
 so `vault.search()` uses the pure-Python fallback. Not a problem at current scale — see
 the search ladder in the README.
+
+## Done — lists instead of weeks (2026-10-04)
+
+The trigger: two weeks with no week file opened, while the backlog had quietly become
+the real list, sorted under project headings. The week was ceremony. What it did that
+mattered — dating finished work — is now a stamp.
+
+- **One file per list**, `todo/<name>.md`, with `## Now`, `## Backlog`, `## Archive`.
+  Headings still are not a schema. `general` is seeded when there is no list at all.
+- **`done:` stamps.** Checking a task writes `<!-- done:YYYY-MM-DD -->` into the one
+  metadata comment; unchecking removes it. The editor hides the comment and draws a dim
+  date on finished tasks only (`.cm-task-date`); the cursor on the line shows the raw text.
+  `setClock` pins the date in tests. `added:` was rejected earlier for putting noise on
+  every line; this lands only on finished lines, which the active view hides anyway.
+- **Archive sweep.** Opening a list files tasks finished before today under Archive, with
+  their children, renumbering what is left and keeping a list's starting number. The
+  palette command files today's too. Undated finished tasks count as old — the editor
+  always stamps, so undated means edited elsewhere.
+- **In-file moves.** `toNow` / `toBacklog` are editor commands (unbound; in the palette and
+  the key table): one transaction, one undo, children along, re-rendered as a bullet.
+  "Send this task to …" from a note goes through the backend to the capture list.
+- **Pins.** `.occam/pins.md`, one path per line. Any note; right-click, drag onto the
+  pinned area, or `⌘K`. Rename, move, archive and delete keep the file current. The pinned
+  rows replaced the fixed "This week" / "Backlog" rows. Lists drag now (to be pinned) but
+  still cannot be moved out of `todo/`.
+- **Capture target** is the open list, else the first pinned list, else the first list,
+  and the quick-add footer names it. The pull picker pulls from every *other* list's
+  Backlog into that list's Now.
+- **`week-done`** keeps its name (vault skill files use it) but now means "finished in the
+  last seven days across every list", by stamp, grouped by list title.
+- **Migration** ran once at startup: week files folded into `general` (open → Now,
+  finished → Archive stamped with the file's Sunday, plain lines kept), each `## Section`
+  of the old backlog became a list, the three were pinned, the old files removed. Counts
+  checked before and after on the real vault: 54 open, 35 finished, both unchanged.
+- Rollover, the `rolled:` counter and the stale flag are gone. Old `rolled:` comments in
+  files are harmless and hidden; the migration drops them from what it moves.
+- The chat tool `add_task` now targets `now` / `backlog` of the general list.
+
+Not yet seen in the real webview: the date beside finished tasks, and the pinned area's
+drop highlight. Behaviour is covered by `todoView.test.ts` and `FileTreeDrag.test.tsx`.
 
 ## Done — Phases 1 through 3.5, plus AI actually running
 
@@ -255,7 +295,7 @@ only if the escalation ladder in the README actually demands it.
 - ~~Drag-and-drop in the file tree~~ — done 2026-09-21. "Reachable two ways" turned out not
   to be the point: dragging is the way people *try*. Rules live in `lib/treeDrag.ts`: only
   notes drag (folders into folders is how a tree gets deep); `todo/` and `.occam/` are
-  closed both ways, because a week file dragged out would not error, rollover would just
+  closed both ways, because a list dragged out would not error, capture would just
   never see it again; a drop on a note means that note's folder; a closed folder opens
   under a resting drag. It calls the same `rename` as the Move prompt, so links follow.
   **Not yet confirmed in the real webview** — the tests drive jsdom, and pywebview's
@@ -263,13 +303,15 @@ only if the escalation ladder in the README actually demands it.
 
 ## Open questions
 
-- **Does `## Now` earn its place?** Kept because a flat list cannot express the commitment
-  line. Use it for a week; if you never look at it, delete the heading — nothing in the
-  code depends on it.
-- **Rollover cadence** — currently an explicit palette command. Should it offer itself when
-  the week file is new and a previous week has leftovers?
-- **Where the weekly summary lands** — planned as a `## Summary` section in the week file
-  so it archives with the week. Confirm before building it.
+- **A master view across lists.** Discussed and deferred (2026-10-04): it would be a
+  second representation, which the design has refused so far — though the pull picker
+  already reads across lists and writes through. Build it only if switching between
+  pinned lists grates after a few weeks.
+- **A `created:` stamp.** Would answer "how long has this been sitting here", which the
+  rolled counter used to. Cheap to add with the same mechanism; the cost is a comment on
+  every line when the cursor is on it. Wait until it is missed.
+- **Where the weekly summary lands** — a `## Summary` under the list, or a note in
+  `notes/`. Confirm before building it.
 - **Which context strategy each skill defaults to** — selection for transforms, whole note
   for expand, title-listing for ask-with-context.
 

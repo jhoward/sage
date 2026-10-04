@@ -8,7 +8,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { FileTree } from "../FileTree";
+import { FileTree, PinnedList } from "../FileTree";
 import type { FileNode } from "../../backend";
 
 const file = (path: string): FileNode =>
@@ -22,7 +22,7 @@ const TREE: FileNode[] = [
     file("notes/alpha.md"),
     file("notes/beta.md"),
   ]),
-  folder("todo", [file("todo/backlog.md")]),
+  folder("todo", [file("todo/general.md")]),
 ];
 
 afterEach(cleanup);
@@ -73,11 +73,20 @@ describe("dragging a note", () => {
     expect(onMove).not.toHaveBeenCalled();
   });
 
-  it("only notes outside todo can be picked up", () => {
+  it("notes can be picked up, folders cannot", () => {
     const { row } = setup();
     expect(row("alpha").getAttribute("draggable")).toBe("true");
-    expect(row("backlog").getAttribute("draggable")).toBe("false");
+    // A list drags too — it cannot be moved, but it can be pinned.
+    expect(row("general").getAttribute("draggable")).toBe("true");
     expect(row("governance").getAttribute("draggable")).toBeNull();
+  });
+
+  it("a list dragged onto a folder is refused", () => {
+    const { onMove, row } = setup();
+    fireEvent.dragStart(row("general"), { dataTransfer: transfer() });
+    expect(fireEvent.dragOver(row("governance"), { dataTransfer: transfer() })).toBe(true);
+    fireEvent.drop(row("governance"), { dataTransfer: transfer() });
+    expect(onMove).not.toHaveBeenCalled();
   });
 
   it("a closed folder opens under a drag that rests on it", () => {
@@ -97,5 +106,50 @@ describe("dragging a note", () => {
   it("nothing is draggable when the tree has no move handler", () => {
     render(<FileTree nodes={TREE} selected={null} onOpen={() => {}} />);
     expect(screen.getByText("alpha").closest("button")!.getAttribute("draggable")).toBe("false");
+  });
+});
+
+describe("the pinned area", () => {
+  it("is not there with nothing pinned, until a drag begins", () => {
+    const onPin = vi.fn();
+    render(
+      <>
+        <PinnedList pins={[]} selected={null} onOpen={() => {}} onPin={onPin} />
+        <FileTree nodes={TREE} selected={null} onOpen={() => {}} onMove={() => {}} />
+      </>,
+    );
+    expect(screen.queryByText("Drop to pin")).toBeNull();
+
+    const row = screen.getByText("alpha").closest("button")!;
+    fireEvent.dragStart(row, { dataTransfer: transfer() });
+    const zone = screen.getByText("Drop to pin").parentElement!;
+    expect(fireEvent.dragOver(zone, { dataTransfer: transfer() })).toBe(false);
+    fireEvent.drop(zone, { dataTransfer: transfer() });
+    expect(onPin).toHaveBeenCalledWith("notes/alpha.md");
+  });
+
+  it("lists what is pinned, by title, and refuses a note already there", () => {
+    const onPin = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      <>
+        <PinnedList
+          pins={[{ path: "todo/general.md", title: "General" }]}
+          selected={null}
+          onOpen={onOpen}
+          onPin={onPin}
+        />
+        <FileTree nodes={TREE} selected={null} onOpen={() => {}} onMove={() => {}} />
+      </>,
+    );
+    fireEvent.click(screen.getByText("General"));
+    expect(onOpen).toHaveBeenCalledWith("todo/general.md");
+
+    const list = screen.getByText("general").closest("button")!;
+    fireEvent.dragStart(list, { dataTransfer: transfer() });
+    const zone = screen.getByText("General").closest(".side-pins")!;
+    expect(fireEvent.dragOver(zone, { dataTransfer: transfer() })).toBe(true);
+    fireEvent.drop(zone, { dataTransfer: transfer() });
+    expect(onPin).not.toHaveBeenCalled();
   });
 });

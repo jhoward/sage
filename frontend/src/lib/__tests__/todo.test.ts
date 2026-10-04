@@ -8,8 +8,11 @@
 import { describe, expect, it } from "vitest";
 import { EditorState, type TransactionSpec } from "@codemirror/state";
 import {
-  backlogLabel,
+  listLabel,
   continueList,
+  setClock,
+  setDoneChanges,
+  moveToSection,
   indentListItem,
   outdentListItem,
   hideCompletedField,
@@ -20,6 +23,9 @@ import {
   toggleTask,
   untask,
 } from "../todo";
+
+setClock(() => "2026-10-04");
+const DONE = "<!-- done:2026-10-04 -->";
 
 function target(doc: string, cursorLine = 1) {
   let state = EditorState.create({ doc, extensions: [hideCompletedField] });
@@ -37,15 +43,15 @@ function target(doc: string, cursorLine = 1) {
   };
 }
 
-const WEEK = `---
-week: 2026-W35
----
+const WEEK = `# General
+
+The default list.
 
 ## Now
 - [ ] Finish the sync layer
 - [x] Set up the repo
 
-## This week
+## Backlog
 - [ ] Draft the planning doc
 - [ ] Follow up on JIRA-482
 `;
@@ -65,18 +71,24 @@ describe("parseTask", () => {
 });
 
 describe("toggleTask", () => {
-  it("marks an open task done", () => {
+  it("marks an open task done, and stamps the day", () => {
     const t = target("- [ ] Finish the sync layer");
     expect(toggleTask(t)).toBe(true);
-    expect(t.doc()).toBe("- [x] Finish the sync layer");
+    expect(t.doc()).toBe(`- [x] Finish the sync layer ${DONE}`);
   });
 
-  it("round-trips", () => {
-    const t = target("- [x] Set up the repo");
+  it("round-trips, leaving no trace of a mistaken tick", () => {
+    const t = target("- [x] Set up the repo <!-- done:2026-09-30 -->");
     toggleTask(t);
     expect(t.doc()).toBe("- [ ] Set up the repo");
     toggleTask(t);
-    expect(t.doc()).toBe("- [x] Set up the repo");
+    expect(t.doc()).toBe(`- [x] Set up the repo ${DONE}`);
+  });
+
+  it("unchecks a task that was never stamped", () => {
+    const t = target("- [x] Set up the repo");
+    toggleTask(t);
+    expect(t.doc()).toBe("- [ ] Set up the repo");
   });
 
   it("leaves non-task lines alone", () => {
@@ -85,10 +97,31 @@ describe("toggleTask", () => {
     expect(t.doc()).toBe("## Now");
   });
 
-  it("preserves the task text exactly", () => {
+  it("keeps other metadata in the one comment", () => {
     const t = target("- [ ] Follow up on JIRA-482 <!-- rolled:3 -->");
     toggleTask(t);
-    expect(t.doc()).toBe("- [x] Follow up on JIRA-482 <!-- rolled:3 -->");
+    expect(t.doc()).toBe("- [x] Follow up on JIRA-482 <!-- rolled:3 done:2026-10-04 -->");
+    toggleTask(t);
+    expect(t.doc()).toBe("- [ ] Follow up on JIRA-482 <!-- rolled:3 -->");
+  });
+
+  it("stamps a numbered task too", () => {
+    const t = target("3. [ ] Grade homework");
+    toggleTask(t);
+    expect(t.doc()).toBe(`3. [x] Grade homework ${DONE}`);
+  });
+});
+
+describe("setDoneChanges", () => {
+  it("reads where the comment starts, including the space before it", () => {
+    const s = EditorState.create({ doc: "- [ ] A task <!-- done:2026-01-01 -->" });
+    const task = parseTask(s.doc.line(1))!;
+    expect(task.meta).toEqual({ done: "2026-01-01" });
+    expect(s.doc.sliceString(task.metaFrom)).toBe(" <!-- done:2026-01-01 -->");
+    expect(setDoneChanges(task, false)).toEqual([
+      { from: task.markPos, to: task.markPos + 1, insert: " " },
+      { from: task.metaFrom, to: s.doc.line(1).to, insert: "" },
+    ]);
   });
 });
 
@@ -99,7 +132,7 @@ describe("promoteToTop", () => {
     expect(promoteToTop(t)).toBe(true);
 
     const lines = t.doc().split("\n");
-    const heading = lines.indexOf("## This week");
+    const heading = lines.indexOf("## Backlog");
     expect(lines[heading + 1]).toBe("- [ ] Follow up on JIRA-482");
     expect(lines[heading + 2]).toBe("- [ ] Draft the planning doc");
   });
@@ -187,7 +220,7 @@ describe("toggleTask on a plain line", () => {
     const t = target("Call the dentist");
     toggleTask(t);
     toggleTask(t);
-    expect(t.doc()).toBe("- [x] Call the dentist");
+    expect(t.doc()).toBe(`- [x] Call the dentist ${DONE}`);
   });
 
   it("leaves a blank line alone", () => {
@@ -228,7 +261,7 @@ describe("toggleTask across a selection", () => {
     // The bug: flipping each independently unchecked "Two" while checking the others.
     const t = selecting(MIXED, 1, 3);
     toggleTask(t);
-    expect(t.doc()).toBe("- [x] One\n- [x] Two\n- [x] Three");
+    expect(t.doc()).toBe(`- [x] One ${DONE}\n- [x] Two\n- [x] Three ${DONE}`);
   });
 
   it("unfinishes everything only when all are finished", () => {
@@ -247,13 +280,13 @@ describe("toggleTask across a selection", () => {
   it("still flips a single line", () => {
     const t = target("- [ ] One");
     toggleTask(t);
-    expect(t.doc()).toBe("- [x] One");
+    expect(t.doc()).toBe(`- [x] One ${DONE}`);
   });
 
   it("ignores non-task lines inside the selection", () => {
     const t = selecting("## Now\n- [ ] One\n\n- [ ] Two", 1, 4);
     toggleTask(t);
-    expect(t.doc()).toBe("## Now\n- [x] One\n\n- [x] Two");
+    expect(t.doc()).toBe(`## Now\n- [x] One ${DONE}\n\n- [x] Two ${DONE}`);
   });
 
   it("converts a selection of plain lines into tasks", () => {
@@ -330,7 +363,7 @@ describe("numbered lists", () => {
     toggleTask(t);
     expect(t.doc()).toBe("1. [ ] Buy milk");
     toggleTask(t);
-    expect(t.doc()).toBe("1. [x] Buy milk");
+    expect(t.doc()).toBe(`1. [x] Buy milk ${DONE}`);
   });
 
   it("Enter continues the number and the box", () => {
@@ -446,7 +479,7 @@ describe("a selection that ends at the start of the next line", () => {
   it("does not complete the task below", () => {
     const t = throughLineBreak("- [ ] One\n- [ ] Two\n- [ ] Three", 1, 3);
     toggleTask(t);
-    expect(t.doc()).toBe("- [x] One\n- [x] Two\n- [ ] Three");
+    expect(t.doc()).toBe(`- [x] One ${DONE}\n- [x] Two ${DONE}\n- [ ] Three`);
   });
 
   it("does not make a task of the line below", () => {
@@ -476,7 +509,7 @@ describe("a selection that ends at the start of the next line", () => {
   it("still acts on the line a bare cursor sits at the start of", () => {
     const t = target("- [ ] One\n- [ ] Two", 2);
     toggleTask(t);
-    expect(t.doc()).toBe("- [ ] One\n- [x] Two");
+    expect(t.doc()).toBe(`- [ ] One\n- [x] Two ${DONE}`);
   });
 });
 
@@ -562,26 +595,82 @@ describe("deleteLines", () => {
   });
 });
 
-describe("how a backlog task is labelled when pulling", () => {
-  const task = (section: string, path = "todo/backlog.md", rolled = 0) => ({ path, section, rolled });
+describe("moving a task to another section", () => {
+  it("to the Backlog: appended at the end, as a bullet", () => {
+    const t = target(WEEK, 6);
+    expect(todoCommands.toBacklog(t)).toBe(true);
+    expect(t.doc()).toBe(`# General
 
-  it("by its project, which is its section", () => {
-    expect(backlogLabel(task("## Occam Features"))).toBe("Occam Features");
-    expect(backlogLabel(task("## General"))).toBe("General");
+The default list.
+
+## Now
+- [x] Set up the repo
+
+## Backlog
+- [ ] Draft the planning doc
+- [ ] Follow up on JIRA-482
+- [ ] Finish the sync layer
+`);
+    expect(t.state.doc.lineAt(t.state.selection.main.head).text).toBe("- [ ] Finish the sync layer");
   });
 
-  it("with how long it has been avoided", () => {
-    expect(backlogLabel(task("## Occam Features", "todo/backlog.md", 3))).toBe(
-      "Occam Features · rolled 3×",
-    );
+  it("to Now, bringing its children and dropping its number", () => {
+    const t = target("## Now\n- [ ] a\n\n## Backlog\n1. [ ] b\n   - a note under b\n2. [ ] c\n", 5);
+    todoCommands.toNow(t);
+    expect(t.doc()).toBe("## Now\n- [ ] a\n- [ ] b\n  - a note under b\n\n## Backlog\n1. [ ] c\n");
   });
 
-  it("by its file, once projects have files of their own", () => {
-    expect(backlogLabel(task("## General", "todo/backlog/occam.md"))).toBe("occam");
-    expect(backlogLabel(task("## Editor", "todo/backlog/occam.md"))).toBe("occam › Editor");
+  it("into an empty section, straight under the heading", () => {
+    const t = target("## Now\n\n## Backlog\n- [ ] b\n", 4);
+    todoCommands.toNow(t);
+    expect(t.doc()).toBe("## Now\n- [ ] b\n\n## Backlog\n");
   });
 
-  it("says nothing rather than something wrong for a task above any heading", () => {
-    expect(backlogLabel(task(""))).toBe("");
+  it("creates the heading at the end when the file has none", () => {
+    const t = target("## Now\n- [ ] a\n- [ ] b\n", 2);
+    todoCommands.toBacklog(t);
+    expect(t.doc()).toBe("## Now\n- [ ] b\n\n## Backlog\n- [ ] a");
+  });
+
+  it("does nothing to a task already there, or to a line that is not a task", () => {
+    const t = target(WEEK, 10);
+    expect(todoCommands.toBacklog(t)).toBe(true);
+    expect(t.doc()).toBe(WEEK);
+    const u = target(WEEK, 5);
+    expect(moveToSection("## Backlog")(u)).toBe(false);
+  });
+
+  it("moves every selected task", () => {
+    const t = target(WEEK, 10);
+    t.dispatch({ selection: { anchor: t.state.doc.line(10).from, head: t.state.doc.line(11).to } });
+    todoCommands.toNow(t);
+    expect(t.doc()).toBe(`# General
+
+The default list.
+
+## Now
+- [ ] Finish the sync layer
+- [x] Set up the repo
+- [ ] Draft the planning doc
+- [ ] Follow up on JIRA-482
+
+## Backlog
+`);
+  });
+});
+
+describe("how a task is labelled when pulling", () => {
+  const task = (section: string, path = "todo/occam.md", list?: string) => ({ path, section, list });
+
+  it("by its list's title", () => {
+    expect(listLabel(task("## Backlog", "todo/occam.md", "Occam Features"))).toBe("Occam Features");
+  });
+
+  it("by its file when there is no title", () => {
+    expect(listLabel(task("## Backlog"))).toBe("occam");
+  });
+
+  it("with the section, when it is not the ordinary Backlog", () => {
+    expect(listLabel(task("## Someday", "todo/occam.md", "Occam"))).toBe("Occam › Someday");
   });
 });

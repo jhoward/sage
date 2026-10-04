@@ -78,25 +78,28 @@ class NoteAndLinks:
 
 
 class WeekDone:
-    """Just the completed tasks from a week file — the raw material for a summary.
+    """Tasks finished in the last seven days, across every list.
 
-    Sending only `- [x]` lines keeps the summary grounded in what was actually finished,
-    rather than letting unfinished intentions drift into a report of the week.
+    Sending only finished tasks keeps the summary grounded in what was actually done,
+    rather than letting unfinished intentions drift into a report of the week. The week
+    is counted back from today by each task's `done:` stamp, so it spans lists — the
+    house, the course and the project in one summary — which a single file never could.
     """
 
     name = "week-done"
 
     def build(self, vault, note_path: str | None, selection: str | None) -> str:
-        if not note_path:
+        from . import todo
+
+        by_list = todo.recently_done(vault)
+        if not by_list:
             return ""
-        done = [
-            line.strip()
-            for line in vault.read_file(note_path).splitlines()
-            if _DONE_RE.match(line)
-        ]
-        if not done:
-            return ""
-        return f"# Completed in {note_path}\n\n" + "\n".join(done)
+        parts = []
+        for path, tasks in by_list.items():
+            title = todo.list_title(vault, path)
+            lines = "\n".join(f"- [x] {t.text} ({t.meta['done']})" for t in tasks)
+            parts.append(f"# Completed in {title} ({path})\n\n{lines}")
+        return "\n\n".join(parts)
 
 
 _LINK_RE = re.compile(r"\[\[([^\]\n|]+)(?:\|[^\]\n]*)?\]\]")

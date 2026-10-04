@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { FileNode } from "../backend";
-import { canDrag, dropFolder, moveTarget } from "../lib/treeDrag";
+import type { FileNode, PinInfo } from "../backend";
+import { canDrag, canPin, dropFolder, moveTarget } from "../lib/treeDrag";
 
 /**
  * The note being dragged. Module-level because the browser hides a drag's data from
@@ -8,8 +8,88 @@ import { canDrag, dropFolder, moveTarget } from "../lib/treeDrag";
  */
 let dragged: string | null = null;
 
+/** Who wants to know when a drag starts and ends: the pinned area, which lives outside the tree. */
+const dragging = new Set<(on: boolean) => void>();
+
 /** How long a drag must rest on a closed folder before it opens. */
 const SPRING_MS = 600;
+
+/**
+ * The pinned notes, above the tree.
+ *
+ * No hierarchy up here: a flat list of whatever you want within reach, in the order the
+ * pins file has them. Any note can be dropped on it to pin it. This replaced two fixed
+ * rows, "This week" and "Backlog", which were pins the app had chosen for you.
+ */
+export function PinnedList({
+  pins,
+  selected,
+  onOpen,
+  onOpenAlt,
+  onContext,
+  onPin,
+}: {
+  pins: PinInfo[];
+  selected: string | null;
+  onOpen: (path: string) => void;
+  onOpenAlt?: (path: string) => void;
+  onContext?: (target: { path: string; isDir: boolean }, at: { x: number; y: number }) => void;
+  /** A note was dropped here. */
+  onPin?: (path: string) => void;
+}) {
+  const [isDragging, setDragging] = useState(false);
+  const [over, setOver] = useState(false);
+  useEffect(() => {
+    dragging.add(setDragging);
+    return () => void dragging.delete(setDragging);
+  }, []);
+
+  // With nothing pinned the area is not there — until a drag begins, when it has to be,
+  // or there would be no way to pin the first note by hand.
+  if (!pins.length && !(isDragging && onPin)) return null;
+  const paths = pins.map((p) => p.path);
+
+  return (
+    <div
+      className="side-pins"
+      data-drop={over || undefined}
+      onDragOver={(e) => {
+        if (!onPin || !dragged || !canPin(dragged, paths)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        const from = dragged;
+        dragged = null;
+        setOver(false);
+        if (from && onPin && canPin(from, paths)) onPin(from);
+      }}
+    >
+      {pins.map((pin) => (
+        <button
+          key={pin.path}
+          onClick={(e) => (e.altKey && onOpenAlt ? onOpenAlt(pin.path) : onOpen(pin.path))}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onContext?.({ path: pin.path, isDir: false }, { x: e.clientX, y: e.clientY });
+          }}
+          aria-current={pin.path === selected ? "true" : undefined}
+          className="side-row"
+          style={{ paddingLeft: 8 }}
+          title={pin.path}
+        >
+          <span className="side-row-label">{pin.title}</span>
+        </button>
+      ))}
+      {!pins.length && <div className="side-pins-empty">Drop to pin</div>}
+    </div>
+  );
+}
 
 interface Props {
   nodes: FileNode[];
@@ -53,6 +133,7 @@ export function FileTree({
       }}
       onDragEnd={() => {
         dragged = null;
+        dragging.forEach((fn) => fn(false));
         setDropInto(null);
       }}
     >
@@ -268,6 +349,7 @@ function Node({
       draggable={!editing && !!drag?.onMove && canDrag(node)}
       onDragStart={(e) => {
         dragged = node.path;
+        dragging.forEach((fn) => fn(true));
         e.dataTransfer.effectAllowed = "move";
         // Firefox will not start a drag that carries no data.
         e.dataTransfer.setData("text/plain", displayName(node));

@@ -356,7 +356,7 @@ function whatItDoes(sk: SkillInfo): string {
     selection: "the selected text",
     note: "this note",
     "note-and-links": "this note and the notes it links to",
-    "week-done": "this week's finished tasks",
+    "week-done": "the tasks finished in the last week, across every list",
   };
   const writes: Record<string, string> = {
     replace: "replaces it",

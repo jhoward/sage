@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -27,6 +28,7 @@ from . import ai, chat as chat_mod, config as config_mod
 from . import keybindings as keys_mod
 from . import meetings as meetings_mod
 from . import links as links_mod
+from . import pins as pins_mod
 from . import skills as skills_mod
 from . import settings as settings_mod
 from . import todo, vault_sync
@@ -44,7 +46,20 @@ class WriteRequest(BaseModel):
 
 class QuickAddRequest(BaseModel):
     text: str
-    target: str = "week"  # or "backlog"
+    section: str = "now"  # or "backlog"
+    # The list to add to; the first list when absent or not a list.
+    path: str | None = None
+
+
+class ArchiveDoneRequest(BaseModel):
+    path: str
+    # True files every finished task; False leaves today's on screen.
+    all: bool = False
+
+
+class PinRequest(BaseModel):
+    path: str
+    pinned: bool = True
 
 
 class ChatRequest(BaseModel):
@@ -121,8 +136,12 @@ def create_app(
         sync = vault_sync.SyncHolder(sync)
     skills_mod.migrate_legacy_settings(vault)
     skills_mod.ensure_default_skills(vault)
-    todo.migrate_week_files(vault)
+    migrated = todo.migrate_to_lists(vault)
     todo.strip_added_dates(vault)
+    todo.ensure_lists(vault)
+    # The new lists take the place the week and backlog had at the top of the sidebar.
+    if migrated and not pins_mod.read(vault):
+        pins_mod.write(vault, migrated)
     meetings_mod.migrate_legacy_meetings(vault)
     ai.strip_ai_markers(vault)
     skills_mod.ensure_reference_notes(vault)
@@ -161,9 +180,9 @@ def create_app(
     def rename(req: RenameRequest):
         """Move a note and repoint every link that referenced it."""
         try:
-            return links_mod.rename(
-                vault, req.path, req.newPath, req.title or ""
-            ).to_dict()
+            result = links_mod.rename(vault, req.path, req.newPath, req.title or "")
+            pins_mod.moved(vault, result.old_path, result.new_path)
+            return result.to_dict()
         except (ValueError, VaultError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -182,6 +201,7 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         guard(vault.delete_file, path)
+        pins_mod.unpin(vault, path)
         app.state.last_change = {path: body}
         return {"ok": True, "canUndo": True}
 
@@ -191,6 +211,7 @@ def create_app(
             target, snapshot = links_mod.archive(vault, req.path)
         except (ValueError, VaultError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        pins_mod.moved(vault, req.path, target)
         app.state.last_change = snapshot
         return {"path": target, "canUndo": True}
 
@@ -200,6 +221,7 @@ def create_app(
             moved, snapshot = links_mod.rename_folder(vault, req.path, req.newPath)
         except (ValueError, VaultError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        pins_mod.moved(vault, req.path, req.newPath)
         app.state.last_change = snapshot
         return {"moved": moved, "canUndo": bool(snapshot)}
 
@@ -226,39 +248,29 @@ def create_app(
     def sync_status():
         return sync.status().to_dict()
 
-    @app.get("/api/todo/week")
-    def todo_week():
-        """This week's file, created on first access."""
-        path = todo.ensure_week_files(vault)
-        return {
-            "path": path,
-            "week": todo.week_id(),
-            "label": todo.week_label(),
-            "backlogs": todo.backlog_paths(vault.root),
-        }
+    @app.get("/api/todo/lists")
+    def todo_lists():
+        """Every list, creating `general` on first run."""
+        return {"lists": todo.ensure_lists(vault)}
 
     @app.get("/api/todo/backlog")
     def backlog_tasks():
-        """Open tasks across every backlog file, for pull-from-backlog in the palette."""
+        """Open tasks in every list's Backlog, for the pull picker."""
         out = []
-        for path in todo.backlog_paths(vault.root):
+        for path in todo.list_paths(vault.root):
+            title = todo.list_title(vault, path)
             for t in todo.parse_tasks(vault.read_file(path)):
-                if not t.done:
+                if not t.done and t.indent == 0 and t.section == todo.BACKLOG:
                     out.append(
                         {
                             "path": path,
                             "line": t.line,
                             "text": t.text,
                             "section": t.section,
-                            "rolled": t.rolled,
+                            "list": title,
                         }
                     )
         return {"tasks": out}
-
-    @app.post("/api/todo/rollover")
-    def rollover():
-        """Carry unfinished work forward. Deterministic — no model involved."""
-        return guard(todo.rollover, vault).to_dict()
 
     @app.post("/api/todo/move")
     def move(req: MoveRequest):
@@ -270,11 +282,34 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"ok": True, "text": task.text, "target": req.target}
 
+    @app.post("/api/todo/archive-done")
+    def archive_done(req: ArchiveDoneRequest):
+        """File finished tasks under Archive — all of them, or only those before today."""
+        before = None if req.all else date.today()
+        return {"archived": guard(todo.archive_done, vault, req.path, before)}
+
+    @app.get("/api/pins")
+    def pins():
+        return {
+            "pins": [
+                {"path": p, "title": todo.list_title(vault, p)} for p in pins_mod.read(vault)
+            ]
+        }
+
+    @app.post("/api/pins")
+    def set_pin(req: PinRequest):
+        if req.pinned:
+            guard(vault.read_file, req.path)  # must exist
+            pins_mod.pin(vault, req.path)
+        else:
+            pins_mod.unpin(vault, req.path)
+        return {"ok": True}
+
     @app.post("/api/todo/quick-add")
     def quick_add(req: QuickAddRequest):
         if not req.text.strip():
             raise HTTPException(status_code=400, detail="empty task")
-        path = todo.append_task(vault, req.text, req.target)
+        path = todo.append_task(vault, req.text, req.path, req.section)
         return {"ok": True, "path": path}
 
     @app.get("/api/config")

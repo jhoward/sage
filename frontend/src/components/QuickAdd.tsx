@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import type { TaskTarget } from "../backend";
+import type { TaskSection } from "../backend";
 
 /**
- * ⌘⇧T from anywhere, regardless of which file is open.
+ * ⌘T from anywhere, regardless of which file is open.
  *
- * Enter captures to the bottom of this week, ⇧Enter to the backlog. Capture stays
- * decision-free — always the same place — and the place means "I'll get to it". Promote
- * with ⌘⇧↑ if it turns out to matter today.
+ * Enter captures to Now, ⇧Enter to the Backlog, of the list you have open — or the first
+ * list when you are in a note. Capture stays decision-free: one place, named in the
+ * footer so there is no guessing where it went.
  */
 export function QuickAdd({
   open,
+  list,
   onClose,
   onSubmit,
 }: {
   open: boolean;
+  /** The list the task will land in, for the footer. */
+  list: string;
   onClose: () => void;
-  onSubmit: (text: string, target: TaskTarget) => void;
+  onSubmit: (text: string, section: TaskSection) => void;
 }) {
   const [text, setText] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -48,7 +51,7 @@ export function QuickAdd({
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
             if (e.key === "Enter" && text.trim()) {
-              onSubmit(text.trim(), e.shiftKey ? "backlog" : "week");
+              onSubmit(text.trim(), e.shiftKey ? "backlog" : "now");
               onClose();
             }
           }}
@@ -56,10 +59,11 @@ export function QuickAdd({
           style={{ color: "var(--ink-fg)" }}
         />
         <div
-          className="border-t px-3 py-1.5 text-[11px]"
+          className="flex justify-between border-t px-3 py-1.5 text-[11px]"
           style={{ borderColor: "var(--ink-border)", color: "var(--ink-muted)" }}
         >
-          ↵ this week · ⇧↵ backlog
+          <span>↵ now · ⇧↵ backlog</span>
+          <span className="truncate">{list}</span>
         </div>
       </div>
     </div>

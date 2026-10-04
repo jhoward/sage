@@ -5,7 +5,7 @@ A local-first, AI-native notes and todo app.
 Named for the razor, because the design argument here is mostly subtraction: a written
 "no" list, features removed when they turned out to make false claims, and extension that
 happens in your vault rather than in the codebase. Plain markdown files on disk, a fast editor,
-and a weekly todo list that generates its own work summaries.
+and todo lists that generate their own work summaries.
 
 Phase 1 is built: editor, file tree, autosave, and the core todo interactions.
 
@@ -90,8 +90,8 @@ repo later without entangling it with the app. Change the location in
 ```
 ~/notes/
 ├── todo/
-│   ├── 2026-08-23.md   this week, named for its Sunday — `## Now`, `## This week`
-│   └── backlog.md       persistent; never rolls over
+│   ├── general.md       one file per list — `## Now`, `## Backlog`, `## Archive`
+│   └── house.md
 ├── notes/
 └── .sage/
     ├── keybindings.toml   (later — follows the vault across machines)
@@ -100,9 +100,22 @@ repo later without entangling it with the app. Change the location in
 
 ## The todo system
 
-The whole thing is one markdown file per week plus a few keybindings. There is no task
+The whole thing is one markdown file per list plus a few keybindings. There is no task
 database, no index, and no separate todo view — the file is the only representation, so
 nothing can drift out of sync with it.
+
+A list has three sections. `## Now` is what you are doing, `## Backlog` is what you are
+not doing yet, and `## Archive` is what you finished. Checking a task off stamps the day
+into a trailing comment — `- [x] Ship it <!-- done:2026-10-04 -->` — which you never type
+and never see as text: finished tasks show a dim date instead, and open ones show nothing.
+When a list opens, anything finished before today is filed under Archive, so Now shows
+today's ticks and not last week's. The explicit version, `⌘K` → "File every finished task
+under Archive", takes today's too.
+
+Any note can be **pinned** to the top of the sidebar: right-click it, drag it onto the
+pinned area, or `⌘K` → pin. The pins are a file, `.occam/pins.md`, so they follow the vault
+and can be reordered by hand. There is no hierarchy up there; it is the handful of files
+you want within reach, which is usually your lists.
 
 | Action | Key |
 |---|---|
@@ -117,11 +130,11 @@ nothing can drift out of sync with it.
 | New note | `⌘N` |
 | Rename a note, updating inbound links | `⌘K` → rename |
 | Delete a note (confirm; undoable) | `⌘⌫` |
-| Pull several tasks from the backlog | `⌘⇧P` |
+| Pull tasks from other lists' Backlogs into this one | `⌘⇧P` |
 | Settings | `⌘,` |
 | Show skills and keybindings in the sidebar | `⌘K` → settings folder |
-| Quick-add from anywhere → bottom of `## This week` | `⌘T`, then `↵` |
-| Quick-add to the backlog instead | `⌘T`, then `⇧↵` |
+| Quick-add from anywhere → bottom of `## Now` in the open list | `⌘T`, then `↵` |
+| Quick-add to that list's `## Backlog` instead | `⌘T`, then `⇧↵` |
 | Start a meeting note (live notes) | `⌘M` |
 | Paste a recap — into this meeting, or a new one | `⌘⇧V` |
 | Move a note to another folder | drag it there, or `⌘K` → move |
@@ -132,12 +145,14 @@ nothing can drift out of sync with it.
 | Nudge up / down | `⌥↑` / `⌥↓` |
 | Delete line | `⌘⇧K` |
 | Hide completed (view only) | `⌘⇧H` |
+| Move a task to `## Now` / `## Backlog` of the same list | `⌘K` → to Now / to Backlog |
 | Force save | `⌘S` (autosaves after 500ms anyway) |
-| Split pane (week + backlog) | `⌘\`, or ⌥-click a file |
+| Split pane (the next pinned note) | `⌘\`, or ⌥-click a file |
 | Follow a `[[link]]`, or create it if it does not exist | `⌘`-click |
 
-Quick-add is global — it goes to this week's file regardless of which note you are
-looking at, so capture never depends on where you happen to be.
+Quick-add is global — it goes to the list you have open, or the first pinned list when you
+are in a note, and the dialog names where it is going, so capture never depends on
+remembering where you happen to be.
 
 Enter continues a list — another task after a task, another bullet after a bullet — and
 Enter on an *empty* item removes it and leaves the list. That is why there is no "new task"
@@ -163,30 +178,30 @@ commands now live in that table, so they appear in `⌘K` and can be rebound in
 Sections are ordinary markdown headings, and nothing in the code enforces them: capture
 creates whatever heading it targets, so rename or delete them freely.
 
-The week has two sections because the only thing a flat ordered list cannot express is the
-commitment line — `## Now` answers "what am I doing right now" without re-reading twenty
-items. There is deliberately **no inbox**: an inbox earns its place only when there are
-several destinations to sort into, which is not true until backlogs split per project.
+`## Now` exists because the only thing a flat ordered list cannot express is the
+commitment line — it answers "what am I doing right now" without re-reading forty items.
+There is deliberately **no inbox**: capture lands in Now, and Now is short enough to sort.
 
-**The active week should fit on one screen.** If it doesn't, you have over-committed. That
-is why hide-completed exists: finished tasks stay in the file (they are the raw material
-for weekly summaries) but leave the active view.
+**Now should fit on one screen.** If it doesn't, you have over-committed. Finished tasks
+leave it by themselves the next day; hide-completed (`⌘⇧H`) clears them from view sooner.
 
-## Rollover and the palette
+## Lists and the palette
 
-`⌘K` → "Roll unfinished work into this week" carries everything unfinished from the most
-recent earlier week file into the current one, keeping each task in its section and
-bumping a `<!-- rolled:N -->` counter. The source file is left untouched as that week's
-archive, so what got done stays recorded for the weekly summary in Phase 3. Running it
-twice skips rather than duplicates. Anything that has rolled five times or more is
-surfaced for a do/delegate/drop decision rather than acted on.
+One list per project — `todo/general.md`, `todo/house.md` — each with the same three
+sections. Weekly files were tried first and retired: the week gave every task a date
+through its filename, but after a few weeks the backlog had become the real list and the
+week file sat unopened. The `done:` stamp keeps the one thing the week did that mattered,
+and a summary now spans every list — the house, the course and the project in one — which
+a single week file never could.
 
-None of this involves a model: it is instant, and it cannot silently drop a task.
+Moving a task to the other section of its list is an editor command (`⌘K` → "to Now" /
+"to Backlog", bindable), one keystroke and one undo, children included. Across lists,
+`⌘⇧P` pulls from every other list's Backlog into the Now of the one you have open. None of
+this involves a model: it is instant, and it cannot silently drop a task.
 
-The palette also moves tasks between the week and the backlog — "Send this task to the
-backlog" acts on the cursor line, and every open backlog item appears as its own
-`Pull: …` entry. A moved task keeps its rolled count, so parking something does not reset
-the record of how long it has been avoided.
+Lists of finished work grow, and that is fine: a thousand tasks is sixty kilobytes, and
+the editor renders only what is on screen. A command to sweep older years into a sibling
+file can come when someone wants it.
 
 ## Keybindings
 
@@ -296,8 +311,7 @@ goes with it, so nothing accumulates that you cannot see or remove from inside t
 `⌘K` → "Archive this note" moves a note to `archive/`, keeping the folder it came from so
 provenance survives and two notes with the same name cannot collide. It is a move, not a
 delete: search, links and the ask panel still reach it, and undo restores it. The point is
-only to keep the folders you look at daily worth looking at — most obviously `todo/`, which
-gains a week file every week.
+only to keep the folders you look at daily worth looking at.
 
 Four are seeded because they earn it — `todo/`, `meetings/`, `notes/`, and `archive/` —
 and the sidebar orders those by how often you want them rather than alphabetically, which
@@ -453,8 +467,8 @@ If you are not in a meeting note, `⌘⇧V` takes a recap off the clipboard, wri
 `meetings/<date>-<short-title>.md` with a title taken from the recap's own name — or written for it when there isn't one — and
 immediately asks
 for the follow-ups **you** committed to — not everyone else's actions. Each proposed task
-links back to the meeting, so the reason it exists stays visible, and they land in this
-week rather than the backlog because a commitment made in a meeting is usually live.
+links back to the meeting, so the reason it exists stays visible, and they land in Now
+rather than the Backlog because a commitment made in a meeting is usually live.
 
 Set your name so it knows which commitments are yours:
 
@@ -513,7 +527,7 @@ vault already covered, the right answer is "no change needed, it is already in
 ### Context is the point
 
 Each skill declares what goes in the context window: just the selection, the whole note, the
-note plus every note it links to, or a week's completed tasks. That is why
+note plus every note it links to, or the last week's finished tasks across every list. That is why
 "ask, with this note as context" is worth having and generic research is not — a chat window
 cannot see your vault, and this can.
 
@@ -579,10 +593,10 @@ eventually, not yet. The frontend is ~80% of the work and is identical either wa
 | Phase | Contents |
 |---|---|
 | **1** ✅ | Editor, file tree, autosave, three contracts, atomic writes, core todo interactions |
-| **2** ✅ | `⌘K` palette, deterministic weekly rollover, backlog pull/send, wiki-links, backlinks, split view |
+| **2** ✅ | `⌘K` palette, deterministic rollover (since retired with the week files), backlog pull/send, wiki-links, backlinks, split view |
 | **3** ✅ | Skill runner, selection transforms, ask-with-context, weekly summary, diff review |
 | 4 | Git-backed sync, auto-link suggestions, keybinding overrides |
-| 5 | External resolvers (Jira/Docs), per-project backlogs, semantic search only if needed |
+| 5 | External resolvers (Jira/Docs), semantic search only if needed |
 
 ### On search
 

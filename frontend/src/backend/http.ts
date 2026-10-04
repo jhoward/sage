@@ -4,14 +4,13 @@ import type {
   AskAnswer,
   FileNode,
   RemoteCheck,
-  RolloverResult,
   SearchHit,
   Settings,
   SkillInfo,
   SyncStatus,
   TaskRef,
   VaultBackend,
-  WeekInfo,
+  PinInfo,
 } from "./types";
 
 /**
@@ -98,14 +97,15 @@ export const httpBackend: VaultBackend = {
     return request<SyncStatus>("/api/sync");
   },
 
-  async week() {
-    return request<WeekInfo>("/api/todo/week");
+  async lists() {
+    const r = await request<{ lists: string[] }>("/api/todo/lists");
+    return r.lists;
   },
 
-  async quickAdd(text, target = "week") {
+  async quickAdd(text, section = "now", list) {
     return request<{ path: string }>("/api/todo/quick-add", {
       method: "POST",
-      body: JSON.stringify({ text, target }),
+      body: JSON.stringify({ text, section, path: list ?? null }),
     });
   },
 
@@ -114,15 +114,27 @@ export const httpBackend: VaultBackend = {
     return r.tasks;
   },
 
-  async rollover() {
-    return request<RolloverResult>("/api/todo/rollover", { method: "POST" });
-  },
-
-  async moveTask(source, line, target) {
+  async moveTask(source, line, target, heading) {
     await request("/api/todo/move", {
       method: "POST",
-      body: JSON.stringify({ source, line, target }),
+      body: JSON.stringify({ source, line, target, heading: heading ?? null }),
     });
+  },
+
+  async archiveDone(path, all = false) {
+    return request<{ archived: number }>("/api/todo/archive-done", {
+      method: "POST",
+      body: JSON.stringify({ path, all }),
+    });
+  },
+
+  async pins() {
+    const r = await request<{ pins: PinInfo[] }>("/api/pins");
+    return r.pins;
+  },
+
+  async setPin(path, pinned) {
+    await request("/api/pins", { method: "POST", body: JSON.stringify({ path, pinned }) });
   },
 
   async config() {

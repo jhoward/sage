@@ -113,15 +113,18 @@ export const BINDINGS = {
   bold: { key: "b", mod: true },
   italic: { key: "i", mod: true },
 
-  rollover: { key: "", mod: true },
+  // Within a list: the two moves that matter are "to Now" and "to Backlog". Across lists,
+  // the pull picker. Unbound by default — the palette has them.
+  toNow: { key: "", mod: true },
+  toBacklog: { key: "", mod: true },
+  archiveDone: { key: "", mod: true },
+  pin: { key: "", mod: true },
   archiveNote: { key: "", mod: true },
   moveNote: { key: "", mod: true },
   renameNote: { key: "", mod: true },
   undo: { key: "", mod: true },
   cheatsheet: { key: "", mod: true },
   settingsFolder: { key: "", mod: true },
-  backlog: { key: "", mod: true },
-  week: { key: "", mod: true },
 } satisfies Record<string, KeySpec>;
 
 export type BindingName = keyof typeof BINDINGS;
@@ -186,10 +189,11 @@ export const SHEET: Array<{ group: string; keys: Array<[BindingName, string]> }>
       ["lineUp", "Nudge this line up"],
       ["lineDown", "Nudge this line down"],
       ["hideDone", "Hide or show completed tasks"],
-      ["pull", "Pull tasks from the backlog"],
-      ["week", "Open this week"],
-      ["backlog", "Open the backlog"],
-      ["rollover", "Roll unfinished work into this week"],
+      ["toNow", "Move this task to Now"],
+      ["toBacklog", "Move this task to the Backlog"],
+      ["pull", "Pull tasks from any list's Backlog into this one"],
+      ["archiveDone", "File every finished task under Archive"],
+      ["pin", "Pin or unpin this note at the top of the sidebar"],
     ],
   },
   {
