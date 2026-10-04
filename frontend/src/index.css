@@ -153,10 +153,13 @@ body {
   color: var(--ink-fg);
 }
 
-.cm-section-folded {
-  /* One heading character of air; the box is 0.8em, so 1ch of the heading is 1.25ch here. */
-  margin-left: 1.25ch;
-  padding: 0 6px;
+/* Three classes deep on purpose: CodeMirror's own `.cm-foldPlaceholder` rule sets margin
+   and padding from a stylesheet injected after this one, and a plain class loses to it. */
+.cm-editor .cm-content .cm-section-folded {
+  /* Two heading characters of air; the box is 0.8em, so 1ch of the heading is 1.25ch here. */
+  margin-left: 2.5ch;
+  padding: 0 0.6em;
+  border: 0;
   border-radius: 4px;
   font-size: 0.8em;
   vertical-align: middle;
@@ -165,7 +168,7 @@ body {
   cursor: pointer;
 }
 
-.cm-section-folded:hover {
+.cm-editor .cm-content .cm-section-folded:hover {
   color: var(--ink-fg);
 }
 
